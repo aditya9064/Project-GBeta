@@ -1,0 +1,1 @@
+export { AIInputBar } from './AIInputBar';
