@@ -1,5 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
-import { CalendarEvent, CalendarView } from '../../types/calendar';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { CalendarEvent, CalendarView, EventReminder } from '../../types/calendar';
+import { useEvents, createReminder, REMINDER_OPTIONS, REMINDER_TYPES } from '../../hooks/useEvents';
+import { useReminders } from '../../hooks/useReminders';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Icons
 const ChevronLeft = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15,18 9,12 15,6"/></svg>;
@@ -15,6 +18,8 @@ const EditIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="non
 const BellIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
 const RepeatIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7,23 3,19 7,15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>;
 const CheckIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20,6 9,17 4,12"/></svg>;
+const LoaderIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin"><circle cx="12" cy="12" r="10" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" opacity="0.75"/></svg>;
+const AlertIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
 
 interface CalendarProps {
   initialEvents?: CalendarEvent[];
@@ -145,15 +150,35 @@ function parseAIInput(input: string, existingEvents: CalendarEvent[]): Partial<C
   };
 }
 
+// Reminder form state interface
+interface ReminderFormState {
+  minutesBefore: number;
+  type: 'in-app' | 'email' | 'push';
+}
+
 export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCreate, onCreateModalOpened }: CalendarProps) {
+  const { user } = useAuth();
+  const { events: firestoreEvents, loading, error: eventsError, createEvent, updateEvent, deleteEvent } = useEvents();
+  
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>('month');
-  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [aiInput, setAiInput] = useState('');
   const [aiMessage, setAiMessage] = useState<{text: string; type: 'success' | 'error' | 'info'} | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Use Firestore events if user is logged in, otherwise use initial/local events
+  const events = useMemo(() => {
+    if (user) {
+      return firestoreEvents;
+    }
+    return initialEvents;
+  }, [user, firestoreEvents, initialEvents]);
+  
+  // Set up reminder notifications
+  const { hasPermission: hasNotificationPermission, requestPermission } = useReminders(events);
   
   // Handle external trigger to open create modal
   useEffect(() => {
@@ -181,6 +206,28 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
     recurrence: 'weekly',
     isAllDay: false
   });
+  
+  // Reminder form state
+  const [reminders, setReminders] = useState<ReminderFormState[]>([
+    { minutesBefore: 30, type: 'in-app' }
+  ]);
+
+  // Add a new reminder
+  const addReminder = useCallback(() => {
+    setReminders(prev => [...prev, { minutesBefore: 15, type: 'in-app' }]);
+  }, []);
+
+  // Remove a reminder
+  const removeReminder = useCallback((index: number) => {
+    setReminders(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // Update a reminder
+  const updateReminderField = useCallback((index: number, field: keyof ReminderFormState, value: number | string) => {
+    setReminders(prev => prev.map((r, i) => 
+      i === index ? { ...r, [field]: value } : r
+    ));
+  }, []);
 
   const navigatePrevious = useCallback(() => {
     const newDate = new Date(currentDate);
@@ -213,7 +260,7 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
   };
 
   // AI Input handler
-  const handleAISubmit = useCallback(() => {
+  const handleAISubmit = useCallback(async () => {
     if (!aiInput.trim()) return;
     
     const result = parseAIInput(aiInput, events);
@@ -222,27 +269,51 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
       setAiMessage({ text: result.error + (result.question ? ` ${result.question}` : ''), type: 'error' });
     } else {
       const newEvent = result as CalendarEvent;
-      setEvents(prev => [...prev, newEvent]);
-      setAiMessage({ 
-        text: `✓ "${newEvent.title}" scheduled for ${newEvent.startTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${newEvent.startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`, 
-        type: 'success' 
-      });
-      setCurrentDate(newEvent.startTime);
+      
+      if (user) {
+        // Save to Firestore
+        setIsSaving(true);
+        const eventId = await createEvent({
+          title: newEvent.title,
+          description: newEvent.description,
+          startTime: newEvent.startTime,
+          endTime: newEvent.endTime,
+          eventType: newEvent.eventType,
+          status: newEvent.status,
+          participants: newEvent.participants,
+          reminders: newEvent.reminders,
+          color: newEvent.color,
+          location: newEvent.location,
+          isAllDay: newEvent.isAllDay
+        });
+        setIsSaving(false);
+        
+        if (eventId) {
+          setAiMessage({ 
+            text: `✓ "${newEvent.title}" scheduled for ${newEvent.startTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${newEvent.startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`, 
+            type: 'success' 
+          });
+          setCurrentDate(newEvent.startTime);
+        } else {
+          setAiMessage({ text: 'Failed to create event. Please try again.', type: 'error' });
+        }
+      } else {
+        setAiMessage({ text: 'Please log in to create events', type: 'error' });
+      }
     }
     
     setAiInput('');
     setTimeout(() => setAiMessage(null), 4000);
-  }, [aiInput, events]);
+  }, [aiInput, events, user, createEvent]);
 
   // Create event from form
-  const handleCreateEvent = useCallback(() => {
+  const handleCreateEvent = useCallback(async () => {
     const [year, month, day] = formData.date.split('-').map(Number);
     
     let startTime: Date;
     let endTime: Date;
     
     if (formData.isAllDay) {
-      // All-day events: set time to midnight
       startTime = new Date(year, month - 1, day, 0, 0, 0);
       endTime = new Date(year, month - 1, day, 23, 59, 59);
     } else {
@@ -254,9 +325,16 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
     
     const colors: Record<string, string> = { meeting: '#7C3AED', call: '#3B82F6', focus: '#10B981', reminder: '#F59E0B', task: '#EC4899' };
     
+    // Create reminder objects from form state
+    const eventReminders: EventReminder[] = formData.isAllDay ? [] : reminders.map(r => 
+      createReminder(r.minutesBefore, r.type, startTime)
+    );
+    
+    setIsSaving(true);
+    
     if (editingEvent) {
-      setEvents(prev => prev.map(e => e.id === editingEvent.id ? {
-        ...e,
+      // Update existing event
+      const success = await updateEvent(editingEvent.id, {
         title: formData.title,
         startTime,
         endTime,
@@ -264,30 +342,22 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
         description: formData.description,
         color: colors[formData.eventType],
         isAllDay: formData.isAllDay,
-        updatedAt: new Date()
-      } : e));
-      setAiMessage({ text: `✓ "${formData.title}" updated`, type: 'success' });
-    } else {
-      const newEvent: CalendarEvent = {
-        id: `event-${Date.now()}`,
-        title: formData.title,
-        description: formData.description,
-        startTime,
-        endTime,
-        eventType: formData.eventType,
-        status: 'scheduled',
-        participants: [],
-        reminders: formData.isAllDay ? [] : [{ id: `r-${Date.now()}`, time: new Date(startTime.getTime() - 30 * 60000), type: 'in-app', sent: false }],
-        color: colors[formData.eventType],
-        isAllDay: formData.isAllDay,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: 'current-user'
-      };
+        reminders: eventReminders
+      });
       
+      setIsSaving(false);
+      
+      if (success) {
+        setAiMessage({ text: `✓ "${formData.title}" updated`, type: 'success' });
+      } else {
+        setAiMessage({ text: 'Failed to update event', type: 'error' });
+      }
+    } else {
+      // Create new event(s)
       if (formData.isRecurring) {
-        const recurring: CalendarEvent[] = [newEvent];
-        for (let i = 1; i < 8; i++) {
+        // Create recurring events
+        const recurringDates: Date[] = [];
+        for (let i = 0; i < 8; i++) {
           const nextStart = new Date(startTime);
           const nextEnd = new Date(endTime);
           if (formData.recurrence === 'daily') {
@@ -296,56 +366,137 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
           } else if (formData.recurrence === 'weekly') {
             nextStart.setDate(nextStart.getDate() + i * 7);
             nextEnd.setDate(nextEnd.getDate() + i * 7);
+          } else if (formData.recurrence === 'monthly') {
+            nextStart.setMonth(nextStart.getMonth() + i);
+            nextEnd.setMonth(nextEnd.getMonth() + i);
           }
-          recurring.push({ ...newEvent, id: `event-${Date.now()}-${i}`, startTime: nextStart, endTime: nextEnd });
+          recurringDates.push(nextStart);
         }
-        setEvents(prev => [...prev, ...recurring]);
+        
+        // Create all recurring events
+        for (let i = 0; i < recurringDates.length; i++) {
+          const nextStart = recurringDates[i];
+          const nextEnd = new Date(nextStart);
+          if (formData.isAllDay) {
+            nextEnd.setHours(23, 59, 59);
+          } else {
+            const duration = endTime.getTime() - startTime.getTime();
+            nextEnd.setTime(nextStart.getTime() + duration);
+          }
+          
+          await createEvent({
+            title: formData.title,
+            description: formData.description,
+            startTime: nextStart,
+            endTime: nextEnd,
+            eventType: formData.eventType,
+            status: 'scheduled',
+            participants: [],
+            reminders: formData.isAllDay ? [] : reminders.map(r => 
+              createReminder(r.minutesBefore, r.type, nextStart)
+            ),
+            color: colors[formData.eventType],
+            isAllDay: formData.isAllDay,
+            isRecurring: true
+          });
+        }
+        
+        setIsSaving(false);
+        setAiMessage({ text: `✓ "${formData.title}" created (recurring ${formData.recurrence})`, type: 'success' });
       } else {
-        setEvents(prev => [...prev, newEvent]);
+        // Create single event
+        const eventId = await createEvent({
+          title: formData.title,
+          description: formData.description,
+          startTime,
+          endTime,
+          eventType: formData.eventType,
+          status: 'scheduled',
+          participants: [],
+          reminders: eventReminders,
+          color: colors[formData.eventType],
+          isAllDay: formData.isAllDay
+        });
+        
+        setIsSaving(false);
+        
+        if (eventId) {
+          setAiMessage({ text: `✓ "${formData.title}" created`, type: 'success' });
+        } else {
+          setAiMessage({ text: 'Failed to create event', type: 'error' });
+        }
       }
-      setAiMessage({ text: `✓ "${formData.title}" created${formData.isRecurring ? ` (recurring ${formData.recurrence})` : ''}`, type: 'success' });
     }
     
     setShowCreateModal(false);
     setEditingEvent(null);
     setFormData({ title: '', date: '', startTime: '10:00', endTime: '11:00', eventType: 'meeting', description: '', isRecurring: false, recurrence: 'weekly', isAllDay: false });
+    setReminders([{ minutesBefore: 30, type: 'in-app' }]);
     setTimeout(() => setAiMessage(null), 3000);
-  }, [formData, editingEvent]);
+  }, [formData, editingEvent, reminders, createEvent, updateEvent]);
 
   // Delete event
-  const handleDeleteEvent = useCallback((id: string) => {
+  const handleDeleteEvent = useCallback(async (id: string) => {
     const event = events.find(e => e.id === id);
-    setEvents(prev => prev.filter(e => e.id !== id));
+    setIsSaving(true);
+    const success = await deleteEvent(id);
+    setIsSaving(false);
+    
     setSelectedEvent(null);
-    if (event) setAiMessage({ text: `"${event.title}" deleted`, type: 'info' });
+    if (success && event) {
+      setAiMessage({ text: `"${event.title}" deleted`, type: 'info' });
+    } else {
+      setAiMessage({ text: 'Failed to delete event', type: 'error' });
+    }
     setTimeout(() => setAiMessage(null), 2000);
-  }, [events]);
+  }, [events, deleteEvent]);
 
   // Open edit modal
   const handleEditEvent = useCallback((event: CalendarEvent) => {
     setEditingEvent(event);
     setFormData({
       title: event.title,
-      date: event.startTime.toISOString().split('T')[0],
-      startTime: event.startTime.toTimeString().slice(0, 5),
-      endTime: event.endTime.toTimeString().slice(0, 5),
+      date: new Date(event.startTime).toISOString().split('T')[0],
+      startTime: new Date(event.startTime).toTimeString().slice(0, 5),
+      endTime: new Date(event.endTime).toTimeString().slice(0, 5),
       eventType: event.eventType,
       description: event.description || '',
       isRecurring: false,
       recurrence: 'weekly',
       isAllDay: event.isAllDay || false
     });
+    
+    // Populate reminders from event
+    if (event.reminders && event.reminders.length > 0) {
+      setReminders(event.reminders.map(r => {
+        const minutesBefore = Math.round((new Date(event.startTime).getTime() - new Date(r.time).getTime()) / 60000);
+        return {
+          minutesBefore: minutesBefore > 0 ? minutesBefore : 30,
+          type: r.type
+        };
+      }));
+    } else {
+      setReminders([{ minutesBefore: 30, type: 'in-app' }]);
+    }
+    
     setShowCreateModal(true);
     setSelectedEvent(null);
   }, []);
 
   // Complete/Cancel event
-  const handleCompleteEvent = useCallback((id: string) => {
-    setEvents(prev => prev.map(e => e.id === id ? { ...e, status: 'completed' } : e));
+  const handleCompleteEvent = useCallback(async (id: string) => {
+    setIsSaving(true);
+    const success = await updateEvent(id, { status: 'completed' });
+    setIsSaving(false);
+    
     setSelectedEvent(null);
-    setAiMessage({ text: 'Event marked as completed', type: 'success' });
+    if (success) {
+      setAiMessage({ text: 'Event marked as completed', type: 'success' });
+    } else {
+      setAiMessage({ text: 'Failed to update event', type: 'error' });
+    }
     setTimeout(() => setAiMessage(null), 2000);
-  }, []);
+  }, [updateEvent]);
 
   // Calendar grid helpers
   const getCalendarDays = () => {
@@ -394,6 +545,13 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const formatHour = (h: number) => h === 0 ? '12 AM' : h === 12 ? '12 PM' : h > 12 ? `${h-12} PM` : `${h} AM`;
 
+  // Get reminder description for display
+  const getReminderDescription = (reminder: EventReminder, eventStartTime: Date): string => {
+    const minutesBefore = Math.round((new Date(eventStartTime).getTime() - new Date(reminder.time).getTime()) / 60000);
+    const option = REMINDER_OPTIONS.find(o => o.value === minutesBefore);
+    return option?.label || `${minutesBefore} minutes before`;
+  };
+
   return (
     <div className="calendar-container">
       {/* Header */}
@@ -407,8 +565,15 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
           </div>
         </div>
         <div className="calendar-header-right">
+          {loading && <div className="loading-indicator"><LoaderIcon /> Loading...</div>}
+          {user && !hasNotificationPermission && typeof Notification !== 'undefined' && Notification.permission !== 'denied' && (
+            <button className="notification-permission-btn" onClick={requestPermission} title="Enable notifications">
+              <BellIcon /> Enable Reminders
+            </button>
+          )}
           <button className="create-event-btn" onClick={() => {
             setFormData(prev => ({ ...prev, date: currentDate.toISOString().split('T')[0] }));
+            setReminders([{ minutesBefore: 30, type: 'in-app' }]);
             setShowCreateModal(true);
           }}>
             <PlusIcon /> New Event
@@ -423,10 +588,24 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
         </div>
       </div>
 
+      {/* Error Message */}
+      {eventsError && (
+        <div className="ai-message error">
+          <AlertIcon /> <span>{eventsError}</span>
+        </div>
+      )}
+
       {/* AI Message */}
       {aiMessage && (
         <div className={`ai-message ${aiMessage.type}`}>
           <span>{aiMessage.text}</span>
+        </div>
+      )}
+
+      {/* Login prompt */}
+      {!user && (
+        <div className="ai-message info">
+          <span>Log in to save your events and access them across devices</span>
         </div>
       )}
 
@@ -517,6 +696,7 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
                       {hours.map(h => <div key={h} className="week-hour-slot" onClick={() => {
                         const date = new Date(d); date.setHours(h);
                         setFormData(prev => ({ ...prev, date: date.toISOString().split('T')[0], startTime: `${h.toString().padStart(2,'0')}:00`, endTime: `${(h+1).toString().padStart(2,'0')}:00`, isAllDay: false }));
+                        setReminders([{ minutesBefore: 30, type: 'in-app' }]);
                         setShowCreateModal(true);
                       }} />)}
                       {getTimedEventsForDay(d).map(e => {
@@ -569,6 +749,7 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
                   <div className="day-slots">
                     {hours.map(h => <div key={h} className="day-hour-slot" onClick={() => {
                       setFormData(prev => ({ ...prev, date: currentDate.toISOString().split('T')[0], startTime: `${h.toString().padStart(2,'0')}:00`, endTime: `${(h+1).toString().padStart(2,'0')}:00`, isAllDay: false }));
+                      setReminders([{ minutesBefore: 30, type: 'in-app' }]);
                       setShowCreateModal(true);
                     }} />)}
                     {getTimedEventsForDay(currentDate).map(e => {
@@ -659,9 +840,13 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
             <div className="event-panel-header">
               <span className="event-type-badge" style={{ backgroundColor: selectedEvent.color }}>{selectedEvent.eventType}</span>
               <div className="event-panel-actions">
-                <button className="panel-action-btn" onClick={() => handleCompleteEvent(selectedEvent.id)} title="Mark complete"><CheckIcon /></button>
+                <button className="panel-action-btn" onClick={() => handleCompleteEvent(selectedEvent.id)} title="Mark complete" disabled={isSaving}>
+                  {isSaving ? <LoaderIcon /> : <CheckIcon />}
+                </button>
                 <button className="panel-action-btn" onClick={() => handleEditEvent(selectedEvent)} title="Edit"><EditIcon /></button>
-                <button className="panel-action-btn danger" onClick={() => handleDeleteEvent(selectedEvent.id)} title="Delete"><TrashIcon /></button>
+                <button className="panel-action-btn danger" onClick={() => handleDeleteEvent(selectedEvent.id)} title="Delete" disabled={isSaving}>
+                  {isSaving ? <LoaderIcon /> : <TrashIcon />}
+                </button>
                 <button className="panel-action-btn" onClick={() => setSelectedEvent(null)}><CloseIcon /></button>
               </div>
             </div>
@@ -708,7 +893,10 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
                 <div className="event-section">
                   <div className="event-section-label">Reminders</div>
                   {selectedEvent.reminders.map(r => (
-                    <div key={r.id} className="event-reminder"><BellIcon /> 30 minutes before</div>
+                    <div key={r.id} className="event-reminder">
+                      <BellIcon /> {getReminderDescription(r, selectedEvent.startTime)}
+                      <span className="reminder-type-badge">{r.type}</span>
+                    </div>
                   ))}
                 </div>
               )}
@@ -735,6 +923,7 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
             value={aiInput}
             onChange={(e) => setAiInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAISubmit()}
+            disabled={!user}
           />
           <span className="ai-input-hint">⏎</span>
         </div>
@@ -750,8 +939,8 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
             </div>
             <div className="modal-body">
               <div className="form-group">
-                <label>Title</label>
-                <input type="text" value={formData.title} onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))} placeholder="Event title" autoFocus />
+                <label>Event Name</label>
+                <input type="text" value={formData.title} onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))} placeholder="Enter event name" autoFocus />
               </div>
               <div className="form-group checkbox-group">
                 <label className="checkbox-label">
@@ -767,11 +956,11 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
                 {!formData.isAllDay && (
                   <>
                     <div className="form-group">
-                      <label>Start</label>
+                      <label>Start Time</label>
                       <input type="time" value={formData.startTime} onChange={e => setFormData(prev => ({ ...prev, startTime: e.target.value }))} />
                     </div>
                     <div className="form-group">
-                      <label>End</label>
+                      <label>End Time</label>
                       <input type="time" value={formData.endTime} onChange={e => setFormData(prev => ({ ...prev, endTime: e.target.value }))} />
                     </div>
                   </>
@@ -787,6 +976,49 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
                   <option value="task">Task</option>
                 </select>
               </div>
+              
+              {/* Reminders Section */}
+              {!formData.isAllDay && (
+                <div className="form-group">
+                  <label>Reminders</label>
+                  <div className="reminders-list">
+                    {reminders.map((reminder, index) => (
+                      <div key={index} className="reminder-row">
+                        <select 
+                          value={reminder.minutesBefore} 
+                          onChange={e => updateReminderField(index, 'minutesBefore', parseInt(e.target.value))}
+                          className="reminder-time-select"
+                        >
+                          {REMINDER_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        <select 
+                          value={reminder.type} 
+                          onChange={e => updateReminderField(index, 'type', e.target.value)}
+                          className="reminder-type-select"
+                        >
+                          {REMINDER_TYPES.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        <button 
+                          type="button" 
+                          className="reminder-remove-btn"
+                          onClick={() => removeReminder(index)}
+                          disabled={reminders.length === 1}
+                        >
+                          <CloseIcon />
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" className="add-reminder-btn" onClick={addReminder}>
+                      <PlusIcon /> Add Reminder
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               <div className="form-group">
                 <label>Description</label>
                 <textarea value={formData.description} onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))} placeholder="Add description..." rows={3} />
@@ -809,8 +1041,12 @@ export function Calendar({ initialEvents = [], onEventsChange, externalTriggerCr
             </div>
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => { setShowCreateModal(false); setEditingEvent(null); }}>Cancel</button>
-              <button className="btn-primary" onClick={handleCreateEvent} disabled={!formData.title || !formData.date}>
-                {editingEvent ? 'Save Changes' : 'Create Event'}
+              <button 
+                className="btn-primary" 
+                onClick={handleCreateEvent} 
+                disabled={!formData.title || !formData.date || isSaving || !user}
+              >
+                {isSaving ? <><LoaderIcon /> Saving...</> : editingEvent ? 'Save Changes' : 'Create Event'}
               </button>
             </div>
           </div>

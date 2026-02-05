@@ -8,16 +8,18 @@ import { AIBrainstormPanel, BrainstormIdea } from './AIBrainstormPanel';
 type Tool = 'select' | 'pen' | 'highlighter' | 'eraser' | 'text' | 'shape' | 'sticky' | 'image' | 'pan' | 'connector';
 type ShapeType = 
   // Basic shapes
-  | 'rectangle' | 'rounded-rectangle' | 'circle' | 'ellipse' | 'triangle' | 'diamond'
+  | 'rectangle' | 'square' | 'rounded-rectangle' | 'circle' | 'ellipse' | 'triangle' | 'diamond'
+  // Polygons
+  | 'pentagon' | 'hexagon' | 'octagon' | 'heptagon'
   // Flowchart shapes  
   | 'process' | 'decision' | 'terminator' | 'data' | 'document' | 'predefined-process'
   | 'manual-input' | 'preparation' | 'database' | 'hard-disk' | 'internal-storage'
   // Arrows and lines
-  | 'line' | 'arrow' | 'double-arrow' | 'curved-arrow'
+  | 'line' | 'arrow' | 'double-arrow' | 'curved-arrow' | 'right-arrow' | 'left-arrow' | 'up-arrow' | 'down-arrow'
   // UML shapes
   | 'actor' | 'use-case' | 'class-box' | 'interface-box' | 'package'
   // Misc
-  | 'star' | 'hexagon' | 'parallelogram' | 'trapezoid' | 'cross' | 'cloud' | 'callout';
+  | 'star' | 'parallelogram' | 'trapezoid' | 'cross' | 'cloud' | 'callout' | 'heart' | 'lightning';
 
 type ConnectorType = 'straight' | 'elbow' | 'curved';
 type ArrowHeadType = 'none' | 'arrow' | 'filled-arrow' | 'diamond' | 'circle' | 'open-arrow';
@@ -449,6 +451,57 @@ const Icons = {
       <path d="M12 2l8 4v8l-8 4-8-4V6z"/>
     </svg>
   ),
+  Pentagon: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2L2 9l4 12h12l4-12z"/>
+    </svg>
+  ),
+  Octagon: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86z"/>
+    </svg>
+  ),
+  Heptagon: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l7.5 4.5 1.5 8-5 7h-8l-5-7 1.5-8z"/>
+    </svg>
+  ),
+  Square: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18"/>
+    </svg>
+  ),
+  Heart: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg>
+  ),
+  Lightning: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+    </svg>
+  ),
+  RightArrow: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 6l-6 6 6 6"/>
+      <path d="M4 12h16"/>
+      <path d="M20 6v12"/>
+    </svg>
+  ),
+  Fill: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 11H5l-2 2 2 2h14l2-2-2-2z"/>
+      <path d="M12 3v6"/>
+      <path d="M12 19v2"/>
+      <circle cx="12" cy="12" r="3" fill="currentColor"/>
+    </svg>
+  ),
+  PaintBucket: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 11l-8-8L3 11l8 8 8-8z"/>
+      <path d="M21 19c0 1.1-.9 2-2 2s-2-.9-2-2 2-4 2-4 2 2.9 2 4z"/>
+    </svg>
+  ),
   Star: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -610,18 +663,25 @@ const shapeCategories: ShapeCategory[] = [
     name: 'Basic Shapes',
     icon: 'shapes',
     shapes: [
+      { type: 'square', name: 'Square' },
       { type: 'rectangle', name: 'Rectangle' },
       { type: 'rounded-rectangle', name: 'Rounded Rectangle' },
       { type: 'circle', name: 'Circle' },
       { type: 'ellipse', name: 'Ellipse' },
       { type: 'triangle', name: 'Triangle' },
       { type: 'diamond', name: 'Diamond' },
-      { type: 'star', name: 'Star' },
+      { type: 'pentagon', name: 'Pentagon' },
       { type: 'hexagon', name: 'Hexagon' },
+      { type: 'heptagon', name: 'Heptagon' },
+      { type: 'octagon', name: 'Octagon' },
+      { type: 'star', name: 'Star' },
+      { type: 'heart', name: 'Heart' },
       { type: 'parallelogram', name: 'Parallelogram' },
       { type: 'trapezoid', name: 'Trapezoid' },
       { type: 'cross', name: 'Cross' },
       { type: 'cloud', name: 'Cloud' },
+      { type: 'lightning', name: 'Lightning' },
+      { type: 'callout', name: 'Callout' },
     ],
   },
   {
@@ -720,6 +780,8 @@ export function WhiteboardPage() {
   
   // UI state
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showFillColorPicker, setShowFillColorPicker] = useState(false);
+  const [currentFillColor, setCurrentFillColor] = useState<string>('transparent');
   const [showShapeMenu, setShowShapeMenu] = useState(false);
   const [selectedShape, setSelectedShape] = useState<ShapeType>('rectangle');
   const [showShareModal, setShowShareModal] = useState(false);
@@ -1166,6 +1228,14 @@ export function WhiteboardPage() {
         ctx.stroke();
         break;
 
+      case 'square':
+        // Square is just a rectangle with equal sides - handled the same as rectangle
+        if (shape.fill !== 'transparent') {
+          ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
+        }
+        ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
+        break;
+
       case 'hexagon':
         const hx = shape.x;
         const hy = shape.y;
@@ -1178,6 +1248,107 @@ export function WhiteboardPage() {
         ctx.lineTo(hx + hw - inset, hy + hh);
         ctx.lineTo(hx + inset, hy + hh);
         ctx.lineTo(hx, hy + hh / 2);
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'pentagon':
+        const px = shape.x + shape.width / 2;
+        const py = shape.y;
+        const pr = Math.min(Math.abs(shape.width), Math.abs(shape.height)) / 2;
+        const pcx = shape.x + shape.width / 2;
+        const pcy = shape.y + shape.height / 2;
+        for (let i = 0; i < 5; i++) {
+          const angle = (i * 2 * Math.PI) / 5 - Math.PI / 2;
+          const ptx = pcx + pr * Math.cos(angle);
+          const pty = pcy + pr * Math.sin(angle);
+          if (i === 0) ctx.moveTo(ptx, pty);
+          else ctx.lineTo(ptx, pty);
+        }
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'heptagon':
+        const heptCx = shape.x + shape.width / 2;
+        const heptCy = shape.y + shape.height / 2;
+        const heptR = Math.min(Math.abs(shape.width), Math.abs(shape.height)) / 2;
+        for (let i = 0; i < 7; i++) {
+          const angle = (i * 2 * Math.PI) / 7 - Math.PI / 2;
+          const heptPx = heptCx + heptR * Math.cos(angle);
+          const heptPy = heptCy + heptR * Math.sin(angle);
+          if (i === 0) ctx.moveTo(heptPx, heptPy);
+          else ctx.lineTo(heptPx, heptPy);
+        }
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'octagon':
+        const octX = shape.x;
+        const octY = shape.y;
+        const octW = shape.width;
+        const octH = shape.height;
+        const octInset = Math.min(octW, octH) * 0.3;
+        ctx.moveTo(octX + octInset, octY);
+        ctx.lineTo(octX + octW - octInset, octY);
+        ctx.lineTo(octX + octW, octY + octInset);
+        ctx.lineTo(octX + octW, octY + octH - octInset);
+        ctx.lineTo(octX + octW - octInset, octY + octH);
+        ctx.lineTo(octX + octInset, octY + octH);
+        ctx.lineTo(octX, octY + octH - octInset);
+        ctx.lineTo(octX, octY + octInset);
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'heart':
+        const heartX = shape.x;
+        const heartY = shape.y;
+        const heartW = shape.width;
+        const heartH = shape.height;
+        ctx.moveTo(heartX + heartW / 2, heartY + heartH);
+        ctx.bezierCurveTo(
+          heartX - heartW * 0.25, heartY + heartH * 0.6,
+          heartX, heartY,
+          heartX + heartW / 2, heartY + heartH * 0.35
+        );
+        ctx.bezierCurveTo(
+          heartX + heartW, heartY,
+          heartX + heartW * 1.25, heartY + heartH * 0.6,
+          heartX + heartW / 2, heartY + heartH
+        );
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'lightning':
+        const lx = shape.x;
+        const ly = shape.y;
+        const lw = shape.width;
+        const lh = shape.height;
+        ctx.moveTo(lx + lw * 0.6, ly);
+        ctx.lineTo(lx + lw * 0.25, ly + lh * 0.45);
+        ctx.lineTo(lx + lw * 0.5, ly + lh * 0.45);
+        ctx.lineTo(lx + lw * 0.35, ly + lh);
+        ctx.lineTo(lx + lw * 0.75, ly + lh * 0.5);
+        ctx.lineTo(lx + lw * 0.5, ly + lh * 0.5);
+        ctx.lineTo(lx + lw * 0.6, ly);
         ctx.closePath();
         if (shape.fill !== 'transparent') {
           ctx.fill();
@@ -2068,15 +2239,25 @@ export function WhiteboardPage() {
     }
 
     if (shapeStart && currentTool === 'shape') {
+      // For square shape, constrain to equal width and height
+      let width = coords.x - shapeStart.x;
+      let height = coords.y - shapeStart.y;
+      
+      if (selectedShape === 'square') {
+        const size = Math.max(Math.abs(width), Math.abs(height));
+        width = width >= 0 ? size : -size;
+        height = height >= 0 ? size : -size;
+      }
+      
       setCurrentShapePreview({
         id: 'preview',
         type: selectedShape,
-        x: Math.min(shapeStart.x, coords.x),
-        y: Math.min(shapeStart.y, coords.y),
-        width: coords.x - shapeStart.x,
-        height: coords.y - shapeStart.y,
+        x: Math.min(shapeStart.x, shapeStart.x + width),
+        y: Math.min(shapeStart.y, shapeStart.y + height),
+        width: width,
+        height: height,
         color: currentColor,
-        fill: 'transparent',
+        fill: currentFillColor,
         strokeWidth: brushSize,
       });
       return;
@@ -2085,7 +2266,7 @@ export function WhiteboardPage() {
     if (isDrawing) {
       setCurrentStroke(prev => [...prev, coords]);
     }
-  }, [isDrawing, isPanning, lastPanPoint, getCanvasCoords, shapeStart, currentTool, selectedShape, selectedShapeObject, currentColor, brushSize, isDrawingConnector, connectorStart, selectedConnectorType, selectedStartArrow, selectedEndArrow]);
+  }, [isDrawing, isPanning, lastPanPoint, getCanvasCoords, shapeStart, currentTool, selectedShape, selectedShapeObject, currentColor, currentFillColor, brushSize, isDrawingConnector, connectorStart, selectedConnectorType, selectedStartArrow, selectedEndArrow]);
 
   // Handle pointer up
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
@@ -2712,12 +2893,22 @@ export function WhiteboardPage() {
   ], []);
 
   const shapeItems = useMemo(() => [
+    { id: 'square', icon: Icons.Square, label: 'Square' },
     { id: 'rectangle', icon: Icons.Rectangle, label: 'Rectangle' },
     { id: 'rounded-rectangle', icon: Icons.Rectangle, label: 'Rounded Rectangle' },
     { id: 'circle', icon: Icons.Circle, label: 'Circle' },
     { id: 'ellipse', icon: Icons.UseCase, label: 'Ellipse' },
     { id: 'triangle', icon: Icons.Triangle, label: 'Triangle' },
     { id: 'diamond', icon: Icons.Diamond, label: 'Diamond' },
+    { id: 'pentagon', icon: Icons.Pentagon, label: 'Pentagon' },
+    { id: 'hexagon', icon: Icons.Hexagon, label: 'Hexagon' },
+    { id: 'heptagon', icon: Icons.Heptagon, label: 'Heptagon' },
+    { id: 'octagon', icon: Icons.Octagon, label: 'Octagon' },
+    { id: 'star', icon: Icons.Star, label: 'Star' },
+    { id: 'heart', icon: Icons.Heart, label: 'Heart' },
+    { id: 'cloud', icon: Icons.Cloud, label: 'Cloud' },
+    { id: 'lightning', icon: Icons.Lightning, label: 'Lightning' },
+    { id: 'callout', icon: Icons.Callout, label: 'Callout' },
   ], []);
 
   // Flowchart shape items for quick access
@@ -2847,9 +3038,9 @@ export function WhiteboardPage() {
 
             {/* Shape submenu */}
             {showShapeMenu && (
-              <div className="shape-menu">
+              <div className="shape-menu shape-menu-expanded">
                 <div className="shape-menu-header">
-                  <span>Basic Shapes</span>
+                  <span>Shapes</span>
                   <button 
                     className="library-btn"
                     onClick={() => {
@@ -2859,17 +3050,75 @@ export function WhiteboardPage() {
                     title="Open Shape Library"
                   >
                     <Icons.Grid />
-                    <span>More</span>
+                    <span>Library</span>
                   </button>
                 </div>
-                <div className="shape-grid">
+                
+                {/* Fill Color Section */}
+                <div className="shape-menu-section fill-section">
+                  <div className="fill-section-header">
+                    <Icons.PaintBucket />
+                    <span>Fill Color</span>
+                  </div>
+                  <div className="fill-color-row">
+                    <button
+                      className={`fill-color-btn no-fill ${currentFillColor === 'transparent' ? 'active' : ''}`}
+                      onClick={() => setCurrentFillColor('transparent')}
+                      title="No Fill"
+                    >
+                      <span className="no-fill-icon">∅</span>
+                    </button>
+                    {['#EF4444', '#F97316', '#F59E0B', '#22C55E', '#06B6D4', '#3B82F6', '#8B5CF6', '#EC4899', '#FFFFFF', '#374151'].map(color => (
+                      <button
+                        key={color}
+                        className={`fill-color-option ${currentFillColor === color ? 'active' : ''}`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => setCurrentFillColor(color)}
+                        title={color}
+                      />
+                    ))}
+                    <button
+                      className="fill-color-more"
+                      onClick={() => setShowFillColorPicker(!showFillColorPicker)}
+                      title="More colors"
+                    >
+                      <Icons.Plus />
+                    </button>
+                  </div>
+                  
+                  {/* Expanded Fill Color Picker */}
+                  {showFillColorPicker && (
+                    <div className="fill-color-expanded">
+                      <div className="fill-color-grid">
+                        {colors.map(color => (
+                          <button
+                            key={color}
+                            className={`fill-color-option ${currentFillColor === color ? 'active' : ''}`}
+                            style={{ backgroundColor: color }}
+                            onClick={() => {
+                              setCurrentFillColor(color);
+                              setShowFillColorPicker(false);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="shape-menu-divider" />
+                
+                {/* Basic Shapes */}
+                <div className="shape-menu-section">
+                  <span>Basic Shapes</span>
+                </div>
+                <div className="shape-grid shape-grid-large">
                   {shapeItems.map(shape => (
                     <button
                       key={shape.id}
                       className={`shape-btn ${selectedShape === shape.id ? 'active' : ''}`}
                       onClick={() => {
                         setSelectedShape(shape.id as ShapeType);
-                        setShowShapeMenu(false);
                       }}
                       title={shape.label}
                     >
@@ -2877,7 +3126,10 @@ export function WhiteboardPage() {
                     </button>
                   ))}
                 </div>
+                
                 <div className="shape-menu-divider" />
+                
+                {/* Flowchart Shapes */}
                 <div className="shape-menu-section">
                   <span>Flowchart</span>
                 </div>
@@ -2888,13 +3140,22 @@ export function WhiteboardPage() {
                       className={`shape-btn ${selectedShape === shape.id ? 'active' : ''}`}
                       onClick={() => {
                         setSelectedShape(shape.id as ShapeType);
-                        setShowShapeMenu(false);
                       }}
                       title={shape.label}
                     >
                       <shape.icon />
                     </button>
                   ))}
+                </div>
+                
+                {/* Apply Button */}
+                <div className="shape-menu-footer">
+                  <button 
+                    className="shape-apply-btn"
+                    onClick={() => setShowShapeMenu(false)}
+                  >
+                    Done
+                  </button>
                 </div>
               </div>
             )}

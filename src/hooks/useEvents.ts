@@ -1,181 +1,297 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  addDoc,
-  updateDoc,
-  deleteDoc,
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
   doc,
-  serverTimestamp,
   Timestamp,
-  UpdateData,
+  DocumentData
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import type { CalendarEvent } from '../types/calendar';
-import type { FirestoreEvent } from '../types/database';
+import { CalendarEvent, EventReminder } from '../types/calendar';
 
-// Convert Firestore event to CalendarEvent
-const toCalendarEvent = (firestoreEvent: FirestoreEvent): CalendarEvent => ({
-  id: firestoreEvent.id,
-  title: firestoreEvent.title,
-  description: firestoreEvent.description || undefined,
-  startTime: firestoreEvent.startTime.toDate(),
-  endTime: firestoreEvent.endTime.toDate(),
-  eventType: firestoreEvent.eventType,
-  status: firestoreEvent.status,
-  participants: [], // Will be loaded separately if needed
-  location: firestoreEvent.location || undefined,
-  reminders: [],
-  color: firestoreEvent.color || '#7C3AED',
-  createdAt: firestoreEvent.createdAt.toDate(),
-  updatedAt: firestoreEvent.updatedAt.toDate(),
-  createdBy: firestoreEvent.createdBy,
-});
+// Firestore event document interface
+interface FirestoreEvent {
+  title: string;
+  description?: string;
+  startTime: Timestamp;
+  endTime: Timestamp;
+  eventType: string;
+  status: string;
+  color?: string;
+  isAllDay?: boolean;
+  isRecurring?: boolean;
+  recurrenceRule?: {
+    frequency: string;
+    interval?: number;
+    endDate?: Timestamp;
+    count?: number;
+    daysOfWeek?: number[];
+  };
+  location?: {
+    type: string;
+    address?: string;
+    meetingLink?: string;
+  };
+  participants: Array<{
+    id: string;
+    name: string;
+    email: string;
+    type: string;
+    avatar?: string;
+    rsvpStatus?: string;
+  }>;
+  reminders: Array<{
+    id: string;
+    time: Timestamp;
+    type: string;
+    sent: boolean;
+  }>;
+  userId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
 
-// Convert CalendarEvent to Firestore event
-const toFirestoreEvent = (
-  event: Partial<CalendarEvent>,
-  workspaceId: string,
-  userId: string
-): Partial<FirestoreEvent> => ({
-  workspaceId,
-  title: event.title,
-  description: event.description || null,
-  startTime: event.startTime ? Timestamp.fromDate(event.startTime) : undefined,
-  endTime: event.endTime ? Timestamp.fromDate(event.endTime) : undefined,
-  eventType: event.eventType as FirestoreEvent['eventType'],
-  status: event.status as FirestoreEvent['status'],
-  location: event.location || null,
-  color: event.color || null,
-  createdBy: userId,
-});
+// Convert Firestore document to CalendarEvent
+function firestoreToEvent(id: string, data: DocumentData): CalendarEvent {
+  return {
+    id,
+    title: data.title,
+    description: data.description,
+    startTime: data.startTime?.toDate() || new Date(),
+    endTime: data.endTime?.toDate() || new Date(),
+    eventType: data.eventType || 'meeting',
+    status: data.status || 'scheduled',
+    color: data.color,
+    isAllDay: data.isAllDay || false,
+    isRecurring: data.isRecurring || false,
+    recurrenceRule: data.recurrenceRule ? {
+      ...data.recurrenceRule,
+      endDate: data.recurrenceRule.endDate?.toDate()
+    } : undefined,
+    location: data.location,
+    participants: data.participants || [],
+    reminders: (data.reminders || []).map((r: any) => ({
+      ...r,
+      time: r.time?.toDate() || new Date()
+    })),
+    createdAt: data.createdAt?.toDate() || new Date(),
+    updatedAt: data.updatedAt?.toDate() || new Date(),
+    createdBy: data.userId
+  };
+}
 
-export function useEvents() {
+// Convert CalendarEvent to Firestore document
+function eventToFirestore(event: Partial<CalendarEvent>, userId: string): Partial<FirestoreEvent> {
+  const doc: Partial<FirestoreEvent> = {
+    userId
+  };
+
+  if (event.title !== undefined) doc.title = event.title;
+  if (event.description !== undefined) doc.description = event.description;
+  if (event.startTime !== undefined) doc.startTime = Timestamp.fromDate(event.startTime);
+  if (event.endTime !== undefined) doc.endTime = Timestamp.fromDate(event.endTime);
+  if (event.eventType !== undefined) doc.eventType = event.eventType;
+  if (event.status !== undefined) doc.status = event.status;
+  if (event.color !== undefined) doc.color = event.color;
+  if (event.isAllDay !== undefined) doc.isAllDay = event.isAllDay;
+  if (event.isRecurring !== undefined) doc.isRecurring = event.isRecurring;
+  if (event.location !== undefined) doc.location = event.location;
+  if (event.participants !== undefined) doc.participants = event.participants;
+  if (event.reminders !== undefined) {
+    doc.reminders = event.reminders.map(r => ({
+      ...r,
+      time: Timestamp.fromDate(r.time)
+    }));
+  }
+  if (event.recurrenceRule !== undefined) {
+    doc.recurrenceRule = event.recurrenceRule ? {
+      ...event.recurrenceRule,
+      endDate: event.recurrenceRule.endDate 
+        ? Timestamp.fromDate(event.recurrenceRule.endDate) 
+        : undefined
+    } : undefined;
+  }
+
+  return doc;
+}
+
+export interface UseEventsReturn {
+  events: CalendarEvent[];
+  loading: boolean;
+  error: string | null;
+  createEvent: (event: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>) => Promise<string | null>;
+  updateEvent: (id: string, updates: Partial<CalendarEvent>) => Promise<boolean>;
+  deleteEvent: (id: string) => Promise<boolean>;
+  getEventById: (id: string) => CalendarEvent | undefined;
+}
+
+export function useEvents(): UseEventsReturn {
   const { user } = useAuth();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Get the user's default workspace ID
-  const workspaceId = user ? `${user.uid}-default` : null;
-
-  // Subscribe to events
+  // Subscribe to events from Firestore
   useEffect(() => {
-    if (!workspaceId) {
+    if (!user?.uid) {
       setEvents([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
+    setError(null);
+
     const eventsRef = collection(db, 'events');
     const q = query(
       eventsRef,
-      where('workspaceId', '==', workspaceId),
+      where('userId', '==', user.uid),
       orderBy('startTime', 'asc')
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const eventsList: CalendarEvent[] = [];
+        const eventList: CalendarEvent[] = [];
         snapshot.forEach((doc) => {
-          const data = doc.data() as Omit<FirestoreEvent, 'id'>;
-          eventsList.push(toCalendarEvent({ id: doc.id, ...data }));
+          eventList.push(firestoreToEvent(doc.id, doc.data()));
         });
-        setEvents(eventsList);
+        setEvents(eventList);
         setLoading(false);
-        setError(null);
       },
       (err) => {
         console.error('Error fetching events:', err);
-        setError(err);
+        setError('Failed to load events');
         setLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [workspaceId]);
+  }, [user?.uid]);
 
-  // Add a new event
-  const addEvent = useCallback(
-    async (event: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>) => {
-      if (!user || !workspaceId) {
-        return { error: new Error('Not authenticated') };
-      }
+  // Create a new event
+  const createEvent = useCallback(async (
+    event: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>
+  ): Promise<string | null> => {
+    if (!user?.uid) {
+      setError('You must be logged in to create events');
+      return null;
+    }
 
-      try {
-        const eventsRef = collection(db, 'events');
-        const firestoreData = {
-          ...toFirestoreEvent(event, workspaceId, user.uid),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-        const docRef = await addDoc(eventsRef, firestoreData);
-        return { id: docRef.id, error: null };
-      } catch (err) {
-        return { id: null, error: err as Error };
-      }
-    },
-    [user, workspaceId]
-  );
+    try {
+      const now = Timestamp.now();
+      const eventData = {
+        ...eventToFirestore(event as Partial<CalendarEvent>, user.uid),
+        createdAt: now,
+        updatedAt: now
+      };
 
-  // Update an event
-  const updateEvent = useCallback(
-    async (eventId: string, updates: Partial<CalendarEvent>) => {
-      if (!user || !workspaceId) {
-        return { error: new Error('Not authenticated') };
-      }
+      const docRef = await addDoc(collection(db, 'events'), eventData);
+      return docRef.id;
+    } catch (err) {
+      console.error('Error creating event:', err);
+      setError('Failed to create event');
+      return null;
+    }
+  }, [user?.uid]);
 
-      try {
-        const eventRef = doc(db, 'events', eventId);
-        const firestoreUpdates = toFirestoreEvent(updates, workspaceId, user.uid);
-        
-        // Build update object, filtering out undefined values
-        const updateData: UpdateData<FirestoreEvent> = {
-          updatedAt: serverTimestamp() as Timestamp,
-        };
-        
-        if (firestoreUpdates.title !== undefined) updateData.title = firestoreUpdates.title;
-        if (firestoreUpdates.description !== undefined) updateData.description = firestoreUpdates.description;
-        if (firestoreUpdates.startTime !== undefined) updateData.startTime = firestoreUpdates.startTime;
-        if (firestoreUpdates.endTime !== undefined) updateData.endTime = firestoreUpdates.endTime;
-        if (firestoreUpdates.eventType !== undefined) updateData.eventType = firestoreUpdates.eventType;
-        if (firestoreUpdates.status !== undefined) updateData.status = firestoreUpdates.status;
-        if (firestoreUpdates.location !== undefined) updateData.location = firestoreUpdates.location;
-        if (firestoreUpdates.color !== undefined) updateData.color = firestoreUpdates.color;
+  // Update an existing event
+  const updateEvent = useCallback(async (
+    id: string, 
+    updates: Partial<CalendarEvent>
+  ): Promise<boolean> => {
+    if (!user?.uid) {
+      setError('You must be logged in to update events');
+      return false;
+    }
 
-        await updateDoc(eventRef, updateData);
-        return { error: null };
-      } catch (err) {
-        return { error: err as Error };
-      }
-    },
-    [user, workspaceId]
-  );
+    try {
+      const eventRef = doc(db, 'events', id);
+      const updateData = {
+        ...eventToFirestore(updates, user.uid),
+        updatedAt: Timestamp.now()
+      };
+      
+      await updateDoc(eventRef, updateData);
+      return true;
+    } catch (err) {
+      console.error('Error updating event:', err);
+      setError('Failed to update event');
+      return false;
+    }
+  }, [user?.uid]);
 
   // Delete an event
-  const deleteEvent = useCallback(async (eventId: string) => {
-    try {
-      const eventRef = doc(db, 'events', eventId);
-      await deleteDoc(eventRef);
-      return { error: null };
-    } catch (err) {
-      return { error: err as Error };
+  const deleteEvent = useCallback(async (id: string): Promise<boolean> => {
+    if (!user?.uid) {
+      setError('You must be logged in to delete events');
+      return false;
     }
-  }, []);
+
+    try {
+      const eventRef = doc(db, 'events', id);
+      await deleteDoc(eventRef);
+      return true;
+    } catch (err) {
+      console.error('Error deleting event:', err);
+      setError('Failed to delete event');
+      return false;
+    }
+  }, [user?.uid]);
+
+  // Get event by ID
+  const getEventById = useCallback((id: string): CalendarEvent | undefined => {
+    return events.find(e => e.id === id);
+  }, [events]);
 
   return {
     events,
     loading,
     error,
-    addEvent,
+    createEvent,
     updateEvent,
     deleteEvent,
+    getEventById
   };
 }
 
+// Reminder utility functions
+export function createReminder(
+  minutesBefore: number, 
+  type: 'in-app' | 'email' | 'push' = 'in-app',
+  eventStartTime: Date
+): EventReminder {
+  const reminderTime = new Date(eventStartTime.getTime() - minutesBefore * 60 * 1000);
+  return {
+    id: `reminder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    time: reminderTime,
+    type,
+    sent: false
+  };
+}
+
+export const REMINDER_OPTIONS = [
+  { value: 0, label: 'At time of event' },
+  { value: 5, label: '5 minutes before' },
+  { value: 10, label: '10 minutes before' },
+  { value: 15, label: '15 minutes before' },
+  { value: 30, label: '30 minutes before' },
+  { value: 60, label: '1 hour before' },
+  { value: 120, label: '2 hours before' },
+  { value: 1440, label: '1 day before' },
+  { value: 2880, label: '2 days before' },
+  { value: 10080, label: '1 week before' }
+];
+
+export const REMINDER_TYPES = [
+  { value: 'in-app', label: 'In-app notification' },
+  { value: 'email', label: 'Email' },
+  { value: 'push', label: 'Push notification' }
+];

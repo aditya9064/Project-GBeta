@@ -199,6 +199,7 @@
 .toolbar-center {
   flex: 1;
   justify-content: center;
+  position: relative;
 }
 
 .toolbar-group {
@@ -1661,6 +1662,13 @@
   min-width: 280px;
 }
 
+.shape-menu-expanded {
+  min-width: 360px;
+  max-width: 420px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
 .shape-menu-header {
   display: flex;
   align-items: center;
@@ -1756,6 +1764,207 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+/* ============================================
+   FILL COLOR SECTION
+   ============================================ */
+.fill-section {
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.fill-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.fill-section-header svg {
+  width: 16px;
+  height: 16px;
+  color: var(--accent-purple);
+}
+
+.fill-section-header span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fill-color-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.fill-color-btn,
+.fill-color-option {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.fill-color-btn:hover,
+.fill-color-option:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.fill-color-btn.active,
+.fill-color-option.active {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 0 2px var(--bg-secondary), 0 0 0 4px var(--accent-purple);
+}
+
+.fill-color-btn.no-fill {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    var(--border-color) 4px,
+    var(--border-color) 5px
+  );
+  border: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.no-fill-icon {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+.fill-color-more {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  border: 2px dashed var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--text-tertiary);
+}
+
+.fill-color-more:hover {
+  background: var(--bg-active);
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+}
+
+.fill-color-more svg {
+  width: 14px;
+  height: 14px;
+}
+
+.fill-color-expanded {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.fill-color-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+
+.fill-color-grid .fill-color-option {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+/* Shape Grid Large for expanded menu */
+.shape-grid-large {
+  grid-template-columns: repeat(8, 1fr);
+}
+
+/* Shape Menu Footer */
+.shape-menu-footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.shape-apply-btn {
+  padding: 8px 20px;
+  background: var(--accent-purple);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.shape-apply-btn:hover {
+  background: var(--accent-purple-light);
+  transform: translateY(-1px);
+}
+
+/* Shape Menu Scrollbar */
+.shape-menu-expanded::-webkit-scrollbar {
+  width: 6px;
+}
+
+.shape-menu-expanded::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.shape-menu-expanded::-webkit-scrollbar-thumb {
+  background: var(--text-tertiary);
+  border-radius: 3px;
+  opacity: 0.3;
+}
+
+.shape-menu-expanded::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Selected shape indicator */
+.shape-btn.active {
+  background: var(--accent-purple);
+  color: white;
+  border-color: var(--accent-purple);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+}
+
+/* Preview indicator for selected shape */
+.shape-menu-expanded .shape-btn.active::after {
+  content: '✓';
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  background: var(--accent-purple);
+  color: white;
+  font-size: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-secondary);
+}
+
+.shape-menu-expanded .shape-btn {
+  position: relative;
 }
 
 /* ============================================
