@@ -285,6 +285,8 @@ body {
   padding: 8px 0;
   flex-shrink: 0;
   transition: background-color 0.2s ease;
+  position: relative;
+  z-index: 200;
 }
 
 .icon-rail-top,
@@ -630,6 +632,12 @@ body {
   overflow: hidden;
   position: relative;
   transition: background-color 0.2s ease;
+}
+
+.main-content.smartcanvas-view {
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
 }
 
 /* Tabs */

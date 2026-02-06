@@ -8,6 +8,7 @@ import { TasksPage } from './components/tasks';
 import { AuthPage } from './components/auth';
 import { LandingPage } from './components/landing';
 import { WhiteboardPage } from './components/whiteboard';
+import { SmartCanvasPage } from './components/smartcanvas';
 import { useAuth } from './contexts/AuthContext';
 import { initialCalendarEvents } from './data/calendarData';
 
@@ -62,6 +63,16 @@ const Icons = {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="18" height="18" rx="2"/>
       <path d="M3 9h18"/>
+    </svg>
+  ),
+  SmartCanvas: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2"/>
+      <path d="M8 7h8"/>
+      <path d="M8 12h5"/>
+      <path d="M16 14l2 2-2 2"/>
+      <path d="M14 10l-3 6"/>
+      <circle cx="17" cy="7" r="1.5" fill="currentColor"/>
     </svg>
   ),
   Forms: () => (
@@ -399,6 +410,7 @@ function App() {
     if (path === '/tasks') return 'tasks';
     if (path === '/dashboard') return 'dashboard';
     if (path === '/whiteboard') return 'whiteboard';
+    if (path === '/smartcanvas') return 'smartcanvas';
     if (path === '/forms') return 'forms';
     if (path === '/clips') return 'clips';
     if (path === '/goals') return 'goals';
@@ -439,6 +451,7 @@ function App() {
       'tasks': '/tasks',
       'dashboard': '/dashboard',
       'whiteboard': '/whiteboard',
+      'smartcanvas': '/smartcanvas',
       'forms': '/forms',
       'clips': '/clips',
       'goals': '/goals',
@@ -486,6 +499,7 @@ function App() {
     { id: 'tasks', icon: Icons.CheckCircle, label: 'Tasks', active: activeView === 'tasks' },
     { id: 'ai', icon: Icons.AI, label: 'AI' },
     { id: 'teams', icon: Icons.Teams, label: 'Team', active: activeView === 'teams' },
+    { id: 'smartcanvas', icon: Icons.SmartCanvas, label: 'Canvas', active: activeView === 'smartcanvas' },
     { id: 'docs', icon: Icons.Docs, label: 'Docs', active: activeView === 'docs' },
     { id: 'dashboard', icon: Icons.Dashboard, label: 'Dashboard', active: activeView === 'dashboard' },
     { id: 'whiteboard', icon: Icons.Whiteboard, label: 'Whiteboard', active: activeView === 'whiteboard' },
@@ -1041,7 +1055,7 @@ function App() {
         )}
 
         {/* Main Content */}
-        <main className={`main-content ${activeView === 'docs' ? 'docs-view' : ''}`}>
+        <main className={`main-content ${activeView === 'docs' ? 'docs-view' : ''} ${activeView === 'smartcanvas' ? 'smartcanvas-view' : ''}`}>
           <Routes>
             <Route path="/calendar" element={
               <Calendar 
@@ -1064,6 +1078,7 @@ function App() {
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/dashboard" element={<PlaceholderPage title="Dashboard" description="Create dashboards with widgets to visualize your data." icon="dashboard" />} />
             <Route path="/whiteboard" element={<WhiteboardPage />} />
+            <Route path="/smartcanvas" element={<SmartCanvasPage />} />
             <Route path="/forms" element={<PlaceholderPage title="Forms" description="Create forms to collect data from your team or clients." icon="forms" />} />
             <Route path="/clips" element={<PlaceholderPage title="Clips" description="Record and share screen recordings with your team." icon="clips" />} />
             <Route path="/goals" element={<PlaceholderPage title="Goals" description="Set and track goals for you and your team." icon="goals" />} />

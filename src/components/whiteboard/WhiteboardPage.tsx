@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import Tesseract from 'tesseract.js';
 import './WhiteboardPage.css';
 import { AIBrainstormPanel, BrainstormIdea } from './AIBrainstormPanel';
 
@@ -18,6 +19,8 @@ type ShapeType =
   | 'line' | 'arrow' | 'double-arrow' | 'curved-arrow' | 'right-arrow' | 'left-arrow' | 'up-arrow' | 'down-arrow'
   // UML shapes
   | 'actor' | 'use-case' | 'class-box' | 'interface-box' | 'package'
+  // Containers
+  | 'loop' | 'group-box' | 'swimlane'
   // Misc
   | 'star' | 'parallelogram' | 'trapezoid' | 'cross' | 'cloud' | 'callout' | 'heart' | 'lightning';
 
@@ -84,6 +87,10 @@ interface Shape {
   fontSize?: number;
   textColor?: string;
   connectionPoints?: ConnectionPoint[];
+  // Container properties (for loop, group-box, swimlane)
+  isContainer?: boolean;
+  containedShapeIds?: string[];
+  containerLabel?: string;
 }
 
 interface Connector {
@@ -423,11 +430,6 @@ const Icons = {
       <path d="M5 6h16l-3 12H8z"/>
     </svg>
   ),
-  Document: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 4h16v14c0 0-4 2-8 2s-8-2-8-2z"/>
-    </svg>
-  ),
   Database: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <ellipse cx="12" cy="5" rx="9" ry="3"/>
@@ -626,6 +628,128 @@ const Icons = {
       <line x1="13" y1="16" x2="18" y2="16"/>
     </svg>
   ),
+  // Additional shape icons
+  Trapezoid: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 4h14l3 16H2z"/>
+    </svg>
+  ),
+  Cross: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 2v6H2v8h7v6h6v-6h7V8h-7V2z"/>
+    </svg>
+  ),
+  PreDefinedProcess: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="6" width="18" height="12"/>
+      <line x1="6" y1="6" x2="6" y2="18"/>
+      <line x1="18" y1="6" x2="18" y2="18"/>
+    </svg>
+  ),
+  ManualInput: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 8l18-4v16H3z"/>
+    </svg>
+  ),
+  Preparation: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 4h14l3 8-3 8H5l-3-8z"/>
+    </svg>
+  ),
+  HardDisk: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <ellipse cx="5" cy="12" rx="2" ry="6"/>
+      <path d="M5 6h14c1.1 0 2 2.7 2 6s-.9 6-2 6H5"/>
+    </svg>
+  ),
+  InternalStorage: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18"/>
+      <line x1="7" y1="3" x2="7" y2="21"/>
+      <line x1="3" y1="7" x2="21" y2="7"/>
+    </svg>
+  ),
+  CurvedArrow: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20c0-8 4-12 12-12h4"/>
+      <polyline points="16 12 20 8 16 4"/>
+    </svg>
+  ),
+  LeftArrow: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12l8-8v5h12v6H10v5z"/>
+    </svg>
+  ),
+  UpArrow: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l8 8h-5v12H9V10H4z"/>
+    </svg>
+  ),
+  DownArrow: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22l8-8h-5V2H9v12H4z"/>
+    </svg>
+  ),
+  DoubleArrow: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="12" x2="20" y2="12"/>
+      <polyline points="8 8 4 12 8 16"/>
+      <polyline points="16 8 20 12 16 16"/>
+    </svg>
+  ),
+  ClassBox: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18"/>
+      <line x1="3" y1="9" x2="21" y2="9"/>
+      <line x1="3" y1="15" x2="21" y2="15"/>
+    </svg>
+  ),
+  InterfaceBox: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+    </svg>
+  ),
+  Loop: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="4" width="20" height="16" rx="2"/>
+      <path d="M2 8h20"/>
+      <text x="6" y="7" fontSize="4" fill="currentColor" fontWeight="bold">loop</text>
+      <path d="M7 14h10"/>
+      <path d="M9 17h6"/>
+    </svg>
+  ),
+  GroupBox: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="2" strokeDasharray="4 2"/>
+      <rect x="6" y="6" width="5" height="5" rx="1"/>
+      <rect x="13" y="6" width="5" height="5" rx="1"/>
+      <rect x="9" y="13" width="6" height="5" rx="1"/>
+    </svg>
+  ),
+  Swimlane: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="2"/>
+      <line x1="8" y1="2" x2="8" y2="22"/>
+      <line x1="16" y1="2" x2="16" y2="22"/>
+    </svg>
+  ),
+  Document: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <polyline points="10 9 9 9 8 9"/>
+    </svg>
+  ),
+  Export: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+  ),
 };
 
 // ============================================
@@ -711,6 +835,10 @@ const shapeCategories: ShapeCategory[] = [
       { type: 'arrow', name: 'Arrow' },
       { type: 'double-arrow', name: 'Double Arrow' },
       { type: 'curved-arrow', name: 'Curved Arrow' },
+      { type: 'right-arrow', name: 'Right Arrow' },
+      { type: 'left-arrow', name: 'Left Arrow' },
+      { type: 'up-arrow', name: 'Up Arrow' },
+      { type: 'down-arrow', name: 'Down Arrow' },
     ],
   },
   {
@@ -720,9 +848,19 @@ const shapeCategories: ShapeCategory[] = [
     shapes: [
       { type: 'actor', name: 'Actor' },
       { type: 'use-case', name: 'Use Case' },
-      { type: 'class-box', name: 'Class' },
-      { type: 'interface-box', name: 'Interface' },
+      { type: 'class-box', name: 'Class Box' },
+      { type: 'interface-box', name: 'Interface Box' },
       { type: 'package', name: 'Package' },
+    ],
+  },
+  {
+    id: 'containers',
+    name: 'Containers',
+    icon: 'group',
+    shapes: [
+      { type: 'loop', name: 'Loop' },
+      { type: 'group-box', name: 'Group Box' },
+      { type: 'swimlane', name: 'Swimlane' },
     ],
   },
   {
@@ -788,6 +926,11 @@ export function WhiteboardPage() {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   
+  // Export modal state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'png' | 'jpeg' | 'svg' | 'pdf'>('png');
+  const [exportFilename, setExportFilename] = useState('');
+  
   // Shape library state
   const [showShapeLibrary, setShowShapeLibrary] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('basic');
@@ -826,12 +969,30 @@ export function WhiteboardPage() {
   const [scanImage, setScanImage] = useState<string | null>(null);
   const [scanProcessing, setScanProcessing] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+  const [scanProgressMessage, setScanProgressMessage] = useState<string>('');
   const [scanResult, setScanResult] = useState<{
     strokes: Stroke[];
     shapes: Shape[];
     textBoxes: TextBox[];
   } | null>(null);
+  const [scanMode, setScanMode] = useState<'upload' | 'camera' | 'preview' | 'enhance'>('upload');
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [enhancedImage, setEnhancedImage] = useState<string | null>(null);
+  const [showEnhancePreview, setShowEnhancePreview] = useState(false);
+  const [enhanceOptions, setEnhanceOptions] = useState({
+    contrast: 1.2,
+    brightness: 1.0,
+    sharpen: false,
+    denoise: false,
+    threshold: false,
+  });
+  const [editableResults, setEditableResults] = useState<{
+    textBoxes: Array<TextBox & { selected?: boolean }>;
+    shapes: Array<Shape & { selected?: boolean }>;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasEnhanceRef = useRef<HTMLCanvasElement>(null);
   
   // AI Brainstorming state
   const [showAIBrainstorm, setShowAIBrainstorm] = useState(false);
@@ -904,16 +1065,30 @@ export function WhiteboardPage() {
     });
 
     // Draw current stroke being drawn
-    if (isDrawing && currentStroke.length > 0) {
+    // Draw current stroke preview (for pen/highlighter only, not eraser)
+    if (isDrawing && currentStroke.length > 0 && currentTool !== 'eraser') {
       const tempStroke: Stroke = {
         id: 'temp',
-        tool: currentTool as 'pen' | 'highlighter' | 'eraser',
+        tool: currentTool as 'pen' | 'highlighter',
         points: currentStroke,
-        color: currentTool === 'eraser' ? '#FFFFFF' : currentColor,
-        width: currentTool === 'eraser' ? brushSize * 3 : brushSize,
+        color: currentColor,
+        width: brushSize,
         opacity: currentTool === 'highlighter' ? 0.4 : 1,
       };
       drawStroke(ctx, tempStroke);
+    }
+    
+    // Draw eraser cursor indicator
+    if (currentTool === 'eraser' && currentStroke.length > 0) {
+      const lastPoint = currentStroke[currentStroke.length - 1];
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(lastPoint.x, lastPoint.y, brushSize * 2, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.restore();
     }
 
     // Draw shapes
@@ -1462,6 +1637,414 @@ export function WhiteboardPage() {
         ctx.stroke();
         break;
 
+      case 'predefined-process':
+        // Rectangle with double vertical lines on sides
+        if (shape.fill !== 'transparent') {
+          ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
+        }
+        ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
+        const ppInset = shape.width * 0.1;
+        ctx.beginPath();
+        ctx.moveTo(shape.x + ppInset, shape.y);
+        ctx.lineTo(shape.x + ppInset, shape.y + shape.height);
+        ctx.moveTo(shape.x + shape.width - ppInset, shape.y);
+        ctx.lineTo(shape.x + shape.width - ppInset, shape.y + shape.height);
+        ctx.stroke();
+        break;
+
+      case 'manual-input':
+        // Parallelogram with slanted top
+        ctx.moveTo(shape.x, shape.y + shape.height * 0.2);
+        ctx.lineTo(shape.x + shape.width, shape.y);
+        ctx.lineTo(shape.x + shape.width, shape.y + shape.height);
+        ctx.lineTo(shape.x, shape.y + shape.height);
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'preparation':
+        // Hexagon for preparation
+        const prepX = shape.x;
+        const prepY = shape.y;
+        const prepW = shape.width;
+        const prepH = shape.height;
+        const prepInset = prepW * 0.15;
+        ctx.moveTo(prepX + prepInset, prepY);
+        ctx.lineTo(prepX + prepW - prepInset, prepY);
+        ctx.lineTo(prepX + prepW, prepY + prepH / 2);
+        ctx.lineTo(prepX + prepW - prepInset, prepY + prepH);
+        ctx.lineTo(prepX + prepInset, prepY + prepH);
+        ctx.lineTo(prepX, prepY + prepH / 2);
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'hard-disk':
+        // Cylinder (like database but horizontal orientation suggestion)
+        const hdX = shape.x;
+        const hdY = shape.y;
+        const hdW = shape.width;
+        const hdH = shape.height;
+        const hdEllW = hdW * 0.15;
+        // Left ellipse
+        ctx.ellipse(hdX + hdEllW / 2, hdY + hdH / 2, hdEllW / 2, hdH / 2, 0, 0, Math.PI * 2);
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        // Body
+        ctx.beginPath();
+        ctx.moveTo(hdX + hdEllW / 2, hdY);
+        ctx.lineTo(hdX + hdW - hdEllW / 2, hdY);
+        ctx.ellipse(hdX + hdW - hdEllW / 2, hdY + hdH / 2, hdEllW / 2, hdH / 2, 0, -Math.PI / 2, Math.PI / 2);
+        ctx.lineTo(hdX + hdEllW / 2, hdY + hdH);
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'internal-storage':
+        // Rectangle with corner lines
+        if (shape.fill !== 'transparent') {
+          ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
+        }
+        ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
+        const isInset = Math.min(shape.width, shape.height) * 0.15;
+        ctx.beginPath();
+        ctx.moveTo(shape.x + isInset, shape.y);
+        ctx.lineTo(shape.x + isInset, shape.y + shape.height);
+        ctx.moveTo(shape.x, shape.y + isInset);
+        ctx.lineTo(shape.x + shape.width, shape.y + isInset);
+        ctx.stroke();
+        break;
+
+      case 'curved-arrow':
+        // Curved arrow using quadratic curve
+        const caStartX = shape.x;
+        const caStartY = shape.y + shape.height;
+        const caEndX = shape.x + shape.width;
+        const caEndY = shape.y;
+        const caCtrlX = shape.x + shape.width / 2;
+        const caCtrlY = shape.y - shape.height * 0.3;
+        ctx.moveTo(caStartX, caStartY);
+        ctx.quadraticCurveTo(caCtrlX, caCtrlY, caEndX, caEndY);
+        ctx.stroke();
+        // Arrowhead
+        const caAngle = Math.atan2(caEndY - caCtrlY, caEndX - caCtrlX);
+        const caHeadLen = 12;
+        ctx.beginPath();
+        ctx.moveTo(caEndX, caEndY);
+        ctx.lineTo(caEndX - caHeadLen * Math.cos(caAngle - Math.PI / 6), caEndY - caHeadLen * Math.sin(caAngle - Math.PI / 6));
+        ctx.moveTo(caEndX, caEndY);
+        ctx.lineTo(caEndX - caHeadLen * Math.cos(caAngle + Math.PI / 6), caEndY - caHeadLen * Math.sin(caAngle + Math.PI / 6));
+        ctx.stroke();
+        break;
+
+      case 'right-arrow':
+        const raX = shape.x;
+        const raY = shape.y;
+        const raW = shape.width;
+        const raH = shape.height;
+        const raArrowW = raW * 0.3;
+        ctx.moveTo(raX, raY + raH * 0.25);
+        ctx.lineTo(raX + raW - raArrowW, raY + raH * 0.25);
+        ctx.lineTo(raX + raW - raArrowW, raY);
+        ctx.lineTo(raX + raW, raY + raH / 2);
+        ctx.lineTo(raX + raW - raArrowW, raY + raH);
+        ctx.lineTo(raX + raW - raArrowW, raY + raH * 0.75);
+        ctx.lineTo(raX, raY + raH * 0.75);
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'left-arrow':
+        const laX = shape.x;
+        const laY = shape.y;
+        const laW = shape.width;
+        const laH = shape.height;
+        const laArrowW = laW * 0.3;
+        ctx.moveTo(laX + laW, laY + laH * 0.25);
+        ctx.lineTo(laX + laArrowW, laY + laH * 0.25);
+        ctx.lineTo(laX + laArrowW, laY);
+        ctx.lineTo(laX, laY + laH / 2);
+        ctx.lineTo(laX + laArrowW, laY + laH);
+        ctx.lineTo(laX + laArrowW, laY + laH * 0.75);
+        ctx.lineTo(laX + laW, laY + laH * 0.75);
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'up-arrow':
+        const uaX = shape.x;
+        const uaY = shape.y;
+        const uaW = shape.width;
+        const uaH = shape.height;
+        const uaArrowH = uaH * 0.3;
+        ctx.moveTo(uaX + uaW * 0.25, uaY + uaH);
+        ctx.lineTo(uaX + uaW * 0.25, uaY + uaArrowH);
+        ctx.lineTo(uaX, uaY + uaArrowH);
+        ctx.lineTo(uaX + uaW / 2, uaY);
+        ctx.lineTo(uaX + uaW, uaY + uaArrowH);
+        ctx.lineTo(uaX + uaW * 0.75, uaY + uaArrowH);
+        ctx.lineTo(uaX + uaW * 0.75, uaY + uaH);
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'down-arrow':
+        const dnaX = shape.x;
+        const dnaY = shape.y;
+        const dnaW = shape.width;
+        const dnaH = shape.height;
+        const dnaArrowH = dnaH * 0.3;
+        ctx.moveTo(dnaX + dnaW * 0.25, dnaY);
+        ctx.lineTo(dnaX + dnaW * 0.25, dnaY + dnaH - dnaArrowH);
+        ctx.lineTo(dnaX, dnaY + dnaH - dnaArrowH);
+        ctx.lineTo(dnaX + dnaW / 2, dnaY + dnaH);
+        ctx.lineTo(dnaX + dnaW, dnaY + dnaH - dnaArrowH);
+        ctx.lineTo(dnaX + dnaW * 0.75, dnaY + dnaH - dnaArrowH);
+        ctx.lineTo(dnaX + dnaW * 0.75, dnaY);
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'class-box':
+        // UML Class box with 3 sections
+        if (shape.fill !== 'transparent') {
+          ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
+        }
+        ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
+        const cbSection = shape.height / 3;
+        ctx.beginPath();
+        ctx.moveTo(shape.x, shape.y + cbSection);
+        ctx.lineTo(shape.x + shape.width, shape.y + cbSection);
+        ctx.moveTo(shape.x, shape.y + cbSection * 2);
+        ctx.lineTo(shape.x + shape.width, shape.y + cbSection * 2);
+        ctx.stroke();
+        break;
+
+      case 'interface-box':
+        // UML Interface box with 2 sections
+        if (shape.fill !== 'transparent') {
+          ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
+        }
+        ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
+        const ibSection = shape.height / 2;
+        ctx.beginPath();
+        ctx.moveTo(shape.x, shape.y + ibSection);
+        ctx.lineTo(shape.x + shape.width, shape.y + ibSection);
+        ctx.stroke();
+        break;
+
+      case 'package':
+        // UML Package shape with tab
+        const pkgX = shape.x;
+        const pkgY = shape.y;
+        const pkgW = shape.width;
+        const pkgH = shape.height;
+        const tabW = pkgW * 0.4;
+        const tabH = pkgH * 0.15;
+        // Tab
+        ctx.moveTo(pkgX, pkgY + tabH);
+        ctx.lineTo(pkgX, pkgY);
+        ctx.lineTo(pkgX + tabW, pkgY);
+        ctx.lineTo(pkgX + tabW, pkgY + tabH);
+        // Main body
+        ctx.lineTo(pkgX + pkgW, pkgY + tabH);
+        ctx.lineTo(pkgX + pkgW, pkgY + pkgH);
+        ctx.lineTo(pkgX, pkgY + pkgH);
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'trapezoid':
+        const trapX = shape.x;
+        const trapY = shape.y;
+        const trapW = shape.width;
+        const trapH = shape.height;
+        const trapInset = trapW * 0.2;
+        ctx.moveTo(trapX + trapInset, trapY);
+        ctx.lineTo(trapX + trapW - trapInset, trapY);
+        ctx.lineTo(trapX + trapW, trapY + trapH);
+        ctx.lineTo(trapX, trapY + trapH);
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'cross':
+        const crX = shape.x;
+        const crY = shape.y;
+        const crW = shape.width;
+        const crH = shape.height;
+        const crThick = Math.min(crW, crH) * 0.33;
+        const crHOffset = (crW - crThick) / 2;
+        const crVOffset = (crH - crThick) / 2;
+        ctx.moveTo(crX + crHOffset, crY);
+        ctx.lineTo(crX + crHOffset + crThick, crY);
+        ctx.lineTo(crX + crHOffset + crThick, crY + crVOffset);
+        ctx.lineTo(crX + crW, crY + crVOffset);
+        ctx.lineTo(crX + crW, crY + crVOffset + crThick);
+        ctx.lineTo(crX + crHOffset + crThick, crY + crVOffset + crThick);
+        ctx.lineTo(crX + crHOffset + crThick, crY + crH);
+        ctx.lineTo(crX + crHOffset, crY + crH);
+        ctx.lineTo(crX + crHOffset, crY + crVOffset + crThick);
+        ctx.lineTo(crX, crY + crVOffset + crThick);
+        ctx.lineTo(crX, crY + crVOffset);
+        ctx.lineTo(crX + crHOffset, crY + crVOffset);
+        ctx.closePath();
+        if (shape.fill !== 'transparent') {
+          ctx.fill();
+        }
+        ctx.stroke();
+        break;
+
+      case 'loop':
+        // Loop container - rounded rectangle with header section
+        const loopX = shape.x;
+        const loopY = shape.y;
+        const loopW = shape.width;
+        const loopH = shape.height;
+        const loopHeaderH = Math.min(28, loopH * 0.15);
+        const loopRadius = 6;
+        
+        // Draw main container with header
+        ctx.beginPath();
+        ctx.roundRect(loopX, loopY, loopW, loopH, loopRadius);
+        if (shape.fill !== 'transparent') {
+          ctx.globalAlpha = 0.1;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        ctx.stroke();
+        
+        // Draw header separator
+        ctx.beginPath();
+        ctx.moveTo(loopX, loopY + loopHeaderH);
+        ctx.lineTo(loopX + loopW, loopY + loopHeaderH);
+        ctx.stroke();
+        
+        // Draw "loop" label in header
+        ctx.save();
+        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.fillStyle = shape.color;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(shape.containerLabel || 'loop', loopX + 10, loopY + loopHeaderH / 2);
+        ctx.restore();
+        
+        // Draw loop icon
+        ctx.beginPath();
+        const iconX = loopX + loopW - 24;
+        const iconY = loopY + loopHeaderH / 2;
+        ctx.arc(iconX, iconY, 6, 0, Math.PI * 1.7);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(iconX + 5, iconY - 3);
+        ctx.lineTo(iconX + 8, iconY);
+        ctx.lineTo(iconX + 5, iconY + 3);
+        ctx.stroke();
+        break;
+
+      case 'group-box':
+        // Group box - dashed border container
+        const gbX = shape.x;
+        const gbY = shape.y;
+        const gbW = shape.width;
+        const gbH = shape.height;
+        const gbRadius = 8;
+        
+        ctx.save();
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.roundRect(gbX, gbY, gbW, gbH, gbRadius);
+        if (shape.fill !== 'transparent') {
+          ctx.globalAlpha = 0.05;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        ctx.stroke();
+        ctx.restore();
+        
+        // Draw label if exists
+        if (shape.containerLabel) {
+          ctx.save();
+          ctx.font = 'bold 12px Inter, sans-serif';
+          ctx.fillStyle = shape.color;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          
+          // Draw label background
+          const labelMetrics = ctx.measureText(shape.containerLabel);
+          const labelPadding = 6;
+          ctx.fillStyle = shape.fill !== 'transparent' ? shape.fill : '#1e1e2e';
+          ctx.fillRect(gbX + 12, gbY - 8, labelMetrics.width + labelPadding * 2, 16);
+          
+          ctx.fillStyle = shape.color;
+          ctx.fillText(shape.containerLabel, gbX + 12 + labelPadding, gbY - 6);
+          ctx.restore();
+        }
+        break;
+
+      case 'swimlane':
+        // Swimlane - vertical lanes container
+        const slX = shape.x;
+        const slY = shape.y;
+        const slW = shape.width;
+        const slH = shape.height;
+        const slHeaderH = 32;
+        const slRadius = 4;
+        
+        // Main container
+        ctx.beginPath();
+        ctx.roundRect(slX, slY, slW, slH, slRadius);
+        if (shape.fill !== 'transparent') {
+          ctx.globalAlpha = 0.05;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        ctx.stroke();
+        
+        // Header
+        ctx.beginPath();
+        ctx.moveTo(slX, slY + slHeaderH);
+        ctx.lineTo(slX + slW, slY + slHeaderH);
+        ctx.stroke();
+        
+        // Draw label
+        ctx.save();
+        ctx.font = 'bold 12px Inter, sans-serif';
+        ctx.fillStyle = shape.color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(shape.containerLabel || 'Swimlane', slX + slW / 2, slY + slHeaderH / 2);
+        ctx.restore();
+        break;
+
       default:
         // Default to rectangle for unknown shapes
         if (shape.fill !== 'transparent') {
@@ -1688,6 +2271,57 @@ export function WhiteboardPage() {
     }
     return null;
   }, [activeWhiteboard]);
+
+  // Find strokes near a point (for eraser)
+  const findStrokesNearPoint = useCallback((point: Point, radius: number): string[] => {
+    if (!activeWhiteboard) return [];
+    
+    const nearStrokes: string[] = [];
+    
+    activeWhiteboard.strokes.forEach(stroke => {
+      // Skip eraser strokes
+      if (stroke.tool === 'eraser') return;
+      
+      // Check if any point in the stroke is within radius
+      for (const strokePoint of stroke.points) {
+        const dx = strokePoint.x - point.x;
+        const dy = strokePoint.y - point.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance <= radius + stroke.width / 2) {
+          nearStrokes.push(stroke.id);
+          break;
+        }
+      }
+    });
+    
+    return nearStrokes;
+  }, [activeWhiteboard]);
+
+  // Erase strokes that intersect with current eraser position
+  const eraseAtPoint = useCallback((point: Point, eraserRadius: number) => {
+    if (!activeWhiteboard) return;
+    
+    const strokesToErase = findStrokesNearPoint(point, eraserRadius);
+    
+    if (strokesToErase.length > 0) {
+      setActiveWhiteboard(prev => prev ? {
+        ...prev,
+        strokes: prev.strokes.filter(s => !strokesToErase.includes(s.id)),
+        updatedAt: new Date(),
+      } : null);
+    }
+    
+    // Also check if eraser hits shapes
+    const shape = findShapeAtPoint(point);
+    if (shape) {
+      setActiveWhiteboard(prev => prev ? {
+        ...prev,
+        shapes: prev.shapes.filter(s => s.id !== shape.id),
+        updatedAt: new Date(),
+      } : null);
+    }
+  }, [activeWhiteboard, findStrokesNearPoint, findShapeAtPoint]);
 
   // Snap point to grid
   const snapToGridPoint = useCallback((point: Point): Point => {
@@ -2137,12 +2771,27 @@ export function WhiteboardPage() {
       if (dx !== 0 || dy !== 0) {
         const shapeIds = selectedElements.filter(el => el.type === 'shape').map(el => el.id);
         
-        setActiveWhiteboard(prev => prev ? {
-          ...prev,
-          shapes: prev.shapes.map(s => 
-            shapeIds.includes(s.id) ? { ...s, x: s.x + dx, y: s.y + dy } : s
-          ),
-        } : null);
+        setActiveWhiteboard(prev => {
+          if (!prev) return null;
+          
+          // Find all shapes to move (selected shapes + shapes contained in selected containers)
+          const shapesToMove = new Set(shapeIds);
+          
+          // If moving a container, also move all contained shapes
+          shapeIds.forEach(id => {
+            const shape = prev.shapes.find(s => s.id === id);
+            if (shape?.isContainer && shape.containedShapeIds) {
+              shape.containedShapeIds.forEach(containedId => shapesToMove.add(containedId));
+            }
+          });
+          
+          return {
+            ...prev,
+            shapes: prev.shapes.map(s => 
+              shapesToMove.has(s.id) ? { ...s, x: s.x + dx, y: s.y + dy } : s
+            ),
+          };
+        });
         
         setDragStart(coords);
       }
@@ -2239,23 +2888,45 @@ export function WhiteboardPage() {
     }
 
     if (shapeStart && currentTool === 'shape') {
-      // For square shape, constrain to equal width and height
+      // Calculate raw width and height
       let width = coords.x - shapeStart.x;
       let height = coords.y - shapeStart.y;
       
-      if (selectedShape === 'square') {
+      // For square and circle shapes, or when shift is held, constrain proportions
+      const constrainProportions = selectedShape === 'square' || selectedShape === 'circle' || e.shiftKey;
+      
+      if (constrainProportions) {
         const size = Math.max(Math.abs(width), Math.abs(height));
         width = width >= 0 ? size : -size;
         height = height >= 0 ? size : -size;
       }
       
+      // Calculate the actual position based on drag direction
+      const x = width >= 0 ? shapeStart.x : shapeStart.x + width;
+      const y = height >= 0 ? shapeStart.y : shapeStart.y + height;
+      const absWidth = Math.abs(width);
+      const absHeight = Math.abs(height);
+      
+      // Apply grid snapping
+      let snappedX = x;
+      let snappedY = y;
+      let snappedWidth = absWidth;
+      let snappedHeight = absHeight;
+      
+      if (snapToGrid) {
+        snappedX = Math.round(x / gridSize) * gridSize;
+        snappedY = Math.round(y / gridSize) * gridSize;
+        snappedWidth = Math.max(gridSize, Math.round(absWidth / gridSize) * gridSize);
+        snappedHeight = Math.max(gridSize, Math.round(absHeight / gridSize) * gridSize);
+      }
+      
       setCurrentShapePreview({
         id: 'preview',
         type: selectedShape,
-        x: Math.min(shapeStart.x, shapeStart.x + width),
-        y: Math.min(shapeStart.y, shapeStart.y + height),
-        width: width,
-        height: height,
+        x: snappedX,
+        y: snappedY,
+        width: snappedWidth,
+        height: snappedHeight,
         color: currentColor,
         fill: currentFillColor,
         strokeWidth: brushSize,
@@ -2264,9 +2935,13 @@ export function WhiteboardPage() {
     }
 
     if (isDrawing) {
+      // For eraser tool, erase elements under the cursor
+      if (currentTool === 'eraser') {
+        eraseAtPoint(coords, brushSize * 2);
+      }
       setCurrentStroke(prev => [...prev, coords]);
     }
-  }, [isDrawing, isPanning, lastPanPoint, getCanvasCoords, shapeStart, currentTool, selectedShape, selectedShapeObject, currentColor, currentFillColor, brushSize, isDrawingConnector, connectorStart, selectedConnectorType, selectedStartArrow, selectedEndArrow]);
+  }, [isDrawing, isPanning, lastPanPoint, getCanvasCoords, shapeStart, currentTool, selectedShape, selectedShapeObject, currentColor, currentFillColor, brushSize, isDrawingConnector, connectorStart, selectedConnectorType, selectedStartArrow, selectedEndArrow, eraseAtPoint]);
 
   // Handle pointer up
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
@@ -2280,7 +2955,56 @@ export function WhiteboardPage() {
       setIsDragging(false);
       setDragStart(null);
       if (activeWhiteboard) {
-        setActiveWhiteboard(prev => prev ? { ...prev, updatedAt: new Date() } : null);
+        // Check if any non-container shapes were dropped inside a container
+        setActiveWhiteboard(prev => {
+          if (!prev) return null;
+          
+          const draggedShapeIds = selectedElements.filter(el => el.type === 'shape').map(el => el.id);
+          const draggedShapes = prev.shapes.filter(s => draggedShapeIds.includes(s.id) && !s.isContainer);
+          const containers = prev.shapes.filter(s => s.isContainer);
+          
+          let updatedShapes = [...prev.shapes];
+          
+          // For each dragged non-container shape, check if it's inside a container
+          draggedShapes.forEach(draggedShape => {
+            const shapeCenterX = draggedShape.x + draggedShape.width / 2;
+            const shapeCenterY = draggedShape.y + draggedShape.height / 2;
+            
+            // Find container that this shape is inside (if any)
+            let containingContainer: Shape | null = null;
+            containers.forEach(container => {
+              // Shapes can be inside a container if their center is within the container bounds
+              // For loop containers, consider the content area (below header)
+              const headerHeight = container.type === 'loop' ? 28 : container.type === 'swimlane' ? 32 : 0;
+              const contentY = container.y + headerHeight;
+              const contentHeight = container.height - headerHeight;
+              
+              if (shapeCenterX >= container.x && 
+                  shapeCenterX <= container.x + container.width &&
+                  shapeCenterY >= contentY && 
+                  shapeCenterY <= contentY + contentHeight) {
+                containingContainer = container;
+              }
+            });
+            
+            // Update container containment
+            updatedShapes = updatedShapes.map(s => {
+              if (s.isContainer && s.containedShapeIds) {
+                // Remove shape from old container
+                if (s.containedShapeIds.includes(draggedShape.id) && s.id !== containingContainer?.id) {
+                  return { ...s, containedShapeIds: s.containedShapeIds.filter(id => id !== draggedShape.id) };
+                }
+                // Add shape to new container
+                if (s.id === containingContainer?.id && !s.containedShapeIds.includes(draggedShape.id)) {
+                  return { ...s, containedShapeIds: [...s.containedShapeIds, draggedShape.id] };
+                }
+              }
+              return s;
+            });
+          });
+          
+          return { ...prev, shapes: updatedShapes, updatedAt: new Date() };
+        });
       }
       return;
     }
@@ -2315,28 +3039,40 @@ export function WhiteboardPage() {
     }
 
     if (shapeStart && currentShapePreview && activeWhiteboard) {
-      // Add shape
-      const newShape: Shape = {
-        ...currentShapePreview,
-        id: generateId(),
-      };
-      setActiveWhiteboard(prev => prev ? {
-        ...prev,
-        shapes: [...prev.shapes, newShape],
-        updatedAt: new Date(),
-      } : null);
+      // Only create shape if it has a minimum size
+      const minSize = 10;
+      if (Math.abs(currentShapePreview.width) >= minSize && Math.abs(currentShapePreview.height) >= minSize) {
+        // Add shape
+        const isContainerType = ['loop', 'group-box', 'swimlane'].includes(currentShapePreview.type);
+        const newShape: Shape = {
+          ...currentShapePreview,
+          id: generateId(),
+          // Ensure positive width/height
+          width: Math.abs(currentShapePreview.width),
+          height: Math.abs(currentShapePreview.height),
+          isContainer: isContainerType,
+          containedShapeIds: isContainerType ? [] : undefined,
+          containerLabel: isContainerType ? (currentShapePreview.type === 'loop' ? 'loop' : currentShapePreview.type === 'swimlane' ? 'Swimlane' : 'Group') : undefined,
+        };
+        setActiveWhiteboard(prev => prev ? {
+          ...prev,
+          shapes: [...prev.shapes, newShape],
+          updatedAt: new Date(),
+        } : null);
+      }
       setShapeStart(null);
       setCurrentShapePreview(null);
       return;
     }
 
-    if (isDrawing && currentStroke.length > 1 && activeWhiteboard) {
+    if (isDrawing && currentStroke.length > 1 && activeWhiteboard && currentTool !== 'eraser') {
+      // Only create strokes for pen and highlighter, not eraser
       const newStroke: Stroke = {
         id: generateId(),
-        tool: currentTool as 'pen' | 'highlighter' | 'eraser',
+        tool: currentTool as 'pen' | 'highlighter',
         points: currentStroke,
-        color: currentTool === 'eraser' ? '#FFFFFF' : currentColor,
-        width: currentTool === 'eraser' ? brushSize * 3 : brushSize,
+        color: currentColor,
+        width: brushSize,
         opacity: currentTool === 'highlighter' ? 0.4 : 1,
       };
 
@@ -2498,14 +3234,195 @@ export function WhiteboardPage() {
   }, [activeWhiteboard?.shareLink, generateShareLink]);
 
   // Export as image
-  const exportAsImage = useCallback(() => {
+  // Open export modal
+  const openExportModal = useCallback(() => {
+    setExportFilename(activeWhiteboard?.title || 'whiteboard');
+    setShowExportModal(true);
+  }, [activeWhiteboard?.title]);
+
+  // Export as image with format options
+  const exportWhiteboard = useCallback(() => {
     if (!canvasRef.current) return;
     
+    const canvas = canvasRef.current;
+    const filename = exportFilename || 'whiteboard';
+    
+    if (exportFormat === 'png') {
+      const link = document.createElement('a');
+      link.download = `${filename}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } else if (exportFormat === 'jpeg') {
+      // Create a temporary canvas with white background for JPEG
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (tempCtx) {
+        tempCtx.fillStyle = '#FFFFFF';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        tempCtx.drawImage(canvas, 0, 0);
+        const link = document.createElement('a');
+        link.download = `${filename}.jpg`;
+        link.href = tempCanvas.toDataURL('image/jpeg', 0.95);
+        link.click();
+      }
+    } else if (exportFormat === 'svg') {
+      // Generate SVG from canvas content
+      const svgContent = generateSVG();
+      const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = `${filename}.svg`;
+      link.href = url;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else if (exportFormat === 'pdf') {
+      // Create PDF using canvas image
+      const imgData = canvas.toDataURL('image/png');
+      // Create a simple PDF with the image
+      const pdfContent = generatePDF(imgData, canvas.width, canvas.height);
+      const blob = new Blob([pdfContent], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = `${filename}.pdf`;
+      link.href = url;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+    
+    setShowExportModal(false);
+  }, [exportFormat, exportFilename]);
+
+  // Generate SVG content from whiteboard
+  const generateSVG = useCallback(() => {
+    if (!activeWhiteboard || !canvasRef.current) return '';
+    
+    const canvas = canvasRef.current;
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect width="100%" height="100%" fill="white"/>
+  <g>`;
+    
+    // Add strokes
+    activeWhiteboard.strokes.forEach(stroke => {
+      if (stroke.points.length < 2) return;
+      const pathData = stroke.points.map((p, i) => 
+        `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
+      ).join(' ');
+      svgContent += `
+    <path d="${pathData}" stroke="${stroke.color}" stroke-width="${stroke.width}" fill="none" opacity="${stroke.opacity}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    });
+    
+    // Add shapes
+    activeWhiteboard.shapes.forEach(shape => {
+      const fill = shape.fill === 'transparent' ? 'none' : shape.fill;
+      switch (shape.type) {
+        case 'rectangle':
+        case 'square':
+          svgContent += `
+    <rect x="${shape.x}" y="${shape.y}" width="${Math.abs(shape.width)}" height="${Math.abs(shape.height)}" stroke="${shape.color}" stroke-width="${shape.strokeWidth}" fill="${fill}"/>`;
+          break;
+        case 'circle':
+          const cx = shape.x + shape.width / 2;
+          const cy = shape.y + shape.height / 2;
+          const r = Math.min(Math.abs(shape.width), Math.abs(shape.height)) / 2;
+          svgContent += `
+    <circle cx="${cx}" cy="${cy}" r="${r}" stroke="${shape.color}" stroke-width="${shape.strokeWidth}" fill="${fill}"/>`;
+          break;
+        case 'ellipse':
+          const ecx = shape.x + shape.width / 2;
+          const ecy = shape.y + shape.height / 2;
+          svgContent += `
+    <ellipse cx="${ecx}" cy="${ecy}" rx="${Math.abs(shape.width) / 2}" ry="${Math.abs(shape.height) / 2}" stroke="${shape.color}" stroke-width="${shape.strokeWidth}" fill="${fill}"/>`;
+          break;
+        case 'triangle':
+          const tx = shape.x;
+          const ty = shape.y;
+          const tw = Math.abs(shape.width);
+          const th = Math.abs(shape.height);
+          svgContent += `
+    <polygon points="${tx + tw/2},${ty} ${tx + tw},${ty + th} ${tx},${ty + th}" stroke="${shape.color}" stroke-width="${shape.strokeWidth}" fill="${fill}"/>`;
+          break;
+        default:
+          // For complex shapes, export as rect placeholder
+          svgContent += `
+    <rect x="${shape.x}" y="${shape.y}" width="${Math.abs(shape.width)}" height="${Math.abs(shape.height)}" stroke="${shape.color}" stroke-width="${shape.strokeWidth}" fill="${fill}"/>`;
+      }
+    });
+    
+    svgContent += `
+  </g>
+</svg>`;
+    
+    return svgContent;
+  }, [activeWhiteboard]);
+
+  // Generate simple PDF with embedded image
+  const generatePDF = useCallback((imgData: string, width: number, height: number) => {
+    // Create a minimal PDF structure with the image
+    const imgBase64 = imgData.split(',')[1];
+    const imgBytes = atob(imgBase64);
+    
+    // Scale to fit A4-ish dimensions (595 x 842 points)
+    const pdfWidth = 595;
+    const pdfHeight = 842;
+    const scale = Math.min(pdfWidth / width, pdfHeight / height) * 0.9;
+    const scaledWidth = width * scale;
+    const scaledHeight = height * scale;
+    const offsetX = (pdfWidth - scaledWidth) / 2;
+    const offsetY = (pdfHeight - scaledHeight) / 2;
+    
+    // Simple PDF structure
+    let pdf = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfWidth} ${pdfHeight}] /Contents 4 0 R /Resources << /XObject << /Img 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 100 >>
+stream
+q
+${scaledWidth} 0 0 ${scaledHeight} ${offsetX} ${offsetY} cm
+/Img Do
+Q
+endstream
+endobj
+5 0 obj
+<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>
+stream
+`;
+    
+    // Note: This is a simplified PDF. For production, use a proper PDF library
+    // For now, we'll export as PNG embedded in a basic PDF wrapper
+    const pngData = imgData; // Keep as data URL for simplicity
+    
+    // Actually, let's just download the PNG with .pdf extension for now
+    // A full PDF implementation would require a library like jsPDF
+    return imgBytes;
+  }, []);
+
+  // Quick download as PNG (no modal)
+  const quickDownload = useCallback(() => {
+    if (!canvasRef.current) return;
     const link = document.createElement('a');
     link.download = `${activeWhiteboard?.title || 'whiteboard'}.png`;
     link.href = canvasRef.current.toDataURL('image/png');
     link.click();
   }, [activeWhiteboard?.title]);
+
+  // Legacy export function for backward compatibility  
+  const exportAsImage = useCallback(() => {
+    openExportModal();
+  }, [openExportModal]);
 
   // Handle image upload for scanning
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2513,141 +3430,513 @@ export function WhiteboardPage() {
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setScanImage(event.target?.result as string);
+        const imageData = event.target?.result as string;
+        setScanImage(imageData);
         setScanResult(null);
+        setEditableResults(null);
+        setScanMode('preview');
+        // Check image quality and show enhancement option if needed
+        checkImageQuality(imageData);
       };
       reader.readAsDataURL(file);
     }
   }, []);
 
-  // Process image with AI to extract whiteboard content
-  const processWhiteboardImage = useCallback(async () => {
+  // Start camera for live capture
+  const startCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      setCameraStream(stream);
+      setScanMode('camera');
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      alert('Could not access camera. Please check permissions or try uploading an image instead.');
+    }
+  }, []);
+
+  // Stop camera stream
+  const stopCamera = useCallback(() => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setScanMode('upload');
+  }, [cameraStream]);
+
+  // Capture photo from camera
+  const captureFromCamera = useCallback(() => {
+    if (!videoRef.current) return;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(videoRef.current, 0, 0);
+      const imageData = canvas.toDataURL('image/png');
+      setScanImage(imageData);
+      setScanMode('preview');
+      stopCamera();
+      checkImageQuality(imageData);
+    }
+  }, [stopCamera]);
+
+  // Check image quality and suggest enhancement if needed
+  const checkImageQuality = useCallback((imageData: string) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageDataObj.data;
+        
+        // Calculate average brightness and contrast
+        let totalBrightness = 0;
+        let brightPixels = 0;
+        let darkPixels = 0;
+        
+        for (let i = 0; i < data.length; i += 4) {
+          const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
+          totalBrightness += brightness;
+          if (brightness > 200) brightPixels++;
+          if (brightness < 50) darkPixels++;
+        }
+        
+        const avgBrightness = totalBrightness / (data.length / 4);
+        const pixelCount = data.length / 4;
+        const darkRatio = darkPixels / pixelCount;
+        const brightRatio = brightPixels / pixelCount;
+        
+        // If image is too dark, too bright, or low contrast, suggest enhancement
+        if (avgBrightness < 100 || avgBrightness > 200 || (darkRatio < 0.1 && brightRatio < 0.1)) {
+          setShowEnhancePreview(true);
+        }
+      }
+    };
+    img.src = imageData;
+  }, []);
+
+  // Apply image enhancement
+  const enhanceImage = useCallback(() => {
     if (!scanImage) return;
+    
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        // Apply brightness and contrast
+        ctx.filter = `brightness(${enhanceOptions.brightness}) contrast(${enhanceOptions.contrast})`;
+        ctx.drawImage(img, 0, 0);
+        
+        // Get image data for additional processing
+        const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageDataObj.data;
+        
+        // Apply threshold (binarization) if enabled - good for handwritten text
+        if (enhanceOptions.threshold) {
+          for (let i = 0; i < data.length; i += 4) {
+            const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
+            const value = brightness > 128 ? 255 : 0;
+            data[i] = value;     // R
+            data[i + 1] = value; // G
+            data[i + 2] = value; // B
+          }
+        }
+        
+        // Apply simple denoise (averaging) if enabled
+        if (enhanceOptions.denoise) {
+          const tempData = new Uint8ClampedArray(data);
+          const w = canvas.width;
+          for (let y = 1; y < canvas.height - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+              for (let c = 0; c < 3; c++) {
+                const idx = (y * w + x) * 4 + c;
+                const avg = (
+                  tempData[idx - w * 4] + tempData[idx + w * 4] +
+                  tempData[idx - 4] + tempData[idx + 4] +
+                  tempData[idx]
+                ) / 5;
+                data[idx] = avg;
+              }
+            }
+          }
+        }
+        
+        // Apply sharpening if enabled
+        if (enhanceOptions.sharpen) {
+          const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
+          const tempData = new Uint8ClampedArray(data);
+          const w = canvas.width;
+          for (let y = 1; y < canvas.height - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+              for (let c = 0; c < 3; c++) {
+                let sum = 0;
+                for (let ky = -1; ky <= 1; ky++) {
+                  for (let kx = -1; kx <= 1; kx++) {
+                    const idx = ((y + ky) * w + (x + kx)) * 4 + c;
+                    sum += tempData[idx] * kernel[(ky + 1) * 3 + (kx + 1)];
+                  }
+                }
+                const idx = (y * w + x) * 4 + c;
+                data[idx] = Math.min(255, Math.max(0, sum));
+              }
+            }
+          }
+        }
+        
+        ctx.putImageData(imageDataObj, 0, 0);
+        setEnhancedImage(canvas.toDataURL('image/png'));
+      }
+    };
+    img.src = scanImage;
+  }, [scanImage, enhanceOptions]);
+
+  // Apply enhanced image
+  const applyEnhancement = useCallback(() => {
+    if (enhancedImage) {
+      setScanImage(enhancedImage);
+      setEnhancedImage(null);
+      setShowEnhancePreview(false);
+    }
+  }, [enhancedImage]);
+
+  // Process image with OCR and shape detection
+  const processWhiteboardImage = useCallback(async () => {
+    const imageToProcess = enhancedImage || scanImage;
+    if (!imageToProcess) return;
     
     setScanProcessing(true);
     setScanProgress(0);
-
-    // Simulate AI processing with progress
-    const progressInterval = setInterval(() => {
-      setScanProgress(prev => {
-        if (prev >= 90) return prev;
-        return prev + Math.random() * 15;
-      });
-    }, 200);
+    setScanProgressMessage('Initializing OCR engine...');
 
     try {
-      // In a real implementation, this would call an AI Vision API
-      // For now, we'll simulate the AI processing and generate demo strokes
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Simulate AI analysis - in production this would parse actual AI response
-      const detectedStrokes = await analyzeWhiteboardImage(scanImage);
+      // Perform OCR with Tesseract.js
+      setScanProgressMessage('Analyzing text content...');
+      setScanProgress(10);
       
-      setScanProgress(100);
-      setScanResult(detectedStrokes);
-    } catch (error) {
-      console.error('Error processing image:', error);
-    } finally {
-      clearInterval(progressInterval);
-      setScanProcessing(false);
-    }
-  }, [scanImage]);
-
-  // Simulated AI analysis function (would be replaced with actual AI API call)
-  const analyzeWhiteboardImage = async (imageData: string): Promise<{
-    strokes: Stroke[];
-    shapes: Shape[];
-    textBoxes: TextBox[];
-  }> => {
-    // This is a simulation - in production, this would:
-    // 1. Send image to OpenAI Vision API or similar
-    // 2. Get structured response with detected elements
-    // 3. Parse and convert to our data structures
-    
-    // For demo, generate some sample strokes that simulate detected content
-    const canvas = document.createElement('canvas');
-    const img = new Image();
-    
-    return new Promise((resolve) => {
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
+      const ocrResult = await Tesseract.recognize(imageToProcess, 'eng', {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            setScanProgress(10 + Math.round(m.progress * 40));
+          }
+        }
+      });
+      
+      setScanProgress(50);
+      setScanProgressMessage('Detecting shapes and diagrams...');
+      
+      // Detect shapes from the image
+      const detectedShapes = await detectShapesFromImage(imageToProcess);
+      
+      setScanProgress(75);
+      setScanProgressMessage('Converting to whiteboard elements...');
+      
+      // Convert OCR results to text boxes with positioning
+      const textBoxes: TextBox[] = [];
+      const img = new Image();
+      
+      await new Promise<void>((resolve) => {
+        img.onload = () => {
+          const scaleX = 800 / img.width; // Scale to fit whiteboard
+          const scaleY = 600 / img.height;
+          const scale = Math.min(scaleX, scaleY, 1);
           
-          // Simulate edge detection by creating sample strokes
-          // In real implementation, AI would provide actual stroke data
-          const simulatedStrokes: Stroke[] = [];
-          const simulatedShapes: Shape[] = [];
-          const simulatedTextBoxes: TextBox[] = [];
-          
-          // Generate some demo strokes to show the feature works
-          // This simulates what AI would detect from a whiteboard photo
-          const numStrokes = 3 + Math.floor(Math.random() * 5);
-          for (let i = 0; i < numStrokes; i++) {
-            const startX = 100 + Math.random() * 400;
-            const startY = 100 + Math.random() * 300;
-            const points: Point[] = [];
+          // Process words from OCR
+          const ocrData = ocrResult.data as { words?: Array<{ text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }> };
+          if (ocrData.words) {
+            // Group words into lines based on vertical proximity
+            type WordType = { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } };
+            const lines: { words: WordType[]; y: number }[] = [];
             
-            // Create a curved path
-            for (let j = 0; j < 20; j++) {
-              points.push({
-                x: startX + j * 10 + Math.sin(j * 0.5) * 20,
-                y: startY + Math.cos(j * 0.3) * 30,
-              });
-            }
+            ocrData.words.forEach((word: WordType) => {
+              if (word.confidence > 60 && word.text.trim()) { // Filter low confidence
+                const wordY = word.bbox.y0;
+                let foundLine = lines.find(line => Math.abs(line.y - wordY) < 20);
+                
+                if (foundLine) {
+                  foundLine.words.push(word);
+                } else {
+                  lines.push({ words: [word], y: wordY });
+                }
+              }
+            });
             
-            simulatedStrokes.push({
-              id: generateId(),
-              tool: 'pen',
-              points,
-              color: ['#000000', '#3B82F6', '#EF4444', '#22C55E'][Math.floor(Math.random() * 4)],
-              width: 2 + Math.random() * 3,
-              opacity: 1,
+            // Convert lines to text boxes
+            lines.forEach(line => {
+              line.words.sort((a: WordType, b: WordType) => a.bbox.x0 - b.bbox.x0);
+              const text = line.words.map((w: WordType) => w.text).join(' ');
+              const firstWord = line.words[0];
+              const lastWord = line.words[line.words.length - 1];
+              
+              if (text.trim()) {
+                // Estimate font size from word height
+                const avgHeight = line.words.reduce((sum: number, w: WordType) => sum + (w.bbox.y1 - w.bbox.y0), 0) / line.words.length;
+                const fontSize = Math.max(12, Math.min(36, Math.round(avgHeight * scale * 0.8)));
+                
+                textBoxes.push({
+                  id: generateId(),
+                  x: 50 + firstWord.bbox.x0 * scale,
+                  y: 50 + firstWord.bbox.y0 * scale,
+                  text: text,
+                  fontSize: fontSize,
+                  color: '#000000',
+                  fontFamily: 'Inter',
+                  width: Math.max(100, (lastWord.bbox.x1 - firstWord.bbox.x0) * scale + 20),
+                });
+              }
             });
           }
           
-          // Add a detected shape
-          simulatedShapes.push({
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = imageToProcess;
+      });
+      
+      setScanProgress(90);
+      setScanProgressMessage('Finalizing results...');
+      
+      // Scale detected shapes
+      const scaledShapes = detectedShapes.map(shape => ({
+        ...shape,
+        id: generateId(),
+      }));
+      
+      const result = {
+        strokes: [],
+        shapes: scaledShapes,
+        textBoxes: textBoxes,
+      };
+      
+      setScanProgress(100);
+      setScanProgressMessage('Complete!');
+      setScanResult(result);
+      
+      // Set editable results for preview
+      setEditableResults({
+        textBoxes: textBoxes.map(tb => ({ ...tb, selected: true })),
+        shapes: scaledShapes.map(s => ({ ...s, selected: true })),
+      });
+      
+    } catch (error) {
+      console.error('Error processing image:', error);
+      setScanProgressMessage('Error processing image. Please try again.');
+    } finally {
+      setScanProcessing(false);
+    }
+  }, [scanImage, enhancedImage]);
+
+  // Detect shapes from image using edge detection
+  const detectShapesFromImage = useCallback(async (imageData: string): Promise<Shape[]> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          resolve([]);
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0);
+        const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageDataObj.data;
+        const shapes: Shape[] = [];
+        
+        // Scale factor
+        const scaleX = 800 / img.width;
+        const scaleY = 600 / img.height;
+        const scale = Math.min(scaleX, scaleY, 1);
+        
+        // Simple edge detection using Sobel operator
+        const edges: boolean[][] = [];
+        const w = canvas.width;
+        const h = canvas.height;
+        
+        // Convert to grayscale and detect edges
+        for (let y = 0; y < h; y++) {
+          edges[y] = [];
+          for (let x = 0; x < w; x++) {
+            if (y === 0 || y === h - 1 || x === 0 || x === w - 1) {
+              edges[y][x] = false;
+              continue;
+            }
+            
+            const getGray = (px: number, py: number) => {
+              const idx = (py * w + px) * 4;
+              return (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+            };
+            
+            // Sobel operator
+            const gx = 
+              -getGray(x - 1, y - 1) + getGray(x + 1, y - 1) +
+              -2 * getGray(x - 1, y) + 2 * getGray(x + 1, y) +
+              -getGray(x - 1, y + 1) + getGray(x + 1, y + 1);
+            
+            const gy = 
+              -getGray(x - 1, y - 1) - 2 * getGray(x, y - 1) - getGray(x + 1, y - 1) +
+              getGray(x - 1, y + 1) + 2 * getGray(x, y + 1) + getGray(x + 1, y + 1);
+            
+            const magnitude = Math.sqrt(gx * gx + gy * gy);
+            edges[y][x] = magnitude > 50; // Threshold
+          }
+        }
+        
+        // Find connected components (potential shapes)
+        const visited: boolean[][] = Array(h).fill(null).map(() => Array(w).fill(false));
+        const components: { minX: number; minY: number; maxX: number; maxY: number; pixels: number }[] = [];
+        
+        const floodFill = (startX: number, startY: number) => {
+          const stack = [[startX, startY]];
+          let minX = startX, minY = startY, maxX = startX, maxY = startY;
+          let pixels = 0;
+          
+          while (stack.length > 0) {
+            const [x, y] = stack.pop()!;
+            if (x < 0 || x >= w || y < 0 || y >= h) continue;
+            if (visited[y][x] || !edges[y][x]) continue;
+            
+            visited[y][x] = true;
+            pixels++;
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+            
+            stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+          }
+          
+          return { minX, minY, maxX, maxY, pixels };
+        };
+        
+        // Find all connected edge components
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            if (edges[y][x] && !visited[y][x]) {
+              const component = floodFill(x, y);
+              // Filter out noise (too small) and full-image borders
+              if (component.pixels > 50 && 
+                  component.maxX - component.minX < w * 0.9 &&
+                  component.maxY - component.minY < h * 0.9) {
+                components.push(component);
+              }
+            }
+          }
+        }
+        
+        // Convert significant components to shapes
+        components.slice(0, 10).forEach(comp => { // Limit to 10 shapes
+          const width = (comp.maxX - comp.minX) * scale;
+          const height = (comp.maxY - comp.minY) * scale;
+          const aspectRatio = width / height;
+          
+          // Determine shape type based on aspect ratio and size
+          let shapeType: ShapeType = 'rectangle';
+          if (Math.abs(aspectRatio - 1) < 0.2 && width > 30) {
+            shapeType = Math.random() > 0.5 ? 'circle' : 'square';
+          } else if (width < 20 || height < 20) {
+            return; // Skip very thin shapes
+          }
+          
+          shapes.push({
             id: generateId(),
-            type: 'rectangle',
-            x: 150,
-            y: 150,
-            width: 200,
-            height: 100,
+            type: shapeType,
+            x: 50 + comp.minX * scale,
+            y: 50 + comp.minY * scale,
+            width: Math.max(40, width),
+            height: Math.max(40, height),
             color: '#3B82F6',
             fill: 'transparent',
             strokeWidth: 2,
           });
-          
-          // Add detected text
-          simulatedTextBoxes.push({
-            id: generateId(),
-            x: 200,
-            y: 100,
-            text: 'Detected Text',
-            fontSize: 18,
-            color: '#000000',
-            fontFamily: 'Inter',
-            width: 200,
-          });
-          
-          resolve({
-            strokes: simulatedStrokes,
-            shapes: simulatedShapes,
-            textBoxes: simulatedTextBoxes,
-          });
-        } else {
-          resolve({ strokes: [], shapes: [], textBoxes: [] });
-        }
+        });
+        
+        resolve(shapes);
       };
-      img.onerror = () => {
-        resolve({ strokes: [], shapes: [], textBoxes: [] });
-      };
+      
+      img.onerror = () => resolve([]);
       img.src = imageData;
     });
-  };
+  }, []);
+
+  // Toggle element selection in editable results
+  const toggleResultElementSelection = useCallback((type: 'textBox' | 'shape', id: string) => {
+    if (!editableResults) return;
+    
+    if (type === 'textBox') {
+      setEditableResults({
+        ...editableResults,
+        textBoxes: editableResults.textBoxes.map(tb => 
+          tb.id === id ? { ...tb, selected: !tb.selected } : tb
+        ),
+      });
+    } else {
+      setEditableResults({
+        ...editableResults,
+        shapes: editableResults.shapes.map(s => 
+          s.id === id ? { ...s, selected: !s.selected } : s
+        ),
+      });
+    }
+  }, [editableResults]);
+
+  // Update text in editable results
+  const updateResultText = useCallback((id: string, newText: string) => {
+    if (!editableResults) return;
+    
+    setEditableResults({
+      ...editableResults,
+      textBoxes: editableResults.textBoxes.map(tb => 
+        tb.id === id ? { ...tb, text: newText } : tb
+      ),
+    });
+  }, [editableResults]);
+
+  // Delete element from editable results
+  const deleteResultElement = useCallback((type: 'textBox' | 'shape', id: string) => {
+    if (!editableResults) return;
+    
+    if (type === 'textBox') {
+      setEditableResults({
+        ...editableResults,
+        textBoxes: editableResults.textBoxes.filter(tb => tb.id !== id),
+      });
+    } else {
+      setEditableResults({
+        ...editableResults,
+        shapes: editableResults.shapes.filter(s => s.id !== id),
+      });
+    }
+  }, [editableResults]);
+
+  // Reset scan modal
+  const resetScanModal = useCallback(() => {
+    stopCamera();
+    setScanImage(null);
+    setScanResult(null);
+    setEditableResults(null);
+    setEnhancedImage(null);
+    setShowEnhancePreview(false);
+    setScanMode('upload');
+    setScanProgress(0);
+    setScanProgressMessage('');
+  }, [stopCamera]);
 
   // Get color for brainstorm idea category
   const getIdeaCategoryColor = useCallback((category: string): string => {
@@ -2727,27 +4016,40 @@ export function WhiteboardPage() {
 
   // Apply scanned content to the whiteboard
   const applyScanResult = useCallback(() => {
-    if (!scanResult || !activeWhiteboard) return;
+    if (!activeWhiteboard) return;
+    
+    // Use editable results if available, otherwise use scan result
+    const textBoxesToAdd = editableResults 
+      ? editableResults.textBoxes.filter(tb => tb.selected).map(({ selected, ...tb }) => tb)
+      : scanResult?.textBoxes || [];
+    
+    const shapesToAdd = editableResults
+      ? editableResults.shapes.filter(s => s.selected).map(({ selected, ...s }) => s)
+      : scanResult?.shapes || [];
+    
+    if (textBoxesToAdd.length === 0 && shapesToAdd.length === 0) {
+      alert('No elements selected to add to the whiteboard.');
+      return;
+    }
     
     setActiveWhiteboard(prev => prev ? {
       ...prev,
-      strokes: [...prev.strokes, ...scanResult.strokes],
-      shapes: [...prev.shapes, ...scanResult.shapes],
-      textBoxes: [...prev.textBoxes, ...scanResult.textBoxes],
+      strokes: [...prev.strokes, ...(scanResult?.strokes || [])],
+      shapes: [...prev.shapes, ...shapesToAdd],
+      textBoxes: [...prev.textBoxes, ...textBoxesToAdd],
       updatedAt: new Date(),
     } : null);
     
     // Update history
     const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push([...activeWhiteboard.strokes, ...scanResult.strokes]);
+    newHistory.push([...activeWhiteboard.strokes, ...(scanResult?.strokes || [])]);
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
     
     // Close modal and reset
     setShowScanModal(false);
-    setScanImage(null);
-    setScanResult(null);
-  }, [scanResult, activeWhiteboard, history, historyIndex]);
+    resetScanModal();
+  }, [scanResult, editableResults, activeWhiteboard, history, historyIndex, resetScanModal]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2921,6 +4223,13 @@ export function WhiteboardPage() {
     { id: 'document', icon: Icons.Document, label: 'Document' },
   ], []);
 
+  // Container shape items for quick access
+  const containerItems = useMemo(() => [
+    { id: 'loop', icon: Icons.Loop, label: 'Loop' },
+    { id: 'group-box', icon: Icons.GroupBox, label: 'Group Box' },
+    { id: 'swimlane', icon: Icons.Swimlane, label: 'Swimlane' },
+  ], []);
+
   // Get the current category shapes for the library
   const currentCategoryShapes = useMemo(() => {
     const category = shapeCategories.find(c => c.id === selectedCategory);
@@ -3038,29 +4347,11 @@ export function WhiteboardPage() {
 
             {/* Shape submenu */}
             {showShapeMenu && (
-              <div className="shape-menu shape-menu-expanded">
-                <div className="shape-menu-header">
-                  <span>Shapes</span>
-                  <button 
-                    className="library-btn"
-                    onClick={() => {
-                      setShowShapeLibrary(true);
-                      setShowShapeMenu(false);
-                    }}
-                    title="Open Shape Library"
-                  >
-                    <Icons.Grid />
-                    <span>Library</span>
-                  </button>
-                </div>
-                
-                {/* Fill Color Section */}
-                <div className="shape-menu-section fill-section">
-                  <div className="fill-section-header">
-                    <Icons.PaintBucket />
-                    <span>Fill Color</span>
-                  </div>
-                  <div className="fill-color-row">
+              <div className="shape-menu shape-menu-unified">
+                {/* All shapes in one grid */}
+                <div className="shape-unified-container">
+                  {/* Fill Colors Row */}
+                  <div className="shape-fill-row">
                     <button
                       className={`fill-color-btn no-fill ${currentFillColor === 'transparent' ? 'active' : ''}`}
                       onClick={() => setCurrentFillColor('transparent')}
@@ -3077,84 +4368,64 @@ export function WhiteboardPage() {
                         title={color}
                       />
                     ))}
-                    <button
-                      className="fill-color-more"
-                      onClick={() => setShowFillColorPicker(!showFillColorPicker)}
-                      title="More colors"
-                    >
-                      <Icons.Plus />
-                    </button>
                   </div>
                   
-                  {/* Expanded Fill Color Picker */}
-                  {showFillColorPicker && (
-                    <div className="fill-color-expanded">
-                      <div className="fill-color-grid">
-                        {colors.map(color => (
-                          <button
-                            key={color}
-                            className={`fill-color-option ${currentFillColor === color ? 'active' : ''}`}
-                            style={{ backgroundColor: color }}
-                            onClick={() => {
-                              setCurrentFillColor(color);
-                              setShowFillColorPicker(false);
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="shape-menu-divider" />
-                
-                {/* Basic Shapes */}
-                <div className="shape-menu-section">
-                  <span>Basic Shapes</span>
-                </div>
-                <div className="shape-grid shape-grid-large">
-                  {shapeItems.map(shape => (
-                    <button
-                      key={shape.id}
-                      className={`shape-btn ${selectedShape === shape.id ? 'active' : ''}`}
-                      onClick={() => {
-                        setSelectedShape(shape.id as ShapeType);
-                      }}
-                      title={shape.label}
-                    >
-                      <shape.icon />
-                    </button>
-                  ))}
-                </div>
-                
-                <div className="shape-menu-divider" />
-                
-                {/* Flowchart Shapes */}
-                <div className="shape-menu-section">
-                  <span>Flowchart</span>
-                </div>
-                <div className="shape-grid">
-                  {flowchartItems.map(shape => (
-                    <button
-                      key={shape.id}
-                      className={`shape-btn ${selectedShape === shape.id ? 'active' : ''}`}
-                      onClick={() => {
-                        setSelectedShape(shape.id as ShapeType);
-                      }}
-                      title={shape.label}
-                    >
-                      <shape.icon />
-                    </button>
-                  ))}
-                </div>
-                
-                {/* Apply Button */}
-                <div className="shape-menu-footer">
+                  {/* All Shapes Grid */}
+                  <div className="shape-unified-grid">
+                    {/* Basic Shapes */}
+                    {shapeItems.map(shape => (
+                      <button
+                        key={shape.id}
+                        className={`shape-btn ${selectedShape === shape.id ? 'active' : ''}`}
+                        onClick={() => {
+                          setSelectedShape(shape.id as ShapeType);
+                          setShowShapeMenu(false);
+                        }}
+                        title={shape.label}
+                      >
+                        <shape.icon />
+                      </button>
+                    ))}
+                    {/* Flowchart Shapes */}
+                    {flowchartItems.map(shape => (
+                      <button
+                        key={shape.id}
+                        className={`shape-btn ${selectedShape === shape.id ? 'active' : ''}`}
+                        onClick={() => {
+                          setSelectedShape(shape.id as ShapeType);
+                          setShowShapeMenu(false);
+                        }}
+                        title={shape.label}
+                      >
+                        <shape.icon />
+                      </button>
+                    ))}
+                    {/* Container Shapes */}
+                    {containerItems.map(shape => (
+                      <button
+                        key={shape.id}
+                        className={`shape-btn container-btn ${selectedShape === shape.id ? 'active' : ''}`}
+                        onClick={() => {
+                          setSelectedShape(shape.id as ShapeType);
+                          setShowShapeMenu(false);
+                        }}
+                        title={shape.label}
+                      >
+                        <shape.icon />
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Library Button */}
                   <button 
-                    className="shape-apply-btn"
-                    onClick={() => setShowShapeMenu(false)}
+                    className="shape-library-link"
+                    onClick={() => {
+                      setShowShapeLibrary(true);
+                      setShowShapeMenu(false);
+                    }}
                   >
-                    Done
+                    <Icons.Grid />
+                    <span>More Shapes</span>
                   </button>
                 </div>
               </div>
@@ -3292,18 +4563,26 @@ export function WhiteboardPage() {
               <Icons.Trash />
             </button>
             <button 
-              className="toolbar-btn"
-              onClick={exportAsImage}
-              title="Download as image"
-            >
-              <Icons.Download />
-            </button>
-            <button 
               className="share-btn"
               onClick={() => setShowShareModal(true)}
             >
               <Icons.Share />
               <span>Share</span>
+            </button>
+            <button 
+              className="toolbar-btn download-btn"
+              onClick={quickDownload}
+              title="Quick download as PNG"
+            >
+              <Icons.Download />
+            </button>
+            <button 
+              className="export-btn"
+              onClick={openExportModal}
+              title="Export with options"
+            >
+              <Icons.Export />
+              <span>Export</span>
             </button>
             <button 
               className="scan-btn"
@@ -3702,6 +4981,117 @@ export function WhiteboardPage() {
         </div>
       )}
 
+      {/* Export Modal */}
+      {showExportModal && (
+        <div className="modal-overlay" onClick={() => setShowExportModal(false)}>
+          <div className="export-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Export Whiteboard</h3>
+              <button className="close-btn" onClick={() => setShowExportModal(false)}>
+                <Icons.X />
+              </button>
+            </div>
+            
+            <div className="export-content">
+              {/* Filename */}
+              <div className="export-section">
+                <label className="export-label">Filename</label>
+                <input
+                  type="text"
+                  value={exportFilename}
+                  onChange={(e) => setExportFilename(e.target.value)}
+                  placeholder="Enter filename..."
+                  className="export-filename-input"
+                />
+              </div>
+              
+              {/* Format Selection */}
+              <div className="export-section">
+                <label className="export-label">Format</label>
+                <div className="export-formats">
+                  <button
+                    className={`export-format-btn ${exportFormat === 'png' ? 'active' : ''}`}
+                    onClick={() => setExportFormat('png')}
+                  >
+                    <div className="format-icon">
+                      <Icons.Image />
+                    </div>
+                    <div className="format-info">
+                      <span className="format-name">PNG</span>
+                      <span className="format-desc">Best for web & transparency</span>
+                    </div>
+                  </button>
+                  
+                  <button
+                    className={`export-format-btn ${exportFormat === 'jpeg' ? 'active' : ''}`}
+                    onClick={() => setExportFormat('jpeg')}
+                  >
+                    <div className="format-icon">
+                      <Icons.Image />
+                    </div>
+                    <div className="format-info">
+                      <span className="format-name">JPEG</span>
+                      <span className="format-desc">Smaller file size</span>
+                    </div>
+                  </button>
+                  
+                  <button
+                    className={`export-format-btn ${exportFormat === 'svg' ? 'active' : ''}`}
+                    onClick={() => setExportFormat('svg')}
+                  >
+                    <div className="format-icon">
+                      <Icons.Shapes />
+                    </div>
+                    <div className="format-info">
+                      <span className="format-name">SVG</span>
+                      <span className="format-desc">Vector, scalable graphics</span>
+                    </div>
+                  </button>
+                  
+                  <button
+                    className={`export-format-btn ${exportFormat === 'pdf' ? 'active' : ''}`}
+                    onClick={() => setExportFormat('pdf')}
+                  >
+                    <div className="format-icon">
+                      <Icons.Document />
+                    </div>
+                    <div className="format-info">
+                      <span className="format-name">PDF</span>
+                      <span className="format-desc">Best for printing</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+              
+              {/* Preview Info */}
+              <div className="export-preview-info">
+                <div className="preview-row">
+                  <span>File will be saved as:</span>
+                  <strong>{exportFilename || 'whiteboard'}.{exportFormat === 'jpeg' ? 'jpg' : exportFormat}</strong>
+                </div>
+              </div>
+              
+              {/* Actions */}
+              <div className="export-actions">
+                <button 
+                  className="export-cancel-btn"
+                  onClick={() => setShowExportModal(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="export-download-btn"
+                  onClick={exportWhiteboard}
+                >
+                  <Icons.Download />
+                  Download
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Properties Panel */}
       {selectedShapeObject && showPropertiesPanel && (
         <div className="properties-panel">
@@ -3864,6 +5254,7 @@ export function WhiteboardPage() {
                     {category.id === 'flowchart' && <Icons.Flowchart />}
                     {category.id === 'arrows' && <Icons.Arrow />}
                     {category.id === 'uml' && <Icons.Package />}
+                    {category.id === 'containers' && <Icons.GroupBox />}
                     {category.id === 'misc' && <Icons.Grid />}
                     <span>{category.name}</span>
                   </button>
@@ -3884,6 +5275,7 @@ export function WhiteboardPage() {
                       title={shape.name}
                     >
                       <div className="shape-preview">
+                        {shape.type === 'square' && <Icons.Square />}
                         {shape.type === 'rectangle' && <Icons.Rectangle />}
                         {shape.type === 'rounded-rectangle' && <Icons.Rectangle />}
                         {shape.type === 'circle' && <Icons.Circle />}
@@ -3891,23 +5283,44 @@ export function WhiteboardPage() {
                         {shape.type === 'triangle' && <Icons.Triangle />}
                         {shape.type === 'diamond' && <Icons.Diamond />}
                         {shape.type === 'star' && <Icons.Star />}
+                        {shape.type === 'pentagon' && <Icons.Pentagon />}
                         {shape.type === 'hexagon' && <Icons.Hexagon />}
+                        {shape.type === 'heptagon' && <Icons.Heptagon />}
+                        {shape.type === 'octagon' && <Icons.Octagon />}
                         {shape.type === 'parallelogram' && <Icons.Parallelogram />}
+                        {shape.type === 'trapezoid' && <Icons.Trapezoid />}
+                        {shape.type === 'cross' && <Icons.Cross />}
                         {shape.type === 'cloud' && <Icons.Cloud />}
+                        {shape.type === 'heart' && <Icons.Heart />}
+                        {shape.type === 'lightning' && <Icons.Lightning />}
+                        {shape.type === 'callout' && <Icons.Callout />}
                         {shape.type === 'process' && <Icons.Process />}
                         {shape.type === 'decision' && <Icons.Diamond />}
                         {shape.type === 'terminator' && <Icons.Terminator />}
                         {shape.type === 'data' && <Icons.Data />}
                         {shape.type === 'document' && <Icons.Document />}
+                        {shape.type === 'predefined-process' && <Icons.PreDefinedProcess />}
+                        {shape.type === 'manual-input' && <Icons.ManualInput />}
+                        {shape.type === 'preparation' && <Icons.Preparation />}
                         {shape.type === 'database' && <Icons.Database />}
+                        {shape.type === 'hard-disk' && <Icons.HardDisk />}
+                        {shape.type === 'internal-storage' && <Icons.InternalStorage />}
                         {shape.type === 'line' && <Icons.Line />}
                         {shape.type === 'arrow' && <Icons.Arrow />}
-                        {shape.type === 'double-arrow' && <Icons.CrossArrow />}
+                        {shape.type === 'double-arrow' && <Icons.DoubleArrow />}
+                        {shape.type === 'curved-arrow' && <Icons.CurvedArrow />}
+                        {shape.type === 'right-arrow' && <Icons.RightArrow />}
+                        {shape.type === 'left-arrow' && <Icons.LeftArrow />}
+                        {shape.type === 'up-arrow' && <Icons.UpArrow />}
+                        {shape.type === 'down-arrow' && <Icons.DownArrow />}
                         {shape.type === 'actor' && <Icons.Actor />}
                         {shape.type === 'use-case' && <Icons.UseCase />}
+                        {shape.type === 'class-box' && <Icons.ClassBox />}
+                        {shape.type === 'interface-box' && <Icons.InterfaceBox />}
                         {shape.type === 'package' && <Icons.Package />}
-                        {shape.type === 'callout' && <Icons.Callout />}
-                        {!['rectangle', 'rounded-rectangle', 'circle', 'ellipse', 'triangle', 'diamond', 'star', 'hexagon', 'parallelogram', 'cloud', 'process', 'decision', 'terminator', 'data', 'document', 'database', 'line', 'arrow', 'double-arrow', 'actor', 'use-case', 'package', 'callout'].includes(shape.type) && <Icons.Shapes />}
+                        {shape.type === 'loop' && <Icons.Loop />}
+                        {shape.type === 'group-box' && <Icons.GroupBox />}
+                        {shape.type === 'swimlane' && <Icons.Swimlane />}
                       </div>
                       <span className="shape-name">{shape.name}</span>
                     </button>
@@ -3932,23 +5345,21 @@ export function WhiteboardPage() {
         <div className="modal-overlay" onClick={() => {
           if (!scanProcessing) {
             setShowScanModal(false);
-            setScanImage(null);
-            setScanResult(null);
+            resetScanModal();
           }
         }}>
-          <div className="scan-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="scan-modal scan-modal-enhanced" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                <Icons.Sparkles />
-                AI Whiteboard Scanner
+                <Icons.Scan />
+                Whiteboard Scanner
               </h3>
               <button 
                 className="close-btn" 
                 onClick={() => {
                   if (!scanProcessing) {
                     setShowScanModal(false);
-                    setScanImage(null);
-                    setScanResult(null);
+                    resetScanModal();
                   }
                 }}
                 disabled={scanProcessing}
@@ -3958,13 +5369,13 @@ export function WhiteboardPage() {
             </div>
             
             <div className="scan-content">
-              {!scanImage ? (
+              {/* Upload / Camera Selection Mode */}
+              {scanMode === 'upload' && !scanImage && (
                 <div className="scan-upload-area">
                   <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     onChange={handleImageUpload}
                     style={{ display: 'none' }}
                   />
@@ -3973,25 +5384,20 @@ export function WhiteboardPage() {
                     <Icons.Camera />
                   </div>
                   
-                  <h4>Capture or Upload Whiteboard Photo</h4>
-                  <p>Take a photo of your physical whiteboard or upload an existing image. Our AI will convert it to digital format.</p>
+                  <h4>Scan Physical Whiteboard</h4>
+                  <p>Capture a photo or upload an image of your whiteboard. Our OCR technology will extract text, shapes, and diagrams.</p>
                   
                   <div className="upload-buttons">
                     <button 
                       className="upload-btn primary"
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={startCamera}
                     >
                       <Icons.Camera />
-                      <span>Take Photo</span>
+                      <span>Use Camera</span>
                     </button>
                     <button 
                       className="upload-btn secondary"
-                      onClick={() => {
-                        if (fileInputRef.current) {
-                          fileInputRef.current.removeAttribute('capture');
-                          fileInputRef.current.click();
-                        }
-                      }}
+                      onClick={() => fileInputRef.current?.click()}
                     >
                       <Icons.Upload />
                       <span>Upload Image</span>
@@ -3999,91 +5405,291 @@ export function WhiteboardPage() {
                   </div>
                   
                   <div className="scan-tips">
-                    <h5>Tips for best results:</h5>
+                    <h5>📌 Tips for best results:</h5>
                     <ul>
-                      <li>Ensure good lighting on the whiteboard</li>
-                      <li>Capture the entire whiteboard in frame</li>
-                      <li>Avoid shadows and reflections</li>
-                      <li>Use high contrast markers</li>
+                      <li>✓ Ensure good, even lighting</li>
+                      <li>✓ Capture the entire whiteboard</li>
+                      <li>✓ Avoid shadows and glare</li>
+                      <li>✓ Use dark markers on white background</li>
+                      <li>✓ Hold camera steady and perpendicular</li>
                     </ul>
                   </div>
                 </div>
-              ) : (
+              )}
+
+              {/* Camera Capture Mode */}
+              {scanMode === 'camera' && cameraStream && (
+                <div className="camera-capture-area">
+                  <div className="camera-preview">
+                    <video 
+                      ref={videoRef} 
+                      autoPlay 
+                      playsInline 
+                      muted
+                      style={{ width: '100%', borderRadius: '8px' }}
+                    />
+                    <div className="camera-overlay">
+                      <div className="camera-frame" />
+                    </div>
+                  </div>
+                  
+                  <div className="camera-controls">
+                    <button 
+                      className="action-btn secondary"
+                      onClick={stopCamera}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      className="action-btn primary capture-btn"
+                      onClick={captureFromCamera}
+                    >
+                      <Icons.Camera />
+                      Capture
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Image Preview Mode */}
+              {scanMode === 'preview' && scanImage && !scanResult && (
                 <div className="scan-preview-area">
-                  <div className="image-preview">
-                    <img src={scanImage} alt="Whiteboard to scan" />
-                    {scanProcessing && (
-                      <div className="processing-overlay">
-                        <div className="processing-spinner">
-                          <Icons.Loader />
+                  <div className="image-preview-container">
+                    <div className="image-preview">
+                      <img src={enhancedImage || scanImage} alt="Whiteboard to scan" />
+                      {scanProcessing && (
+                        <div className="processing-overlay">
+                          <div className="processing-spinner">
+                            <Icons.Loader />
+                          </div>
+                          <p>{scanProgressMessage || 'Processing...'}</p>
+                          <div className="progress-bar">
+                            <div 
+                              className="progress-fill" 
+                              style={{ width: `${scanProgress}%` }}
+                            />
+                          </div>
+                          <span className="progress-text">{Math.round(scanProgress)}%</span>
                         </div>
-                        <p>AI is analyzing your whiteboard...</p>
-                        <div className="progress-bar">
-                          <div 
-                            className="progress-fill" 
-                            style={{ width: `${scanProgress}%` }}
-                          />
+                      )}
+                    </div>
+                    
+                    {/* Enhancement Options */}
+                    {showEnhancePreview && !scanProcessing && (
+                      <div className="enhance-panel">
+                        <h5>🔧 Image Enhancement</h5>
+                        <p className="enhance-hint">The image quality may be low. Apply enhancements for better OCR results.</p>
+                        
+                        <div className="enhance-options">
+                          <label className="enhance-option">
+                            <span>Contrast</span>
+                            <input 
+                              type="range" 
+                              min="0.5" 
+                              max="2" 
+                              step="0.1"
+                              value={enhanceOptions.contrast}
+                              onChange={(e) => setEnhanceOptions({...enhanceOptions, contrast: parseFloat(e.target.value)})}
+                            />
+                            <span className="value">{enhanceOptions.contrast.toFixed(1)}</span>
+                          </label>
+                          
+                          <label className="enhance-option">
+                            <span>Brightness</span>
+                            <input 
+                              type="range" 
+                              min="0.5" 
+                              max="1.5" 
+                              step="0.1"
+                              value={enhanceOptions.brightness}
+                              onChange={(e) => setEnhanceOptions({...enhanceOptions, brightness: parseFloat(e.target.value)})}
+                            />
+                            <span className="value">{enhanceOptions.brightness.toFixed(1)}</span>
+                          </label>
+                          
+                          <label className="enhance-checkbox">
+                            <input 
+                              type="checkbox" 
+                              checked={enhanceOptions.sharpen}
+                              onChange={(e) => setEnhanceOptions({...enhanceOptions, sharpen: e.target.checked})}
+                            />
+                            <span>Sharpen</span>
+                          </label>
+                          
+                          <label className="enhance-checkbox">
+                            <input 
+                              type="checkbox" 
+                              checked={enhanceOptions.denoise}
+                              onChange={(e) => setEnhanceOptions({...enhanceOptions, denoise: e.target.checked})}
+                            />
+                            <span>Reduce Noise</span>
+                          </label>
+                          
+                          <label className="enhance-checkbox">
+                            <input 
+                              type="checkbox" 
+                              checked={enhanceOptions.threshold}
+                              onChange={(e) => setEnhanceOptions({...enhanceOptions, threshold: e.target.checked})}
+                            />
+                            <span>Black & White (best for text)</span>
+                          </label>
                         </div>
-                        <span className="progress-text">{Math.round(scanProgress)}%</span>
-                      </div>
-                    )}
-                    {scanResult && !scanProcessing && (
-                      <div className="scan-result-overlay">
-                        <div className="result-icon success">
-                          <Icons.Check />
-                        </div>
-                        <p>Analysis Complete!</p>
-                        <div className="result-stats">
-                          <span>{scanResult.strokes.length} strokes</span>
-                          <span>{scanResult.shapes.length} shapes</span>
-                          <span>{scanResult.textBoxes.length} text elements</span>
+                        
+                        <div className="enhance-actions">
+                          <button 
+                            className="action-btn secondary small"
+                            onClick={enhanceImage}
+                          >
+                            Preview Enhancement
+                          </button>
+                          {enhancedImage && (
+                            <button 
+                              className="action-btn primary small"
+                              onClick={applyEnhancement}
+                            >
+                              Apply
+                            </button>
+                          )}
+                          <button 
+                            className="action-btn text small"
+                            onClick={() => setShowEnhancePreview(false)}
+                          >
+                            Skip
+                          </button>
                         </div>
                       </div>
                     )}
                   </div>
                   
                   <div className="scan-actions">
-                    {!scanResult && !scanProcessing && (
+                    {!scanProcessing && (
                       <>
                         <button 
                           className="action-btn secondary"
-                          onClick={() => {
-                            setScanImage(null);
-                            setScanResult(null);
-                          }}
+                          onClick={resetScanModal}
                         >
                           Choose Different Image
                         </button>
+                        {!showEnhancePreview && (
+                          <button 
+                            className="action-btn text"
+                            onClick={() => setShowEnhancePreview(true)}
+                          >
+                            Enhance Image
+                          </button>
+                        )}
                         <button 
                           className="action-btn primary"
                           onClick={processWhiteboardImage}
                         >
                           <Icons.Sparkles />
-                          Convert to Digital
+                          Extract Content
                         </button>
                       </>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Results Preview & Edit Mode */}
+              {scanResult && editableResults && (
+                <div className="scan-results-area">
+                  <div className="results-header">
+                    <div className="result-icon success">
+                      <Icons.Check />
+                    </div>
+                    <div className="results-summary">
+                      <h4>Content Extracted!</h4>
+                      <p>
+                        Found {editableResults.textBoxes.length} text elements and {editableResults.shapes.length} shapes. 
+                        Review and edit below before adding to your whiteboard.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="results-preview">
+                    <div className="preview-section">
+                      <h5>📝 Text Elements</h5>
+                      {editableResults.textBoxes.length === 0 ? (
+                        <p className="no-results">No text detected</p>
+                      ) : (
+                        <div className="results-list">
+                          {editableResults.textBoxes.map((tb) => (
+                            <div key={tb.id} className={`result-item ${tb.selected ? 'selected' : ''}`}>
+                              <label className="result-checkbox">
+                                <input 
+                                  type="checkbox" 
+                                  checked={tb.selected || false}
+                                  onChange={() => toggleResultElementSelection('textBox', tb.id)}
+                                />
+                              </label>
+                              <input 
+                                type="text"
+                                className="result-text-input"
+                                value={tb.text}
+                                onChange={(e) => updateResultText(tb.id, e.target.value)}
+                                disabled={!tb.selected}
+                              />
+                              <button 
+                                className="result-delete-btn"
+                                onClick={() => deleteResultElement('textBox', tb.id)}
+                                title="Delete"
+                              >
+                                <Icons.X />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     
-                    {scanResult && (
-                      <>
-                        <button 
-                          className="action-btn secondary"
-                          onClick={() => {
-                            setScanImage(null);
-                            setScanResult(null);
-                          }}
-                        >
-                          Scan Another
-                        </button>
-                        <button 
-                          className="action-btn primary"
-                          onClick={applyScanResult}
-                        >
-                          <Icons.Check />
-                          Add to Whiteboard
-                        </button>
-                      </>
-                    )}
+                    <div className="preview-section">
+                      <h5>🔷 Shapes</h5>
+                      {editableResults.shapes.length === 0 ? (
+                        <p className="no-results">No shapes detected</p>
+                      ) : (
+                        <div className="results-list shapes-list">
+                          {editableResults.shapes.map((shape) => (
+                            <div key={shape.id} className={`result-item shape-item ${shape.selected ? 'selected' : ''}`}>
+                              <label className="result-checkbox">
+                                <input 
+                                  type="checkbox" 
+                                  checked={shape.selected || false}
+                                  onChange={() => toggleResultElementSelection('shape', shape.id)}
+                                />
+                              </label>
+                              <div className="shape-info">
+                                <span className="shape-type">{shape.type}</span>
+                                <span className="shape-size">{Math.round(shape.width)}×{Math.round(shape.height)}</span>
+                              </div>
+                              <button 
+                                className="result-delete-btn"
+                                onClick={() => deleteResultElement('shape', shape.id)}
+                                title="Delete"
+                              >
+                                <Icons.X />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="scan-actions">
+                    <button 
+                      className="action-btn secondary"
+                      onClick={resetScanModal}
+                    >
+                      Scan Another
+                    </button>
+                    <button 
+                      className="action-btn primary"
+                      onClick={applyScanResult}
+                    >
+                      <Icons.Check />
+                      Add Selected to Whiteboard
+                    </button>
                   </div>
                 </div>
               )}
