@@ -4,77 +4,99 @@ import './LandingPage.css';
 // Feature data for Nova
 const features = [
   {
-    id: 'calendar',
-    label: 'Smart Calendar',
-    title: 'AI-powered scheduling that works for you',
-    description: 'Automatically find the best meeting times, avoid conflicts, and sync across all your calendars. Our AI learns your preferences and optimizes your schedule.',
-    icon: '📅'
+    id: 'agents',
+    label: 'AI Agents',
+    title: 'Deploy an army of AI agents',
+    description: 'Deploy, train, and manage intelligent agents for document processing, support triage, content generation, compliance monitoring, and more — all from one dashboard.',
+    icon: '🤖'
   },
   {
-    id: 'tasks',
-    label: 'Task Management',
-    title: 'Stay on top of everything',
-    description: 'Create, organize, and track tasks with intelligent prioritization. Set due dates, assign to team members, and watch your productivity soar.',
-    icon: '✅'
-  },
-  {
-    id: 'teams',
-    label: 'Team Chat',
-    title: 'Collaborate in real-time',
-    description: 'Channels, direct messages, and threaded conversations keep your team aligned. Share files, react to messages, and never miss an important update.',
-    icon: '💬'
-  },
-  {
-    id: 'docs',
-    label: 'Documents',
-    title: 'Create and share knowledge',
-    description: 'Rich document editor with real-time collaboration. Create wikis, meeting notes, and project documentation that lives alongside your work.',
+    id: 'docgen',
+    label: 'Document Generation',
+    title: 'Generate any document in minutes',
+    description: 'Commercial leases, MSAs, invoices, insurance certificates, employment agreements, and vendor packages — all generated from guided intake forms with full legal compliance.',
     icon: '📄'
+  },
+  {
+    id: 'comms',
+    label: 'Communications',
+    title: 'AI-powered email & outreach',
+    description: 'Draft contextual email responses, manage campaigns, and let AI handle routine communications while you focus on high-value relationships.',
+    icon: '✉️'
+  },
+  {
+    id: 'analytics',
+    label: 'Analytics',
+    title: 'Real-time insights & monitoring',
+    description: 'Track agent performance, accuracy metrics, and latency in real-time. Get alerts for errors and monitor compliance across your entire AI workforce.',
+    icon: '📊'
   }
 ];
+
+// Stripe payment links
+const STRIPE_LINKS = {
+  monthly: 'https://buy.stripe.com/14A3cu5Y43iM4ng2LU8Zq00',
+  annual: 'https://buy.stripe.com/7sYeVc9ag1aEf1UfyG8Zq01',
+};
 
 // Pricing tiers
 const pricing = [
   {
+    id: 'free',
     name: 'Free',
     price: 0,
-    description: 'Perfect for individuals getting started with productivity tools.',
+    period: '',
+    badge: null,
+    description: 'Perfect for individuals exploring AI-powered workflows.',
     features: [
-      'Up to 3 projects',
-      'Basic calendar & tasks',
-      'Team chat (up to 5 members)',
-      '1GB document storage',
-      'Email support'
+      'Up to 3 AI agents',
+      '5 document generations / month',
+      'Basic analytics dashboard',
+      'Email support',
+      'Community access'
     ],
     cta: 'Get Started Free',
+    href: null as string | null,
     popular: false
   },
   {
-    name: 'Pro',
-    price: 12,
-    description: 'For professionals who need powerful features and integrations.',
+    id: 'monthly',
+    name: 'Monthly',
+    price: 15,
+    period: '/mo',
+    badge: 'Most Popular',
+    description: 'For professionals who need full power, no commitment.',
     features: [
-      'Unlimited projects',
-      'AI scheduling assistant',
-      'Advanced task automation',
+      'Unlimited AI agents',
+      'Unlimited document generation',
+      'All 6 document templates',
+      'Communications agent',
       'Priority support',
-      '50GB storage'
+      'Advanced analytics',
+      'API access'
     ],
-    cta: 'Start Pro Trial',
+    cta: 'Subscribe Monthly',
+    href: STRIPE_LINKS.monthly,
     popular: true
   },
   {
-    name: 'Team',
-    price: 29,
-    description: 'For teams that need collaboration, security, and admin controls.',
+    id: 'annual',
+    name: 'Annual',
+    price: 150,
+    period: '/yr',
+    badge: 'Save $30',
+    description: 'Best value — everything in Monthly at 2 months free.',
     features: [
-      'Everything in Pro',
-      'Unlimited team members',
-      'Admin dashboard',
+      'Everything in Monthly',
+      'Custom agent training',
+      'Dedicated account manager',
       'SSO & advanced security',
-      'Unlimited storage'
+      'Unlimited storage',
+      'Custom integrations',
+      'SLA guarantee'
     ],
-    cta: 'Contact Sales',
+    cta: 'Subscribe Annually',
+    href: STRIPE_LINKS.annual,
     popular: false
   }
 ];
@@ -82,33 +104,33 @@ const pricing = [
 // FAQ items
 const faqs = [
   {
-    q: "How does the AI scheduling work?",
-    a: "Our AI analyzes your calendar patterns, meeting preferences, and availability to suggest optimal meeting times. It learns from your behavior to make smarter recommendations over time."
+    q: "What AI agents are available?",
+    a: "Nova includes 12+ pre-built agents: Invoice Processing, Support Triage, Content Writer, Code Review, Compliance Monitor, Contract Review, Receipt Scanner, Research Analyst, and more. Plus 6 document generation models."
   },
   {
-    q: "Can I import data from other tools?",
-    a: "Yes! Nova supports imports from Google Calendar, Outlook, Notion, Asana, Trello, and many other popular productivity tools. Migration takes just a few clicks."
+    q: "How does document generation work?",
+    a: "Select a template (lease, MSA, invoice, COI, vendor package, or employment agreement), answer guided intake questions, and our AI generates a fully formatted, legally compliant document in under 3 minutes."
   },
   {
     q: "Is my data secure?",
     a: "Absolutely. We use bank-level encryption (AES-256) for all data at rest and in transit. Your data is stored in SOC 2 certified data centers with regular security audits."
   },
   {
-    q: "Can I use Nova offline?",
-    a: "Yes, our desktop and mobile apps support offline mode. Your changes sync automatically when you're back online."
+    q: "Can I cancel my subscription anytime?",
+    a: "Yes. Monthly subscriptions can be canceled at any time. Annual subscriptions can be canceled and will remain active until the end of the billing period. No hidden fees."
   },
   {
     q: "What integrations are available?",
-    a: "Nova integrates with Slack, Google Workspace, Microsoft 365, Zoom, GitHub, Figma, and 50+ other tools. We also offer a REST API for custom integrations."
+    a: "Nova integrates with Slack, Google Workspace, Microsoft 365, Salesforce, HubSpot, and 50+ other tools. We also offer a full REST API for custom integrations."
   }
 ];
 
 // Stats
 const stats = [
-  { value: '50K+', label: 'Active Users' },
-  { value: '99.9%', label: 'Uptime' },
-  { value: '4.9/5', label: 'User Rating' },
-  { value: '24/7', label: 'Support' }
+  { value: '12+', label: 'AI Agents' },
+  { value: '99.8%', label: 'Accuracy' },
+  { value: '6', label: 'Doc Templates' },
+  { value: '<3min', label: 'Generation Time' }
 ];
 
 interface LandingPageProps {
@@ -205,18 +227,18 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
       <section className="hero" id="hero" ref={heroRef}>
         <div className="hero-container">
           <div className="hero-badge">
-            <span className="badge-icon">✨</span>
-            <span>Introducing Nova AI Assistant</span>
+            <span className="badge-icon">⚡</span>
+            <span>AI Agent Workforce Platform</span>
           </div>
           
           <h1 className="hero-title">
-            Your AI-powered workspace for
-            <span className="gradient-text"> getting things done</span>
+            Deploy AI agents that
+            <span className="gradient-text"> work for you</span>
           </h1>
           
           <p className="hero-subtitle">
-            Calendar, tasks, docs, and team chat — all in one place. 
-            Let AI handle the busywork while you focus on what matters.
+            Build, train, and manage intelligent AI agents and generate professional documents — 
+            all from one powerful platform.
           </p>
 
           <div className="hero-cta">
@@ -226,8 +248,8 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
             </button>
-            <button className="btn-secondary large" onClick={() => scrollToSection('features')}>
-              See How It Works
+            <button className="btn-secondary large" onClick={() => scrollToSection('pricing')}>
+              View Pricing
             </button>
           </div>
 
@@ -248,7 +270,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               <div className="preview-dots">
                 <span></span><span></span><span></span>
               </div>
-              <span className="preview-title">Nova Dashboard</span>
+              <span className="preview-title">CrewOS — Agent Workforce</span>
             </div>
             <div className="preview-content">
               <div className="preview-sidebar">
@@ -268,26 +290,26 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           
           {/* Floating elements */}
           <div className="floating-card card-1">
-            <div className="floating-icon">📅</div>
+            <div className="floating-icon">🤖</div>
             <div className="floating-text">
-              <span className="floating-title">Meeting scheduled</span>
-              <span className="floating-sub">Team sync at 2:00 PM</span>
+              <span className="floating-title">Agent deployed</span>
+              <span className="floating-sub">Invoice Processing v3.0</span>
             </div>
           </div>
           
           <div className="floating-card card-2">
-            <div className="floating-icon">✅</div>
+            <div className="floating-icon">📄</div>
             <div className="floating-text">
-              <span className="floating-title">Task completed</span>
-              <span className="floating-sub">Design review done</span>
+              <span className="floating-title">Document generated</span>
+              <span className="floating-sub">Commercial Lease — 34 pages</span>
             </div>
           </div>
           
           <div className="floating-card card-3">
-            <div className="floating-icon">🤖</div>
+            <div className="floating-icon">⚡</div>
             <div className="floating-text">
-              <span className="floating-title">AI Suggestion</span>
-              <span className="floating-sub">Block focus time</span>
+              <span className="floating-title">98.7% accuracy</span>
+              <span className="floating-sub">All agents running</span>
             </div>
           </div>
         </div>
@@ -298,8 +320,8 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         <div className="section-container">
           <div className="section-header">
             <span className="section-label">Features</span>
-            <h2>Everything you need to be productive</h2>
-            <p>Nova brings together all your work tools in one intelligent platform.</p>
+            <h2>Everything you need to run AI at scale</h2>
+            <p>Nova brings together AI agents, document generation, and analytics in one platform.</p>
           </div>
 
           <div className="features-tabs">
@@ -363,20 +385,20 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           <div className="steps">
             <div className="step">
               <div className="step-number">1</div>
-              <h3>Create your workspace</h3>
-              <p>Sign up free and set up your workspace in seconds. Import existing data or start fresh.</p>
+              <h3>Choose your agents</h3>
+              <p>Browse our catalog of 12+ AI agents and 6 document generation models. Deploy in one click.</p>
             </div>
             <div className="step-connector"></div>
             <div className="step">
               <div className="step-number">2</div>
-              <h3>Invite your team</h3>
-              <p>Add team members via email or link. Set permissions and organize into channels.</p>
+              <h3>Configure & deploy</h3>
+              <p>Select versions, set parameters, and deploy agents to your workforce. Monitor in real-time.</p>
             </div>
             <div className="step-connector"></div>
             <div className="step">
               <div className="step-number">3</div>
-              <h3>Let AI optimize</h3>
-              <p>Our AI learns your workflow and suggests improvements. Watch productivity soar.</p>
+              <h3>Scale with confidence</h3>
+              <p>Track accuracy, latency, and uptime. Let AI handle the work while you focus on strategy.</p>
             </div>
           </div>
 
@@ -394,26 +416,46 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           <div className="section-header">
             <span className="section-label">Pricing</span>
             <h2>Simple, transparent pricing</h2>
-            <p>Start free, upgrade when you need more power.</p>
+            <p>Start free. Upgrade when you need full power.</p>
           </div>
 
           <div className="pricing-grid">
             {pricing.map((plan) => (
               <div key={plan.name} className={`pricing-card ${plan.popular ? 'popular' : ''}`}>
-                {plan.popular && <span className="popular-badge">Most Popular</span>}
+                {plan.badge && <span className={`popular-badge ${plan.id === 'annual' ? 'save-badge' : ''}`}>{plan.badge}</span>}
                 <h3 className="plan-name">{plan.name}</h3>
                 <div className="plan-price">
-                  <span className="currency">$</span>
-                  <span className="amount">{plan.price}</span>
-                  <span className="period">/mo</span>
+                  {plan.price === 0 ? (
+                    <span className="amount">Free</span>
+                  ) : (
+                    <>
+                      <span className="currency">$</span>
+                      <span className="amount">{plan.price}</span>
+                      <span className="period">{plan.period}</span>
+                    </>
+                  )}
                 </div>
+                {plan.id === 'annual' && (
+                  <div className="plan-savings">That's just $12.50/mo — save $30 vs monthly</div>
+                )}
                 <p className="plan-description">{plan.description}</p>
-                <button 
-                  className={`plan-cta ${plan.popular ? 'primary' : 'secondary'}`}
-                  onClick={handleGetStarted}
-                >
-                  {plan.cta}
-                </button>
+                {plan.href ? (
+                  <a 
+                    className={`plan-cta ${plan.popular ? 'primary' : 'secondary'}`}
+                    href={plan.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {plan.cta}
+                  </a>
+                ) : (
+                  <button 
+                    className={`plan-cta ${plan.popular ? 'primary' : 'secondary'}`}
+                    onClick={handleGetStarted}
+                  >
+                    {plan.cta}
+                  </button>
+                )}
                 <ul className="plan-features">
                   {plan.features.map((feature, i) => (
                     <li key={i}>
@@ -426,6 +468,14 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 </ul>
               </div>
             ))}
+          </div>
+
+          <div className="pricing-note">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+              <line x1="1" y1="10" x2="23" y2="10"/>
+            </svg>
+            Secure payments powered by Stripe. Cancel anytime.
           </div>
         </div>
       </section>
@@ -441,39 +491,39 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           <div className="testimonials-grid">
             <div className="testimonial-card">
               <div className="testimonial-content">
-                <p>"Nova has completely transformed how our team works. The AI scheduling alone saves us hours every week."</p>
+                <p>"Nova's document generation saved our legal team 40 hours a month. Lease agreements that took days now take minutes."</p>
               </div>
               <div className="testimonial-author">
                 <div className="author-avatar">SK</div>
                 <div className="author-info">
                   <span className="author-name">Sarah Kim</span>
-                  <span className="author-role">Product Manager, TechCorp</span>
+                  <span className="author-role">General Counsel, Realty Holdings</span>
                 </div>
               </div>
             </div>
 
             <div className="testimonial-card">
               <div className="testimonial-content">
-                <p>"Finally, a tool that combines everything we need. No more switching between 5 different apps!"</p>
+                <p>"We deployed the support triage agent and cut our response time by 70%. The accuracy is incredible."</p>
               </div>
               <div className="testimonial-author">
                 <div className="author-avatar">MJ</div>
                 <div className="author-info">
                   <span className="author-name">Mike Johnson</span>
-                  <span className="author-role">Founder, StartupXYZ</span>
+                  <span className="author-role">VP of Support, ScaleUp</span>
                 </div>
               </div>
             </div>
 
             <div className="testimonial-card">
               <div className="testimonial-content">
-                <p>"The task automation is incredible. What used to take hours now happens automatically."</p>
+                <p>"The invoice processing agent handles 98.7% of our documents automatically. It paid for itself in a week."</p>
               </div>
               <div className="testimonial-author">
                 <div className="author-avatar">EC</div>
                 <div className="author-info">
                   <span className="author-name">Emily Chen</span>
-                  <span className="author-role">Engineering Lead, DevCo</span>
+                  <span className="author-role">CFO, TechForward</span>
                 </div>
               </div>
             </div>
@@ -512,8 +562,8 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
       <section className="cta-section">
         <div className="section-container">
           <div className="cta-content">
-            <h2>Ready to boost your productivity?</h2>
-            <p>Join thousands of teams using Nova to get more done.</p>
+            <h2>Ready to deploy your AI workforce?</h2>
+            <p>Join hundreds of teams using Nova to automate their operations.</p>
             <div className="cta-buttons">
               <button className="btn-primary large" onClick={handleGetStarted}>
                 Get Started Free
@@ -538,7 +588,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 </svg>
                 <span>Nova</span>
               </div>
-              <p>AI-powered workspace for modern teams.</p>
+              <p>AI agent workforce platform for modern teams.</p>
             </div>
 
             <div className="footer-links">

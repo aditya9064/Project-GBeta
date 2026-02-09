@@ -26,8 +26,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<DemoUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Check for existing session on mount
+  // Check for existing session on mount (or handle #logout)
   useEffect(() => {
+    if (window.location.hash === '#logout') {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      window.location.hash = '';
+      setLoading(false);
+      return;
+    }
     const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
     if (storedUser) {
       try {

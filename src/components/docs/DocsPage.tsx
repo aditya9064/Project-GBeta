@@ -65,7 +65,48 @@ const DocIcon = ({ type, size = 16, className = '' }: { type: DocIconType; size?
 };
 
 // Block types
-type BlockType = 'text' | 'heading1' | 'heading2' | 'heading3' | 'bulletList' | 'numberedList' | 'todo' | 'quote' | 'divider' | 'callout' | 'code' | 'codeBlock' | 'toggle' | 'image' | 'table';
+type BlockType = 
+  | 'text' | 'heading1' | 'heading2' | 'heading3' 
+  | 'bulletList' | 'numberedList' | 'todo' | 'toggle'
+  | 'quote' | 'divider' | 'callout' 
+  | 'code' | 'codeBlock' 
+  | 'image' | 'table'
+  // New block types
+  | 'columns' | 'column' // For column layouts
+  | 'bookmark' // Link preview
+  | 'file' // File attachment
+  | 'equation' // Math/LaTeX
+  | 'tableOfContents' // Auto-generated TOC
+  | 'breadcrumb' // Navigation breadcrumb
+  | 'video' // Video embed
+  | 'audio' // Audio embed
+  | 'pdf' // PDF viewer
+  | 'embed' // Generic embed (iframe)
+  | 'syncedBlock' // Synced content
+  | 'linkToPage' // Link to another page
+  | 'database'; // Database view (Table, Kanban, Calendar)
+
+// Database types
+type DatabaseViewType = 'table' | 'kanban' | 'calendar' | 'gallery' | 'list';
+
+interface DatabaseColumn {
+  id: string;
+  name: string;
+  type: 'text' | 'number' | 'select' | 'multi-select' | 'date' | 'person' | 'checkbox' | 'url' | 'email' | 'phone';
+  options?: { id: string; name: string; color: string }[];
+}
+
+interface DatabaseRow {
+  id: string;
+  cells: Record<string, string | number | boolean | string[]>;
+}
+
+interface DatabaseData {
+  columns: DatabaseColumn[];
+  rows: DatabaseRow[];
+  viewType: DatabaseViewType;
+  groupBy?: string; // Column ID for Kanban grouping
+}
 
 // Supported programming languages
 type CodeLanguage = 
@@ -112,6 +153,45 @@ const SUPPORTED_LANGUAGES: { value: CodeLanguage; label: string; runnable: boole
   { value: 'markdown', label: 'Markdown', runnable: false },
 ];
 
+// Block background colors
+type BlockColor = 'default' | 'gray' | 'brown' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'red';
+
+const BLOCK_COLORS: Record<BlockColor, { bg: string; text: string; label: string }> = {
+  default: { bg: 'transparent', text: 'inherit', label: 'Default' },
+  gray: { bg: 'rgba(155, 154, 151, 0.15)', text: 'inherit', label: 'Gray' },
+  brown: { bg: 'rgba(140, 91, 56, 0.15)', text: 'inherit', label: 'Brown' },
+  orange: { bg: 'rgba(245, 93, 0, 0.15)', text: 'inherit', label: 'Orange' },
+  yellow: { bg: 'rgba(233, 168, 0, 0.15)', text: 'inherit', label: 'Yellow' },
+  green: { bg: 'rgba(15, 123, 108, 0.15)', text: 'inherit', label: 'Green' },
+  blue: { bg: 'rgba(35, 131, 226, 0.15)', text: 'inherit', label: 'Blue' },
+  purple: { bg: 'rgba(103, 36, 222, 0.15)', text: 'inherit', label: 'Purple' },
+  pink: { bg: 'rgba(221, 0, 129, 0.15)', text: 'inherit', label: 'Pink' },
+  red: { bg: 'rgba(224, 62, 62, 0.15)', text: 'inherit', label: 'Red' },
+};
+
+// Cover image gradients
+const COVER_GRADIENTS = [
+  { id: 'gradient-1', style: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', label: 'Purple Dream' },
+  { id: 'gradient-2', style: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', label: 'Pink Sunset' },
+  { id: 'gradient-3', style: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', label: 'Ocean Blue' },
+  { id: 'gradient-4', style: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', label: 'Fresh Mint' },
+  { id: 'gradient-5', style: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', label: 'Warm Glow' },
+  { id: 'gradient-6', style: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', label: 'Soft Rose' },
+  { id: 'gradient-7', style: 'linear-gradient(135deg, #d299c2 0%, #fef9d7 100%)', label: 'Lavender' },
+  { id: 'gradient-8', style: 'linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%)', label: 'Sky Light' },
+  { id: 'gradient-9', style: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', label: 'Peach' },
+  { id: 'gradient-10', style: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)', label: 'Lilac' },
+  { id: 'solid-gray', style: '#37352f14', label: 'Gray' },
+  { id: 'solid-brown', style: '#64473a', label: 'Brown' },
+  { id: 'solid-orange', style: '#d9730d', label: 'Orange' },
+  { id: 'solid-yellow', style: '#dfab01', label: 'Yellow' },
+  { id: 'solid-green', style: '#0f7b6c', label: 'Green' },
+  { id: 'solid-blue', style: '#0b6e99', label: 'Blue' },
+  { id: 'solid-purple', style: '#6940a5', label: 'Purple' },
+  { id: 'solid-pink', style: '#ad1a72', label: 'Pink' },
+  { id: 'solid-red', style: '#e03e3e', label: 'Red' },
+];
+
 interface Block {
   id: string;
   type: BlockType;
@@ -121,12 +201,17 @@ interface Block {
   language?: CodeLanguage; // For code blocks
   output?: string; // For code block execution output
   isRunning?: boolean; // For code block execution state
+  color?: BlockColor; // Background color
+  indent?: number; // Indentation level (0-3)
+  children?: Block[]; // For nested blocks (columns, toggle content)
+  database?: DatabaseData; // For database blocks
 }
 
 interface Doc {
   id: string;
   title: string;
   icon: DocIconType;
+  emoji?: string; // Custom emoji icon
   blocks: Block[];
   location: string;
   locationIcon?: DocIconType;
@@ -138,6 +223,20 @@ interface Doc {
   isFavorite: boolean;
   isWiki?: boolean;
   pageCount?: number;
+  coverImage?: string; // URL or gradient ID
+  coverPosition?: number; // 0-100 for Y position
+  parentId?: string; // For nested pages
+  comments?: Comment[];
+}
+
+interface Comment {
+  id: string;
+  blockId?: string; // If comment is on a specific block
+  content: string;
+  author: { id: string; name: string; avatar?: string };
+  createdAt: Date;
+  resolved?: boolean;
+  replies?: Comment[];
 }
 
 // Generate unique IDs
@@ -162,17 +261,48 @@ const blockTypeCategories = [
     label: 'Media',
     items: [
       { type: 'image' as BlockType, label: 'Image', icon: '🖼', description: 'Upload or embed image' },
+      { type: 'video' as BlockType, label: 'Video', icon: '🎬', description: 'Embed video from URL' },
+      { type: 'audio' as BlockType, label: 'Audio', icon: '🎵', description: 'Embed audio file' },
+      { type: 'file' as BlockType, label: 'File', icon: '📎', description: 'Upload and attach a file' },
+      { type: 'pdf' as BlockType, label: 'PDF', icon: '📄', description: 'Embed PDF document' },
       { type: 'code' as BlockType, label: 'Code', icon: '</>', shortcut: '`', description: 'Inline code snippet' },
       { type: 'codeBlock' as BlockType, label: 'Code block', icon: '{}', shortcut: '```', description: 'Code with syntax highlighting' },
+    ]
+  },
+  {
+    label: 'Embeds',
+    items: [
+      { type: 'bookmark' as BlockType, label: 'Bookmark', icon: '🔗', description: 'Save a link with preview' },
+      { type: 'embed' as BlockType, label: 'Embed', icon: '🌐', description: 'Embed external content' },
+      { type: 'linkToPage' as BlockType, label: 'Link to page', icon: '↗', description: 'Link to another doc' },
+    ]
+  },
+  {
+    label: 'Layout',
+    items: [
+      { type: 'columns' as BlockType, label: '2 Columns', icon: '▐▌', description: 'Create 2-column layout' },
+      { type: 'divider' as BlockType, label: 'Divider', icon: '—', shortcut: '---', description: 'Visual separator' },
+      { type: 'tableOfContents' as BlockType, label: 'Table of contents', icon: '≡', description: 'Auto-generated TOC' },
+      { type: 'breadcrumb' as BlockType, label: 'Breadcrumb', icon: '›', description: 'Show page path' },
     ]
   },
   {
     label: 'Advanced',
     items: [
       { type: 'quote' as BlockType, label: 'Quote', icon: '"', shortcut: '"', description: 'Quotation block' },
-      { type: 'divider' as BlockType, label: 'Divider', icon: '—', shortcut: '---', description: 'Visual separator' },
-      { type: 'callout' as BlockType, label: 'Callout', icon: '!', shortcut: '>', description: 'Highlighted info box' },
+      { type: 'callout' as BlockType, label: 'Callout', icon: '💡', shortcut: '>', description: 'Highlighted info box' },
       { type: 'table' as BlockType, label: 'Table', icon: '⊞', description: 'Simple table' },
+      { type: 'equation' as BlockType, label: 'Equation', icon: '∑', shortcut: '$$', description: 'Math equation (LaTeX)' },
+      { type: 'syncedBlock' as BlockType, label: 'Synced block', icon: '🔄', description: 'Content synced across pages' },
+    ]
+  },
+  {
+    label: 'Database',
+    items: [
+      { type: 'database' as BlockType, label: 'Database - Table', icon: '📊', description: 'Table view with rows and columns' },
+      { type: 'database' as BlockType, label: 'Database - Kanban', icon: '📋', description: 'Kanban board for task management' },
+      { type: 'database' as BlockType, label: 'Database - Calendar', icon: '📅', description: 'Calendar view for dates' },
+      { type: 'database' as BlockType, label: 'Database - Gallery', icon: '🖼️', description: 'Gallery view with cards' },
     ]
   }
 ];
@@ -383,7 +513,17 @@ interface BlockComponentProps {
   onToggleTodo: (id: string) => void;
   onRunCode: (id: string, code: string, language: CodeLanguage) => void;
   onChangeLanguage: (id: string, language: CodeLanguage) => void;
+  onColorChange?: (id: string, color: BlockColor) => void;
+  onDragStart?: (id: string) => void;
+  onDragOver?: (id: string) => void;
+  onDrop?: (id: string) => void;
+  isDragging?: boolean;
+  isDragOver?: boolean;
   autoFocus?: boolean;
+  comments?: Comment[];
+  onToggleComments?: (blockId: string) => void;
+  showComments?: boolean;
+  onAddComment?: (blockId: string, content: string) => void;
 }
 
 function BlockComponent({ 
@@ -396,8 +536,19 @@ function BlockComponent({
   onToggleTodo,
   onRunCode,
   onChangeLanguage,
-  autoFocus
+  onColorChange,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  isDragging,
+  isDragOver,
+  autoFocus,
+  comments = [],
+  onToggleComments,
+  showComments,
+  onAddComment
 }: BlockComponentProps) {
+  const [commentText, setCommentText] = useState('');
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashFilter, setSlashFilter] = useState('');
   const [slashPosition, setSlashPosition] = useState({ x: 0, y: 0 });
@@ -957,14 +1108,457 @@ function BlockComponent({
     );
   }
 
+  // Columns block (2-column layout)
+  if (block.type === 'columns') {
   return (
     <div className="block-wrapper" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <div className={`block-handle ${isHovered ? 'visible' : ''}`}>
         <button className="handle-btn" title="Drag to move"><GripIcon /></button>
         <button className="handle-btn" title="Delete" onClick={() => onDelete(block.id)}><TrashIcon /></button>
       </div>
+        <div className="block columns-block">
+          <div className="column-block" contentEditable suppressContentEditableWarning data-placeholder="Column 1"></div>
+          <div className="column-block" contentEditable suppressContentEditableWarning data-placeholder="Column 2"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Bookmark block
+  if (block.type === 'bookmark') {
+    const url = block.content || '';
+    const hostname = url ? new URL(url.startsWith('http') ? url : `https://${url}`).hostname : '';
+    return (
+      <div className="block-wrapper" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+        <div className={`block-handle ${isHovered ? 'visible' : ''}`}>
+          <button className="handle-btn" title="Drag to move"><GripIcon /></button>
+          <button className="handle-btn" title="Delete" onClick={() => onDelete(block.id)}><TrashIcon /></button>
+        </div>
+        {url ? (
+          <a href={url} target="_blank" rel="noopener noreferrer" className="block bookmark-block">
+            <div className="bookmark-content">
+              <div className="bookmark-title">{url}</div>
+              <div className="bookmark-url">
+                <img className="bookmark-favicon" src={`https://www.google.com/s2/favicons?domain=${hostname}`} alt="" />
+                <span>{hostname}</span>
+              </div>
+            </div>
+          </a>
+        ) : (
+          <div className="block media-placeholder">
+            <span>🔗 Add a bookmark</span>
+            <input 
+              type="url" 
+              placeholder="Paste URL..." 
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onUpdate(block.id, (e.target as HTMLInputElement).value);
+                }
+              }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // File attachment block
+  if (block.type === 'file') {
+    return (
+      <div className="block-wrapper" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+        <div className={`block-handle ${isHovered ? 'visible' : ''}`}>
+          <button className="handle-btn" title="Drag to move"><GripIcon /></button>
+          <button className="handle-btn" title="Delete" onClick={() => onDelete(block.id)}><TrashIcon /></button>
+        </div>
+        {block.content ? (
+          <div className="block file-block">
+            <div className="file-icon">📎</div>
+            <div className="file-info">
+              <div className="file-name">{block.content.split('/').pop() || 'File'}</div>
+              <div className="file-size">Attached file</div>
+            </div>
+          </div>
+        ) : (
+          <div className="block media-placeholder">
+            <span>📎 Upload a file</span>
+            <input 
+              type="file" 
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  onUpdate(block.id, file.name);
+                }
+              }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Equation block (LaTeX)
+  if (block.type === 'equation') {
+    return (
+      <div className="block-wrapper" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+        <div className={`block-handle ${isHovered ? 'visible' : ''}`}>
+          <button className="handle-btn" title="Drag to move"><GripIcon /></button>
+          <button className="handle-btn" title="Delete" onClick={() => onDelete(block.id)}><TrashIcon /></button>
+        </div>
+        <div className="block equation-block">
+          {block.content ? (
+            <span className="equation-display">{block.content}</span>
+          ) : (
+            <input
+              className="equation-input"
+              placeholder="Type LaTeX equation... (e.g., E = mc^2)"
+              value={block.content}
+              onChange={(e) => onUpdate(block.id, e.target.value)}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Video block
+  if (block.type === 'video') {
+    return (
+      <div className="block-wrapper" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+        <div className={`block-handle ${isHovered ? 'visible' : ''}`}>
+          <button className="handle-btn" title="Drag to move"><GripIcon /></button>
+          <button className="handle-btn" title="Delete" onClick={() => onDelete(block.id)}><TrashIcon /></button>
+        </div>
+        {block.content ? (
+          <div className="block video-block">
+            {block.content.includes('youtube') || block.content.includes('youtu.be') ? (
+              <iframe 
+                src={block.content.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <video src={block.content} controls />
+            )}
+          </div>
+        ) : (
+          <div className="block media-placeholder">
+            <span>🎬 Add a video</span>
+            <input 
+              type="url" 
+              placeholder="Paste video URL (YouTube, etc.)..." 
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onUpdate(block.id, (e.target as HTMLInputElement).value);
+                }
+              }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Audio block
+  if (block.type === 'audio') {
+    return (
+      <div className="block-wrapper" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+        <div className={`block-handle ${isHovered ? 'visible' : ''}`}>
+          <button className="handle-btn" title="Drag to move"><GripIcon /></button>
+          <button className="handle-btn" title="Delete" onClick={() => onDelete(block.id)}><TrashIcon /></button>
+        </div>
+        {block.content ? (
+          <div className="block audio-block">
+            <audio src={block.content} controls />
+          </div>
+        ) : (
+          <div className="block media-placeholder">
+            <span>🎵 Add audio</span>
+            <input 
+              type="url" 
+              placeholder="Paste audio URL..." 
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onUpdate(block.id, (e.target as HTMLInputElement).value);
+                }
+              }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Embed block
+  if (block.type === 'embed') {
+    return (
+      <div className="block-wrapper" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+        <div className={`block-handle ${isHovered ? 'visible' : ''}`}>
+          <button className="handle-btn" title="Drag to move"><GripIcon /></button>
+          <button className="handle-btn" title="Delete" onClick={() => onDelete(block.id)}><TrashIcon /></button>
+        </div>
+        {block.content ? (
+          <div className="block embed-block">
+            <iframe src={block.content} />
+          </div>
+        ) : (
+          <div className="block media-placeholder">
+            <span>🌐 Embed external content</span>
+            <input 
+              type="url" 
+              placeholder="Paste embed URL..." 
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onUpdate(block.id, (e.target as HTMLInputElement).value);
+                }
+              }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Table of Contents block
+  if (block.type === 'tableOfContents') {
+    return (
+      <div className="block-wrapper" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+        <div className={`block-handle ${isHovered ? 'visible' : ''}`}>
+          <button className="handle-btn" title="Drag to move"><GripIcon /></button>
+          <button className="handle-btn" title="Delete" onClick={() => onDelete(block.id)}><TrashIcon /></button>
+        </div>
+        <div className="block toc-block">
+          <div className="toc-title">Table of Contents</div>
+          <div className="toc-item" data-level="1">Heading 1 example</div>
+          <div className="toc-item" data-level="2">Heading 2 example</div>
+          <div className="toc-item" data-level="3">Heading 3 example</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Breadcrumb block
+  if (block.type === 'breadcrumb') {
+    return (
+      <div className="block-wrapper" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+        <div className={`block-handle ${isHovered ? 'visible' : ''}`}>
+          <button className="handle-btn" title="Drag to move"><GripIcon /></button>
+          <button className="handle-btn" title="Delete" onClick={() => onDelete(block.id)}><TrashIcon /></button>
+        </div>
+        <div className="block breadcrumb-block">
+          <span>Home</span> › <span>Docs</span> › <span>Current Page</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Database block
+  if (block.type === 'database') {
+    const db = block.database || {
+      columns: [
+        { id: 'name', name: 'Name', type: 'text' as const },
+        { id: 'status', name: 'Status', type: 'select' as const, options: [
+          { id: 'todo', name: 'To Do', color: 'gray' },
+          { id: 'progress', name: 'In Progress', color: 'blue' },
+          { id: 'done', name: 'Done', color: 'green' },
+        ]},
+        { id: 'date', name: 'Date', type: 'date' as const },
+      ],
+      rows: [
+        { id: '1', cells: { name: 'Task 1', status: 'todo', date: '2024-01-15' }},
+        { id: '2', cells: { name: 'Task 2', status: 'progress', date: '2024-01-16' }},
+        { id: '3', cells: { name: 'Task 3', status: 'done', date: '2024-01-17' }},
+      ],
+      viewType: 'table' as DatabaseViewType,
+    };
+
+    const [viewType, setViewType] = useState<DatabaseViewType>(db.viewType);
+
+    return (
+      <div className="block-wrapper database-wrapper" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+        <div className={`block-handle ${isHovered ? 'visible' : ''}`}>
+          <button className="handle-btn" title="Drag to move"><GripIcon /></button>
+          <button className="handle-btn" title="Delete" onClick={() => onDelete(block.id)}><TrashIcon /></button>
+        </div>
+        <div className="block database-block">
+          <div className="database-header">
+            <input 
+              className="database-title"
+              defaultValue="Untitled Database"
+              placeholder="Untitled Database"
+            />
+            <div className="database-views">
+              <button className={viewType === 'table' ? 'active' : ''} onClick={() => setViewType('table')}>📊 Table</button>
+              <button className={viewType === 'kanban' ? 'active' : ''} onClick={() => setViewType('kanban')}>📋 Kanban</button>
+              <button className={viewType === 'calendar' ? 'active' : ''} onClick={() => setViewType('calendar')}>📅 Calendar</button>
+              <button className={viewType === 'gallery' ? 'active' : ''} onClick={() => setViewType('gallery')}>🖼️ Gallery</button>
+            </div>
+          </div>
+
+          {viewType === 'table' && (
+            <div className="database-table-view">
+              <table className="db-table">
+                <thead>
+                  <tr>
+                    {db.columns.map(col => (
+                      <th key={col.id}>{col.name}</th>
+                    ))}
+                    <th className="add-column">+</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {db.rows.map(row => (
+                    <tr key={row.id}>
+                      {db.columns.map(col => (
+                        <td key={col.id}>
+                          {col.type === 'select' && col.options ? (
+                            <span className={`db-tag tag-${row.cells[col.id]}`}>
+                              {col.options.find(o => o.id === row.cells[col.id])?.name}
+                            </span>
+                          ) : (
+                            <span>{String(row.cells[col.id] || '')}</span>
+                          )}
+                        </td>
+                      ))}
+                      <td></td>
+                    </tr>
+                  ))}
+                  <tr className="add-row">
+                    <td colSpan={db.columns.length + 1}>+ New</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {viewType === 'kanban' && (
+            <div className="database-kanban-view">
+              {db.columns.find(c => c.type === 'select')?.options?.map(option => (
+                <div key={option.id} className="kanban-column">
+                  <div className={`kanban-header tag-${option.id}`}>
+                    <span>{option.name}</span>
+                    <span className="kanban-count">
+                      {db.rows.filter(r => r.cells.status === option.id).length}
+                    </span>
+                  </div>
+                  <div className="kanban-cards">
+                    {db.rows.filter(r => r.cells.status === option.id).map(row => (
+                      <div key={row.id} className="kanban-card">
+                        <div className="kanban-card-title">{String(row.cells.name)}</div>
+                        <div className="kanban-card-date">{String(row.cells.date)}</div>
+                      </div>
+                    ))}
+                    <button className="add-card-btn">+ Add</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {viewType === 'calendar' && (
+            <div className="database-calendar-view">
+              <div className="calendar-header">
+                <button>←</button>
+                <span>January 2024</span>
+                <button>→</button>
+              </div>
+              <div className="calendar-grid">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                  <div key={day} className="calendar-day-header">{day}</div>
+                ))}
+                {Array.from({ length: 35 }, (_, i) => (
+                  <div key={i} className="calendar-day">
+                    <span className="day-number">{(i % 31) + 1}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {viewType === 'gallery' && (
+            <div className="database-gallery-view">
+              {db.rows.map(row => (
+                <div key={row.id} className="gallery-card">
+                  <div className="gallery-card-image"></div>
+                  <div className="gallery-card-content">
+                    <div className="gallery-card-title">{String(row.cells.name)}</div>
+                    <div className="gallery-card-meta">{String(row.cells.date)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className={`block-wrapper ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
+      onMouseEnter={() => setIsHovered(true)} 
+      onMouseLeave={() => setIsHovered(false)}
+      draggable
+      onDragStart={() => onDragStart?.(block.id)}
+      onDragOver={(e) => { e.preventDefault(); onDragOver?.(block.id); }}
+      onDrop={() => onDrop?.(block.id)}
+    >
+      <div className={`block-handle ${isHovered ? 'visible' : ''}`}>
+        <button className="handle-btn block-drag-handle" title="Drag to move"><GripIcon /></button>
+        <button 
+          className="handle-btn comment-btn" 
+          title="Add comment"
+          onClick={() => onToggleComments?.(block.id)}
+        >
+          💬
+        </button>
+        <button className="handle-btn" title="Delete" onClick={() => onDelete(block.id)}><TrashIcon /></button>
+      </div>
       
-      <div className={`block block-${block.type}`}>
+      {/* Comment indicator */}
+      {comments.length > 0 && (
+        <button 
+          className="block-comment-indicator"
+          onClick={() => onToggleComments?.(block.id)}
+        >
+          {comments.length}
+        </button>
+      )}
+
+      {/* Comments panel */}
+      {showComments && (
+        <div className="block-comments-panel">
+          <div className="comments-list">
+            {comments.map(comment => (
+              <div key={comment.id} className="comment-item">
+                <div className="comment-author">
+                  <div className="comment-avatar">{comment.author.name[0]}</div>
+                  <span className="comment-author-name">{comment.author.name}</span>
+                  <span className="comment-time">
+                    {new Date(comment.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="comment-content">{comment.content}</div>
+              </div>
+            ))}
+          </div>
+          <div className="comment-input">
+            <textarea
+              placeholder="Add a comment..."
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  onAddComment?.(block.id, commentText);
+                  setCommentText('');
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
+      
+      <div className={`block block-${block.type}`} data-color={block.color || 'default'}>
         {block.type === 'todo' && (
           <button className={`todo-checkbox ${block.checked ? 'checked' : ''}`} onClick={() => onToggleTodo(block.id)}>
             {block.checked && <span><CheckIcon /></span>}
@@ -1015,10 +1609,32 @@ interface IconPickerProps {
 }
 
 function IconPicker({ currentIcon, onSelect, onClose }: IconPickerProps) {
+  const [showEmojis, setShowEmojis] = useState(false);
+  const commonEmojis = ['📄', '📝', '📚', '💡', '🎯', '🚀', '⭐', '💻', '🔧', '📊', '🎨', '🔥', '✨', '🌟', '💎', '🎭', '🏆', '🎪', '🌈', '🦄'];
+  
   return (
     <div className="icon-picker-overlay" onClick={onClose}>
       <div className="icon-picker" onClick={e => e.stopPropagation()}>
-        <div className="icon-picker-header">Choose an icon</div>
+        <div className="icon-picker-header">
+          <span>Choose an icon</span>
+          <div className="icon-picker-tabs">
+            <button className={!showEmojis ? 'active' : ''} onClick={() => setShowEmojis(false)}>Icons</button>
+            <button className={showEmojis ? 'active' : ''} onClick={() => setShowEmojis(true)}>Emoji</button>
+          </div>
+        </div>
+        {showEmojis ? (
+          <div className="icon-picker-grid emoji-grid">
+            {commonEmojis.map(emoji => (
+              <button
+                key={emoji}
+                className="icon-picker-item emoji-item"
+                onClick={() => { onSelect(emoji as DocIconType); onClose(); }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        ) : (
         <div className="icon-picker-grid">
           {docIconOptions.map(iconType => (
             <button
@@ -1030,6 +1646,117 @@ function IconPicker({ currentIcon, onSelect, onClose }: IconPickerProps) {
             </button>
           ))}
         </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Cover Picker
+interface CoverPickerProps {
+  currentCover?: string;
+  onSelect: (cover: string | undefined) => void;
+  onClose: () => void;
+}
+
+function CoverPicker({ currentCover, onSelect, onClose }: CoverPickerProps) {
+  const [customUrl, setCustomUrl] = useState('');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'upload' | 'link'>('gallery');
+
+  return (
+    <div className="cover-picker-overlay" onClick={onClose}>
+      <div className="cover-picker" onClick={e => e.stopPropagation()}>
+        <div className="cover-picker-header">
+          <h3>Add cover</h3>
+          <button className="close-btn" onClick={onClose}>×</button>
+        </div>
+        
+        <div className="cover-picker-tabs">
+          <button className={activeTab === 'gallery' ? 'active' : ''} onClick={() => setActiveTab('gallery')}>Gallery</button>
+          <button className={activeTab === 'upload' ? 'active' : ''} onClick={() => setActiveTab('upload')}>Upload</button>
+          <button className={activeTab === 'link' ? 'active' : ''} onClick={() => setActiveTab('link')}>Link</button>
+        </div>
+
+        <div className="cover-picker-content">
+          {activeTab === 'gallery' && (
+            <>
+              <div className="cover-section">
+                <h4>Gradients</h4>
+                <div className="cover-grid">
+                  {COVER_GRADIENTS.filter(g => g.id.startsWith('gradient')).map(gradient => (
+                    <button
+                      key={gradient.id}
+                      className={`cover-option ${currentCover === gradient.style ? 'selected' : ''}`}
+                      style={{ background: gradient.style }}
+                      onClick={() => onSelect(gradient.style)}
+                      title={gradient.label}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="cover-section">
+                <h4>Solid Colors</h4>
+                <div className="cover-grid">
+                  {COVER_GRADIENTS.filter(g => g.id.startsWith('solid')).map(color => (
+                    <button
+                      key={color.id}
+                      className={`cover-option ${currentCover === color.style ? 'selected' : ''}`}
+                      style={{ background: color.style }}
+                      onClick={() => onSelect(color.style)}
+                      title={color.label}
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'upload' && (
+            <div className="cover-upload">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      if (ev.target?.result) {
+                        onSelect(ev.target.result as string);
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+              <p>Upload an image for your cover</p>
+            </div>
+          )}
+
+          {activeTab === 'link' && (
+            <div className="cover-link">
+              <input
+                type="url"
+                placeholder="Paste image URL..."
+                value={customUrl}
+                onChange={(e) => setCustomUrl(e.target.value)}
+              />
+              <button 
+                className="apply-btn"
+                onClick={() => { if (customUrl) onSelect(customUrl); }}
+                disabled={!customUrl}
+              >
+                Apply
+              </button>
+            </div>
+          )}
+        </div>
+
+        {currentCover && (
+          <button className="remove-cover-btn" onClick={() => onSelect(undefined)}>
+            Remove cover
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1058,8 +1785,14 @@ export function DocsPage() {
   const [activeCategory, setActiveCategory] = useState<SidebarCategory>('all');
   const [editingTitle, setEditingTitle] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const [showCoverPicker, setShowCoverPicker] = useState(false);
+  const [showBlockColorPicker, setShowBlockColorPicker] = useState<string | null>(null);
+  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
+  const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
   const [newBlockId, setNewBlockId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCommentsForBlock, setShowCommentsForBlock] = useState<string | null>(null);
+  const [newCommentText, setNewCommentText] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   // Filter docs based on category and search
@@ -1077,15 +1810,17 @@ export function DocsPage() {
   });
 
   // Create new doc
-  const createNewDoc = useCallback((templateId?: string) => {
+  const createNewDoc = useCallback((templateId?: string, parentId?: string) => {
     const template = templates.find(t => t.id === templateId);
+    const parentDoc = parentId ? docs.find(d => d.id === parentId) : null;
+    
     const newDoc: Doc = {
       id: generateId(),
       title: template?.name || 'Untitled',
       icon: template?.icon || 'file-text',
       blocks: [{ id: generateId(), type: 'text', content: '' }],
-      location: 'Everything',
-      locationIcon: 'globe',
+      location: parentDoc ? parentDoc.title : 'Everything',
+      locationIcon: parentDoc ? parentDoc.icon : 'globe',
       tags: [],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -1093,13 +1828,52 @@ export function DocsPage() {
       createdBy: { id: 'user-1', name: 'Aditya' },
       isFavorite: false,
       isWiki: template?.isWiki,
+      parentId: parentId,
     };
     
     setDocs(prev => [newDoc, ...prev]);
     setSelectedDoc(newDoc);
     setEditingTitle(true);
     setTimeout(() => titleInputRef.current?.focus(), 50);
-  }, []);
+  }, [docs]);
+
+  // Create sub-page (nested page)
+  const createSubPage = useCallback(() => {
+    if (!selectedDoc) return;
+    createNewDoc(undefined, selectedDoc.id);
+  }, [selectedDoc, createNewDoc]);
+
+  // Get child pages of a doc
+  const getChildPages = useCallback((docId: string) => {
+    return docs.filter(d => d.parentId === docId);
+  }, [docs]);
+
+  // Add comment to a block
+  const addComment = useCallback((blockId: string, content: string) => {
+    if (!selectedDoc || !content.trim()) return;
+    
+    const newComment: Comment = {
+      id: generateId(),
+      blockId,
+      content: content.trim(),
+      author: { id: 'user-1', name: 'Aditya' },
+      createdAt: new Date(),
+    };
+
+    const updatedComments = [...(selectedDoc.comments || []), newComment];
+    
+    setDocs(prev => prev.map(d => 
+      d.id === selectedDoc.id ? { ...d, comments: updatedComments, updatedAt: new Date() } : d
+    ));
+    setSelectedDoc(prev => prev ? { ...prev, comments: updatedComments } : null);
+    setNewCommentText('');
+  }, [selectedDoc]);
+
+  // Get comments for a block
+  const getBlockComments = useCallback((blockId: string) => {
+    if (!selectedDoc?.comments) return [];
+    return selectedDoc.comments.filter(c => c.blockId === blockId);
+  }, [selectedDoc]);
 
   // Delete doc
   const deleteDoc = useCallback((docId: string) => {
@@ -1136,6 +1910,65 @@ export function DocsPage() {
     ));
     setSelectedDoc(prev => prev ? { ...prev, icon } : null);
   }, [selectedDoc]);
+
+  // Update doc cover image
+  const updateDocCover = useCallback((coverImage: string | undefined) => {
+    if (!selectedDoc) return;
+    setDocs(prev => prev.map(d => 
+      d.id === selectedDoc.id ? { ...d, coverImage, updatedAt: new Date() } : d
+    ));
+    setSelectedDoc(prev => prev ? { ...prev, coverImage } : null);
+    setShowCoverPicker(false);
+  }, [selectedDoc]);
+
+  // Update block color
+  const updateBlockColor = useCallback((blockId: string, color: BlockColor) => {
+    if (!selectedDoc) return;
+    const updatedBlocks = selectedDoc.blocks.map(b => 
+      b.id === blockId ? { ...b, color } : b
+    );
+    setDocs(prev => prev.map(d => 
+      d.id === selectedDoc.id ? { ...d, blocks: updatedBlocks, updatedAt: new Date() } : d
+    ));
+    setSelectedDoc(prev => prev ? { ...prev, blocks: updatedBlocks } : null);
+    setShowBlockColorPicker(null);
+  }, [selectedDoc]);
+
+  // Drag and drop block reordering
+  const handleBlockDragStart = useCallback((blockId: string) => {
+    setDraggedBlockId(blockId);
+  }, []);
+
+  const handleBlockDragOver = useCallback((blockId: string) => {
+    if (draggedBlockId && draggedBlockId !== blockId) {
+      setDragOverBlockId(blockId);
+    }
+  }, [draggedBlockId]);
+
+  const handleBlockDrop = useCallback((targetBlockId: string) => {
+    if (!selectedDoc || !draggedBlockId || draggedBlockId === targetBlockId) {
+      setDraggedBlockId(null);
+      setDragOverBlockId(null);
+      return;
+    }
+
+    const blocks = [...selectedDoc.blocks];
+    const draggedIndex = blocks.findIndex(b => b.id === draggedBlockId);
+    const targetIndex = blocks.findIndex(b => b.id === targetBlockId);
+    
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    // Remove dragged block and insert at target position
+    const [draggedBlock] = blocks.splice(draggedIndex, 1);
+    blocks.splice(targetIndex, 0, draggedBlock);
+
+    setDocs(prev => prev.map(d => 
+      d.id === selectedDoc.id ? { ...d, blocks, updatedAt: new Date() } : d
+    ));
+    setSelectedDoc(prev => prev ? { ...prev, blocks } : null);
+    setDraggedBlockId(null);
+    setDragOverBlockId(null);
+  }, [selectedDoc, draggedBlockId]);
 
   // Block operations
   const updateBlock = useCallback((blockId: string, content: string) => {
@@ -1564,6 +2397,14 @@ export function DocsPage() {
                 <span>All Docs</span>
               </button>
               <div className="doc-editor-actions">
+                <button 
+                  className="action-btn add-subpage-btn"
+                  onClick={createSubPage}
+                  title="Add sub-page"
+                >
+                  <PlusIcon />
+                  <span>Add sub-page</span>
+                </button>
               <button 
                   className={`action-btn star-btn ${selectedDoc.isFavorite ? 'active' : ''}`}
                 onClick={() => toggleFavorite(selectedDoc.id)}
@@ -1578,9 +2419,36 @@ export function DocsPage() {
             </div>
 
             <div className="doc-editor-content">
+              {/* Cover Image */}
+              {selectedDoc.coverImage ? (
+                <div 
+                  className="doc-cover"
+                  style={{ 
+                    background: selectedDoc.coverImage.startsWith('linear-gradient') || selectedDoc.coverImage.startsWith('#')
+                      ? selectedDoc.coverImage 
+                      : `url(${selectedDoc.coverImage}) center/cover no-repeat`
+                  }}
+                >
+                  <div className="cover-actions">
+                    <button onClick={() => setShowCoverPicker(true)}>Change cover</button>
+                    <button onClick={() => updateDocCover(undefined)}>Remove</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="doc-cover-placeholder">
+                  <button className="add-cover-btn" onClick={() => setShowCoverPicker(true)}>
+                    <span>🖼️</span> Add cover
+                  </button>
+                </div>
+              )}
+
               <div className="doc-header">
                 <button className="doc-icon-btn" onClick={() => setShowIconPicker(true)}>
+                  {selectedDoc.emoji ? (
+                    <span className="doc-emoji">{selectedDoc.emoji}</span>
+                  ) : (
                   <DocIcon type={selectedDoc.icon} size={56} />
+                  )}
               </button>
               {editingTitle ? (
                 <input
@@ -1613,13 +2481,44 @@ export function DocsPage() {
                     onToggleTodo={toggleTodo}
                     onRunCode={runCode}
                     onChangeLanguage={changeBlockLanguage}
+                    onColorChange={updateBlockColor}
+                    onDragStart={handleBlockDragStart}
+                    onDragOver={handleBlockDragOver}
+                    onDrop={handleBlockDrop}
+                    isDragging={draggedBlockId === block.id}
+                    isDragOver={dragOverBlockId === block.id}
                     autoFocus={block.id === newBlockId}
+                    comments={getBlockComments(block.id)}
+                    onToggleComments={(blockId) => setShowCommentsForBlock(showCommentsForBlock === blockId ? null : blockId)}
+                    showComments={showCommentsForBlock === block.id}
+                    onAddComment={addComment}
                   />
                 ))}
                 <div className="add-block-area" onClick={addBlockAtEnd}>
                   <span className="add-block-hint">Click to add a block, or type '/' for commands</span>
               </div>
+
+                {/* Sub-pages section */}
+                {getChildPages(selectedDoc.id).length > 0 && (
+                  <div className="sub-pages-section">
+                    <div className="sub-pages-header">
+                      <span>📄 Sub-pages</span>
             </div>
+                    <div className="sub-pages-list">
+                      {getChildPages(selectedDoc.id).map(childDoc => (
+                        <div 
+                          key={childDoc.id} 
+                          className="sub-page-item"
+                          onClick={() => setSelectedDoc(childDoc)}
+                        >
+                          <DocIcon type={childDoc.icon} size={16} />
+                          <span>{childDoc.title || 'Untitled'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
                 </div>
               ) : (
@@ -1758,6 +2657,15 @@ export function DocsPage() {
           currentIcon={selectedDoc.icon}
           onSelect={updateDocIcon}
           onClose={() => setShowIconPicker(false)}
+        />
+      )}
+
+      {/* Cover Picker Modal */}
+      {showCoverPicker && selectedDoc && (
+        <CoverPicker
+          currentCover={selectedDoc.coverImage}
+          onSelect={updateDocCover}
+          onClose={() => setShowCoverPicker(false)}
         />
       )}
     </div>

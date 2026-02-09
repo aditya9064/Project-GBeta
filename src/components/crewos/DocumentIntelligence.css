@@ -1,0 +1,1630 @@
+/* ============================================================
+   Document Intelligence — Custom Model Stack UI
+   Consistent with CrewOS design system
+   ============================================================ */
+
+/* ─── PAGE LAYOUT ────────────────────────────────────────── */
+
+.docai-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #f5f5f9;
+  overflow: hidden;
+  margin-left: 280px;
+}
+
+/* ─── HEADER ─────────────────────────────────────────────── */
+
+.docai-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 36px 0;
+  flex-shrink: 0;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.docai-header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+
+.docai-header-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1a1a2e;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.docai-header-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #eaeaf0;
+  border-radius: 12px;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.docai-header-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6a6a80;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 150ms ease;
+  white-space: nowrap;
+}
+
+.docai-header-tab:hover {
+  color: #3a3a52;
+}
+
+.docai-header-tab.active {
+  background: #1a1a2e;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.docai-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.docai-btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  border: none;
+  transition: all 150ms ease;
+  background: #e07a3a;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(224, 122, 58, 0.3);
+}
+
+.docai-btn-primary:hover {
+  background: #d46b2c;
+  box-shadow: 0 4px 14px rgba(224, 122, 58, 0.4);
+}
+
+.docai-btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  transition: all 150ms ease;
+  background: #ffffff;
+  color: #3a3a52;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.docai-btn-secondary:hover {
+  background: #f8f8fc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── CONTENT ────────────────────────────────────────────── */
+
+.docai-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px 36px 36px;
+}
+
+.docai-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.docai-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+/* ─── ARCHITECTURE BANNER ────────────────────────────────── */
+
+.docai-arch-banner {
+  background: linear-gradient(145deg, #111111 0%, #1a1a2e 50%, #0d0d0d 100%);
+  border-radius: 20px;
+  padding: 32px;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.docai-arch-banner-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.docai-arch-banner-icon {
+  width: 56px;
+  height: 56px;
+  background: rgba(224, 122, 58, 0.15);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e07a3a;
+  flex-shrink: 0;
+}
+
+.docai-arch-banner-text {
+  flex: 1;
+}
+
+.docai-arch-banner-text h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.docai-arch-banner-text p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.6;
+  max-width: 600px;
+}
+
+.docai-arch-stats {
+  display: flex;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+.docai-arch-stat {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 90px;
+}
+
+.docai-arch-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.docai-arch-stat-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ─── PIPELINE FLOW ──────────────────────────────────────── */
+
+.docai-pipeline-flow {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px 28px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.docai-pipeline-flow-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9a9ab0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 16px;
+}
+
+.docai-pipeline-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  justify-content: space-between;
+}
+
+.docai-pipeline-step-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.docai-pipeline-step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #eaeaf0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9a9ab0;
+  flex-shrink: 0;
+}
+
+.docai-pipeline-step-dot.active {
+  background: #e07a3a;
+  color: #ffffff;
+}
+
+.docai-pipeline-step-dot.current {
+  background: #e07a3a;
+  color: #ffffff;
+}
+
+.docai-pipeline-step-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #3a3a52;
+  white-space: nowrap;
+}
+
+.docai-pipeline-arrow {
+  color: #d0d0dc;
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* ─── MODEL CARDS ────────────────────────────────────────── */
+
+.docai-models-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 20px;
+}
+
+.docai-model-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 0 1px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 200ms ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.docai-model-card:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.docai-model-card.expanded {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.docai-model-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.docai-model-card-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.docai-model-type,
+.docai-model-status {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.docai-type-understanding { background: rgba(224, 122, 58, 0.1); color: #e07a3a; }
+.docai-type-extraction { background: #f0f0f6; color: #3a3a52; }
+.docai-type-classification { background: #1a1a2e; color: #ffffff; }
+.docai-type-generation { background: rgba(224, 122, 58, 0.12); color: #d46b2c; }
+.docai-type-validation { background: #f5f5f9; color: #6a6a80; }
+
+.docai-status-deployed { background: rgba(224, 122, 58, 0.1); color: #e07a3a; }
+.docai-status-training { background: #1a1a2e; color: #ffffff; }
+.docai-status-finetuning { background: #f0f0f6; color: #3a3a52; }
+.docai-status-queued { background: #f0f0f6; color: #6a6a80; }
+
+.docai-model-icon {
+  width: 40px;
+  height: 40px;
+  background: #f5f5f9;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6a6a80;
+  flex-shrink: 0;
+}
+
+.docai-model-name {
+  font-size: 16px;
+  font-weight: 650;
+  color: #1a1a2e;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.docai-model-desc {
+  font-size: 13.5px;
+  color: #6a6a80;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.docai-model-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f6;
+}
+
+.docai-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.docai-metric-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.docai-metric-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #9a9ab0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Expanded model */
+.docai-model-expanded {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f6;
+}
+
+.docai-model-expanded-section h5 {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6a6a80;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
+.docai-progress-bar {
+  height: 8px;
+  background: #eaeaf0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.docai-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #e07a3a, #d46b2c);
+  border-radius: 4px;
+  transition: width 600ms ease;
+}
+
+.docai-progress-label {
+  font-size: 12px;
+  color: #9a9ab0;
+  font-weight: 500;
+}
+
+.docai-model-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.docai-model-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6a6a80;
+  background: #f5f5f9;
+  border: none;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.docai-model-action-btn:hover {
+  background: #eaeaf0;
+  color: #3a3a52;
+}
+
+/* Spin animation */
+@keyframes docai-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.docai-spin {
+  animation: docai-spin 1.2s linear infinite;
+}
+
+/* ─── GENERATE VIEW ──────────────────────────────────────── */
+
+.docai-generate-view {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.docai-gen-header-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.docai-gen-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 6px;
+}
+
+.docai-gen-subtitle {
+  font-size: 14px;
+  color: #6a6a80;
+  line-height: 1.5;
+}
+
+.docai-gen-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  min-width: 260px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  color: #9a9ab0;
+}
+
+.docai-gen-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1a1a2e;
+  width: 100%;
+}
+
+.docai-gen-search input::placeholder {
+  color: #b0b0c4;
+}
+
+/* ─── TEMPLATE CARDS ─────────────────────────────────────── */
+
+.docai-templates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+.docai-template-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.docai-template-card:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.docai-template-card.selected {
+  border-color: #e07a3a;
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.docai-template-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.docai-template-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.docai-template-info h4 {
+  font-size: 15px;
+  font-weight: 650;
+  color: #1a1a2e;
+  margin-bottom: 4px;
+}
+
+.docai-template-info p {
+  font-size: 13px;
+  color: #6a6a80;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.docai-template-meta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.docai-template-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #9a9ab0;
+}
+
+.docai-template-inputs-badge {
+  padding: 4px 10px;
+  background: #f0f0f6;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6a6a80;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ─── GENERATE FOOTER ────────────────────────────────────── */
+
+.docai-gen-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.docai-gen-start-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  background: #e07a3a;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+  box-shadow: 0 2px 8px rgba(224, 122, 58, 0.3);
+}
+
+.docai-gen-start-btn:hover {
+  background: #d46b2c;
+  box-shadow: 0 4px 14px rgba(224, 122, 58, 0.4);
+}
+
+.docai-gen-secondary-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: #ffffff;
+  color: #3a3a52;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.docai-gen-secondary-btn:hover {
+  background: #f8f8fc;
+}
+
+/* ─── INTAKE FORM ────────────────────────────────────────── */
+
+.docai-intake-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eaeaf0;
+}
+
+.docai-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #f0f0f6;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6a6a80;
+  cursor: pointer;
+  transition: all 120ms ease;
+  flex-shrink: 0;
+}
+
+.docai-back-btn:hover {
+  background: #e4e4ee;
+  color: #3a3a52;
+}
+
+.docai-intake-header-info {
+  flex: 1;
+}
+
+.docai-intake-header-info h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 4px;
+}
+
+.docai-intake-header-info p {
+  font-size: 13px;
+  color: #6a6a80;
+  line-height: 1.5;
+}
+
+.docai-intake-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.docai-intake-progress span {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e07a3a;
+}
+
+.docai-intake-progress-bar {
+  width: 120px;
+  height: 6px;
+  background: #eaeaf0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.docai-intake-progress-fill {
+  height: 100%;
+  background: #e07a3a;
+  border-radius: 3px;
+  transition: width 300ms ease;
+}
+
+.docai-intake-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.docai-intake-field {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.docai-intake-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.docai-intake-field-header label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3a3a52;
+}
+
+.docai-required {
+  color: #e07a3a;
+  margin-left: 4px;
+}
+
+.docai-help-text {
+  font-size: 11px;
+  color: #9a9ab0;
+  font-weight: 400;
+  max-width: 200px;
+  text-align: right;
+}
+
+.docai-intake-select,
+.docai-intake-text,
+.docai-intake-multiselect {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #f8f8fc;
+  border: 1px solid #eaeaf0;
+  border-radius: 8px;
+  transition: all 120ms ease;
+}
+
+.docai-intake-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a2e;
+}
+
+.docai-intake-toggle {
+  display: flex;
+  gap: 4px;
+  background: #f0f0f6;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.docai-toggle-opt {
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6a6a80;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.docai-toggle-opt.active {
+  background: #1a1a2e;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.docai-intake-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 8px;
+}
+
+.docai-intake-footer-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6a6a80;
+  background: #f8f8fc;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid #eaeaf0;
+}
+
+.docai-intake-footer-info svg {
+  color: #e07a3a;
+  flex-shrink: 0;
+}
+
+/* ─── INTERACTIVE FORM INPUTS ────────────────────────────── */
+
+.docai-intake-select-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: #f8f8fc;
+  border: 1px solid #eaeaf0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  color: #1a1a2e;
+  cursor: pointer;
+  transition: all 120ms ease;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%239a9ab0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+
+.docai-intake-select-input:focus {
+  outline: none;
+  border-color: #e07a3a;
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.1);
+  background-color: #ffffff;
+}
+
+.docai-intake-text-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: #f8f8fc;
+  border: 1px solid #eaeaf0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  color: #1a1a2e;
+  transition: all 120ms ease;
+  box-sizing: border-box;
+}
+
+.docai-intake-text-input:focus {
+  outline: none;
+  border-color: #e07a3a;
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.1);
+  background-color: #ffffff;
+}
+
+.docai-intake-text-input::placeholder,
+.docai-intake-select-input option[value=""],
+.docai-intake-textarea-input::placeholder {
+  color: #b0b0c4;
+  font-weight: 400;
+}
+
+.docai-intake-textarea-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: #f8f8fc;
+  border: 1px solid #eaeaf0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  color: #1a1a2e;
+  transition: all 120ms ease;
+  resize: vertical;
+  min-height: 70px;
+  box-sizing: border-box;
+}
+
+.docai-intake-textarea-input:focus {
+  outline: none;
+  border-color: #e07a3a;
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.1);
+  background-color: #ffffff;
+}
+
+/* Disabled generate button */
+.docai-gen-start-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ─── OVERALL PROGRESS BAR ───────────────────────────────── */
+
+.docai-overall-progress {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 24px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.docai-overall-progress-bar {
+  height: 10px;
+  background: #eaeaf0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.docai-overall-progress-bar .docai-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #e07a3a, #d46b2c);
+  border-radius: 5px;
+  transition: width 400ms ease;
+}
+
+.docai-overall-progress-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6a6a80;
+}
+
+/* ─── GENERATING VIEW ────────────────────────────────────── */
+
+.docai-generating-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.docai-generating-header h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 6px;
+}
+
+.docai-generating-header p {
+  font-size: 14px;
+  color: #6a6a80;
+  line-height: 1.5;
+}
+
+.docai-generating-stats {
+  display: flex;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.docai-gen-stat {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 14px 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 100px;
+}
+
+.docai-gen-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.docai-gen-stat-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #9a9ab0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* ─── PIPELINE PROGRESS ──────────────────────────────────── */
+
+.docai-pipeline-progress {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.docai-pipeline-stage {
+  display: flex;
+  gap: 16px;
+}
+
+.docai-pipeline-stage-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.docai-pipeline-stage.completed .docai-pipeline-stage-indicator {
+  color: #e07a3a;
+}
+
+.docai-pipeline-stage.active .docai-pipeline-stage-indicator {
+  color: #e07a3a;
+}
+
+.docai-pipeline-stage.pending .docai-pipeline-stage-indicator {
+  color: #d0d0dc;
+}
+
+.docai-pipeline-line {
+  width: 2px;
+  flex: 1;
+  min-height: 24px;
+  background: #eaeaf0;
+  margin: 6px 0;
+}
+
+.docai-pipeline-stage.completed .docai-pipeline-line {
+  background: #e07a3a;
+}
+
+.docai-pipeline-stage-content {
+  padding-bottom: 20px;
+}
+
+.docai-pipeline-stage-content h4 {
+  font-size: 14px;
+  font-weight: 650;
+  color: #1a1a2e;
+  margin-bottom: 2px;
+}
+
+.docai-pipeline-stage-content p {
+  font-size: 13px;
+  color: #6a6a80;
+}
+
+.docai-pipeline-detail {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 10px;
+  background: #f5f5f9;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6a6a80;
+}
+
+.docai-pipeline-stage.active .docai-pipeline-detail {
+  background: rgba(224, 122, 58, 0.08);
+  color: #e07a3a;
+}
+
+/* ─── SECTIONS PROGRESS ──────────────────────────────────── */
+
+.docai-sections-progress {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.docai-sections-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 18px 24px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.docai-sections-toggle:hover {
+  background: #f8f8fc;
+}
+
+.docai-sections-count {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 500;
+  color: #9a9ab0;
+}
+
+.docai-sections-list {
+  border-top: 1px solid #f0f0f6;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.docai-sections-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.docai-sections-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 2px;
+}
+
+.docai-section-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  border-bottom: 1px solid #fafafa;
+  transition: background 80ms ease;
+}
+
+.docai-section-item:hover {
+  background: #fafafa;
+}
+
+.docai-section-item.done .docai-section-status-icon { color: #e07a3a; }
+.docai-section-item.generating .docai-section-status-icon { color: #e07a3a; }
+.docai-section-item.pending .docai-section-status-icon { color: #d0d0dc; }
+
+.docai-section-status-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.docai-section-number {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9a9ab0;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  width: 24px;
+}
+
+.docai-section-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: #3a3a52;
+}
+
+.docai-section-item.pending .docai-section-name {
+  color: #b0b0c4;
+}
+
+.docai-section-pages {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9a9ab0;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* ─── REVIEW VIEW ────────────────────────────────────────── */
+
+.docai-review-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.docai-review-header-info {
+  flex: 1;
+}
+
+.docai-review-header-info h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 4px;
+}
+
+.docai-review-header-info p {
+  font-size: 14px;
+  color: #6a6a80;
+}
+
+.docai-review-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* Validation results */
+.docai-validation-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.docai-validation-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.docai-validation-card.pass {
+  border-left: 3px solid #e07a3a;
+}
+
+.docai-validation-card.pass svg {
+  color: #e07a3a;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.docai-validation-card.warning {
+  border-left: 3px solid #d46b2c;
+}
+
+.docai-validation-card.warning svg {
+  color: #d46b2c;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.docai-validation-card h4 {
+  font-size: 13px;
+  font-weight: 650;
+  color: #1a1a2e;
+  margin-bottom: 2px;
+}
+
+.docai-validation-card p {
+  font-size: 12px;
+  color: #6a6a80;
+  line-height: 1.5;
+}
+
+/* ─── DOCUMENT PREVIEW ───────────────────────────────────── */
+
+.docai-doc-preview {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.docai-doc-preview-page {
+  width: 100%;
+  max-width: 680px;
+  background: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.15);
+  padding: 48px 56px;
+  font-family: 'Georgia', 'Times New Roman', serif;
+}
+
+.docai-doc-preview-header {
+  border-bottom: 2px solid #1a1a2e;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+
+.docai-doc-preview-logo {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a2e;
+  letter-spacing: 0.15em;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.docai-doc-preview-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #6a6a80;
+}
+
+.docai-doc-preview-body {
+  margin-bottom: 40px;
+}
+
+.docai-doc-preview-line {
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: #2a2a40;
+  margin-bottom: 4px;
+}
+
+.docai-doc-preview-line.bold {
+  font-weight: 700;
+  font-size: 13.5px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  color: #1a1a2e;
+  letter-spacing: 0.02em;
+}
+
+.docai-doc-preview-line.indent {
+  padding-left: 32px;
+}
+
+.docai-doc-preview-line.spacer {
+  height: 12px;
+}
+
+.docai-doc-preview-footer {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 12px;
+  font-size: 10px;
+  color: #9a9ab0;
+}
+
+/* Review info */
+.docai-review-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.docai-review-info-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  font-size: 13px;
+  color: #3a3a52;
+}
+
+.docai-review-info-item svg {
+  color: #e07a3a;
+  flex-shrink: 0;
+}
+
+/* ─── PIPELINE VIEW (HOW IT WORKS) ───────────────────────── */
+
+.docai-pipeline-view {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.docai-pipeline-header-bar h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 6px;
+}
+
+.docai-pipeline-header-bar p {
+  font-size: 14px;
+  color: #6a6a80;
+  line-height: 1.5;
+}
+
+.docai-how-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.docai-how-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 28px 32px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  position: relative;
+  transition: all 200ms ease;
+}
+
+.docai-how-card:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.docai-how-card.highlight {
+  border: 2px solid rgba(224, 122, 58, 0.2);
+  background: linear-gradient(145deg, #ffffff 0%, #fef9f4 100%);
+}
+
+.docai-how-stage-num {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  font-size: 48px;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.04);
+  line-height: 1;
+}
+
+.docai-how-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.docai-how-card h4 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 4px;
+}
+
+.docai-how-subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e07a3a;
+  margin-bottom: 12px !important;
+}
+
+.docai-how-card p {
+  font-size: 14px;
+  color: #5a5a72;
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+
+.docai-how-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.docai-how-tag {
+  padding: 4px 12px;
+  background: #f5f5f9;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6a6a80;
+}
+
+/* ─── WHY CUSTOM ─────────────────────────────────────────── */
+
+.docai-why-custom {
+  margin-top: 8px;
+}
+
+.docai-why-custom h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 20px;
+}
+
+.docai-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.docai-comparison-col {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px 28px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.docai-comparison-col.bad {
+  border-top: 3px solid #3a3a52;
+}
+
+.docai-comparison-col.good {
+  border-top: 3px solid #e07a3a;
+}
+
+.docai-comparison-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 16px;
+}
+
+.docai-comparison-col.bad .docai-comparison-header svg { color: #3a3a52; }
+.docai-comparison-col.good .docai-comparison-header svg { color: #e07a3a; }
+
+.docai-comparison-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.docai-comparison-col ul li {
+  font-size: 13.5px;
+  color: #5a5a72;
+  line-height: 1.5;
+  padding: 6px 0;
+  border-bottom: 1px solid #fafafa;
+  padding-left: 20px;
+  position: relative;
+}
+
+.docai-comparison-col ul li:last-child {
+  border-bottom: none;
+}
+
+.docai-comparison-col.bad ul li::before {
+  content: '×';
+  position: absolute;
+  left: 0;
+  color: #3a3a52;
+  font-weight: 700;
+}
+
+.docai-comparison-col.good ul li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #e07a3a;
+  font-weight: 700;
+}
+
+/* ─── RESPONSIVE ─────────────────────────────────────────── */
+
+@media (max-width: 1200px) {
+  .docai-header {
+    padding: 20px 28px 0;
+  }
+
+  .docai-content {
+    padding: 20px 28px 28px;
+  }
+
+  .docai-models-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .docai-arch-banner-content {
+    flex-wrap: wrap;
+  }
+
+  .docai-arch-stats {
+    width: 100%;
+    margin-top: 16px;
+  }
+}
+
+@media (max-width: 900px) {
+  .docai-page {
+    margin-left: 230px;
+  }
+
+  .docai-header {
+    padding: 18px 20px 0;
+  }
+
+  .docai-content {
+    padding: 16px 20px 20px;
+  }
+
+  .docai-templates-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .docai-comparison {
+    grid-template-columns: 1fr;
+  }
+
+  .docai-intake-form {
+    grid-template-columns: 1fr;
+  }
+}
+

@@ -27,7 +27,20 @@ type ShapeType =
 type ConnectorType = 'straight' | 'elbow' | 'curved';
 type ArrowHeadType = 'none' | 'arrow' | 'filled-arrow' | 'diamond' | 'circle' | 'open-arrow';
 type TemplateType = 'blank' | 'ruled' | 'grid' | 'dots' | 'isometric' | 'cornell';
+type PaperSizeType = 'a4' | 'a3' | 'a5' | 'letter' | 'legal' | 'tabloid' | 'custom' | 'infinite';
 type HandlePosition = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rotate';
+
+// Paper size dimensions in pixels (at 96 DPI)
+const PAPER_SIZES: Record<PaperSizeType, { width: number; height: number; label: string }> = {
+  'a4': { width: 794, height: 1123, label: 'A4 (210 × 297 mm)' },
+  'a3': { width: 1123, height: 1587, label: 'A3 (297 × 420 mm)' },
+  'a5': { width: 559, height: 794, label: 'A5 (148 × 210 mm)' },
+  'letter': { width: 816, height: 1056, label: 'Letter (8.5 × 11 in)' },
+  'legal': { width: 816, height: 1344, label: 'Legal (8.5 × 14 in)' },
+  'tabloid': { width: 1056, height: 1632, label: 'Tabloid (11 × 17 in)' },
+  'custom': { width: 1200, height: 900, label: 'Custom' },
+  'infinite': { width: 0, height: 0, label: 'Infinite Canvas' },
+};
 type ElementType = 'shape' | 'connector' | 'textBox' | 'stickyNote' | 'image';
 
 interface SelectedElement {
@@ -144,6 +157,10 @@ interface Whiteboard {
   id: string;
   title: string;
   template: TemplateType;
+  paperSize: PaperSizeType;
+  paperWidth: number;
+  paperHeight: number;
+  paperOrientation: 'portrait' | 'landscape';
   strokes: Stroke[];
   shapes: Shape[];
   connectors: Connector[];
@@ -282,6 +299,18 @@ const Icons = {
   ChevronLeft: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  ),
+  ChevronDown: () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  ),
+  Info: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="16" x2="12" y2="12"/>
+      <line x1="12" y1="8" x2="12.01" y2="8"/>
     </svg>
   ),
   Settings: () => (
@@ -750,6 +779,55 @@ const Icons = {
       <line x1="12" y1="3" x2="12" y2="15"/>
     </svg>
   ),
+  Paper: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2"/>
+    </svg>
+  ),
+  Landscape: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="5" width="20" height="14" rx="2"/>
+    </svg>
+  ),
+  Portrait: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="2" width="14" height="20" rx="2"/>
+    </svg>
+  ),
+  Infinite: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.829 0-4.829 8 0 8 5.606 0 7.644-8 12.74-8z"/>
+    </svg>
+  ),
+  RuledLines: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+      <line x1="3" y1="14" x2="21" y2="14"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  ),
+  GridPattern: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7"/>
+      <rect x="14" y="3" width="7" height="7"/>
+      <rect x="14" y="14" width="7" height="7"/>
+      <rect x="3" y="14" width="7" height="7"/>
+    </svg>
+  ),
+  DotPattern: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="6" cy="6" r="1" fill="currentColor"/>
+      <circle cx="12" cy="6" r="1" fill="currentColor"/>
+      <circle cx="18" cy="6" r="1" fill="currentColor"/>
+      <circle cx="6" cy="12" r="1" fill="currentColor"/>
+      <circle cx="12" cy="12" r="1" fill="currentColor"/>
+      <circle cx="18" cy="12" r="1" fill="currentColor"/>
+      <circle cx="6" cy="18" r="1" fill="currentColor"/>
+      <circle cx="12" cy="18" r="1" fill="currentColor"/>
+      <circle cx="18" cy="18" r="1" fill="currentColor"/>
+    </svg>
+  ),
 };
 
 // ============================================
@@ -926,6 +1004,12 @@ export function WhiteboardPage() {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   
+  // New whiteboard creation state
+  const [newBoardPaperSize, setNewBoardPaperSize] = useState<PaperSizeType>('a4');
+  const [newBoardOrientation, setNewBoardOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  const [newBoardTemplate, setNewBoardTemplate] = useState<TemplateType>('blank');
+  const [showFormatPicker, setShowFormatPicker] = useState(false);
+  
   // Export modal state
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFormat, setExportFormat] = useState<'png' | 'jpeg' | 'svg' | 'pdf'>('png');
@@ -1016,6 +1100,10 @@ export function WhiteboardPage() {
         id: generateId(),
         title: 'Untitled Whiteboard',
         template: 'blank',
+        paperSize: 'a4',
+        paperWidth: PAPER_SIZES.a4.width,
+        paperHeight: PAPER_SIZES.a4.height,
+        paperOrientation: 'portrait',
         strokes: [],
         shapes: [],
         connectors: [],
@@ -1037,34 +1125,48 @@ export function WhiteboardPage() {
     if (!canvasRef.current || !activeWhiteboard) return;
     
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
-    // Set canvas size to container size
     const container = containerRef.current;
-    if (container) {
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
+    if (!container) return;
+
+    // Get device pixel ratio for crisp rendering on high-DPI displays
+    const dpr = window.devicePixelRatio || 1;
+    const rect = container.getBoundingClientRect();
+    const displayWidth = Math.floor(rect.width);
+    const displayHeight = Math.floor(rect.height);
+
+    // Only resize if dimensions changed
+    const needsResize = canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr;
+    
+    if (needsResize) {
+      // Set canvas buffer size (actual pixels)
+      canvas.width = displayWidth * dpr;
+      canvas.height = displayHeight * dpr;
+      
+      // Set display size via CSS
+      canvas.style.width = `${displayWidth}px`;
+      canvas.style.height = `${displayHeight}px`;
     }
 
-    // Clear canvas
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Reset transform and scale for high DPI
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Apply transforms
+    // Clear entire canvas with white background
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, displayWidth, displayHeight);
+
+    // Apply pan and zoom transforms
     ctx.save();
     ctx.translate(panOffset.x, panOffset.y);
     ctx.scale(zoom, zoom);
-
-    // Draw template background
-    drawTemplate(ctx, activeWhiteboard.template, canvas.width / zoom, canvas.height / zoom);
 
     // Draw all strokes
     activeWhiteboard.strokes.forEach(stroke => {
       drawStroke(ctx, stroke);
     });
 
-    // Draw current stroke being drawn
     // Draw current stroke preview (for pen/highlighter only, not eraser)
     if (isDrawing && currentStroke.length > 0 && currentTool !== 'eraser') {
       const tempStroke: Stroke = {
@@ -2786,10 +2888,10 @@ export function WhiteboardPage() {
           });
           
           return {
-            ...prev,
-            shapes: prev.shapes.map(s => 
+          ...prev,
+          shapes: prev.shapes.map(s => 
               shapesToMove.has(s.id) ? { ...s, x: s.x + dx, y: s.y + dy } : s
-            ),
+          ),
           };
         });
         
@@ -3042,23 +3144,23 @@ export function WhiteboardPage() {
       // Only create shape if it has a minimum size
       const minSize = 10;
       if (Math.abs(currentShapePreview.width) >= minSize && Math.abs(currentShapePreview.height) >= minSize) {
-        // Add shape
+      // Add shape
         const isContainerType = ['loop', 'group-box', 'swimlane'].includes(currentShapePreview.type);
-        const newShape: Shape = {
-          ...currentShapePreview,
-          id: generateId(),
+      const newShape: Shape = {
+        ...currentShapePreview,
+        id: generateId(),
           // Ensure positive width/height
           width: Math.abs(currentShapePreview.width),
           height: Math.abs(currentShapePreview.height),
           isContainer: isContainerType,
           containedShapeIds: isContainerType ? [] : undefined,
           containerLabel: isContainerType ? (currentShapePreview.type === 'loop' ? 'loop' : currentShapePreview.type === 'swimlane' ? 'Swimlane' : 'Group') : undefined,
-        };
-        setActiveWhiteboard(prev => prev ? {
-          ...prev,
-          shapes: [...prev.shapes, newShape],
-          updatedAt: new Date(),
-        } : null);
+      };
+      setActiveWhiteboard(prev => prev ? {
+        ...prev,
+        shapes: [...prev.shapes, newShape],
+        updatedAt: new Date(),
+      } : null);
       }
       setShapeStart(null);
       setCurrentShapePreview(null);
@@ -3175,12 +3277,29 @@ export function WhiteboardPage() {
     }
   }, [activeWhiteboard]);
 
-  // Create new whiteboard
-  const createNewWhiteboard = useCallback((template: TemplateType = 'blank') => {
+  // Create new whiteboard with paper size
+  const createNewWhiteboard = useCallback((
+    paperSize: PaperSizeType = 'a4',
+    orientation: 'portrait' | 'landscape' = 'portrait',
+    template: TemplateType = 'blank'
+  ) => {
+    const baseDimensions = PAPER_SIZES[paperSize];
+    let width = baseDimensions.width;
+    let height = baseDimensions.height;
+    
+    // Swap dimensions for landscape orientation (except for infinite canvas)
+    if (orientation === 'landscape' && paperSize !== 'infinite') {
+      [width, height] = [height, width];
+    }
+    
     const newBoard: Whiteboard = {
       id: generateId(),
       title: 'Untitled Whiteboard',
       template,
+      paperSize,
+      paperWidth: width,
+      paperHeight: height,
+      paperOrientation: orientation,
       strokes: [],
       shapes: [],
       connectors: [],
@@ -3197,8 +3316,31 @@ export function WhiteboardPage() {
     setShowTemplateModal(false);
     setHistory([]);
     setHistoryIndex(-1);
+    
+    // Set initial zoom to fit the paper nicely
+    if (paperSize !== 'infinite' && containerRef.current) {
+      const containerWidth = containerRef.current.clientWidth;
+      const containerHeight = containerRef.current.clientHeight;
+      const fitZoom = Math.min(
+        (containerWidth - 100) / width,
+        (containerHeight - 100) / height,
+        1
+      );
+      setZoom(Math.max(0.5, fitZoom));
+      // Center the paper
+      setPanOffset({
+        x: (containerWidth - width * fitZoom) / 2,
+        y: (containerHeight - height * fitZoom) / 2
+      });
+    } else {
     setZoom(1);
     setPanOffset({ x: 0, y: 0 });
+    }
+    
+    // Reset modal state
+    setNewBoardPaperSize('a4');
+    setNewBoardOrientation('portrait');
+    setNewBoardTemplate('blank');
   }, []);
 
   // Update whiteboard title
@@ -3208,6 +3350,17 @@ export function WhiteboardPage() {
       setWhiteboards(prev => prev.map(wb => 
         wb.id === activeWhiteboard.id ? { ...wb, title } : wb
       ));
+    }
+  }, [activeWhiteboard]);
+
+  // Change paper format (template) of current whiteboard
+  const changePaperFormat = useCallback((template: TemplateType) => {
+    if (activeWhiteboard) {
+      setActiveWhiteboard(prev => prev ? { ...prev, template } : null);
+      setWhiteboards(prev => prev.map(wb => 
+        wb.id === activeWhiteboard.id ? { ...wb, template } : wb
+      ));
+      setShowFormatPicker(false);
     }
   }, [activeWhiteboard]);
 
@@ -3754,7 +3907,7 @@ stream
           return;
         }
         
-        ctx.drawImage(img, 0, 0);
+          ctx.drawImage(img, 0, 0);
         const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageDataObj.data;
         const shapes: Shape[] = [];
@@ -3885,8 +4038,8 @@ stream
         textBoxes: editableResults.textBoxes.map(tb => 
           tb.id === id ? { ...tb, selected: !tb.selected } : tb
         ),
-      });
-    } else {
+          });
+        } else {
       setEditableResults({
         ...editableResults,
         shapes: editableResults.shapes.map(s => 
@@ -4352,13 +4505,13 @@ stream
                 <div className="shape-unified-container">
                   {/* Fill Colors Row */}
                   <div className="shape-fill-row">
-                    <button
+                  <button 
                       className={`fill-color-btn no-fill ${currentFillColor === 'transparent' ? 'active' : ''}`}
                       onClick={() => setCurrentFillColor('transparent')}
                       title="No Fill"
                     >
                       <span className="no-fill-icon">∅</span>
-                    </button>
+                  </button>
                     {['#EF4444', '#F97316', '#F59E0B', '#22C55E', '#06B6D4', '#3B82F6', '#8B5CF6', '#EC4899', '#FFFFFF', '#374151'].map(color => (
                       <button
                         key={color}
@@ -4368,52 +4521,52 @@ stream
                         title={color}
                       />
                     ))}
-                  </div>
+                </div>
                   
                   {/* All Shapes Grid */}
                   <div className="shape-unified-grid">
                     {/* Basic Shapes */}
-                    {shapeItems.map(shape => (
-                      <button
-                        key={shape.id}
-                        className={`shape-btn ${selectedShape === shape.id ? 'active' : ''}`}
-                        onClick={() => {
-                          setSelectedShape(shape.id as ShapeType);
-                          setShowShapeMenu(false);
-                        }}
-                        title={shape.label}
-                      >
-                        <shape.icon />
-                      </button>
-                    ))}
+                  {shapeItems.map(shape => (
+                    <button
+                      key={shape.id}
+                      className={`shape-btn ${selectedShape === shape.id ? 'active' : ''}`}
+                      onClick={() => {
+                        setSelectedShape(shape.id as ShapeType);
+                        setShowShapeMenu(false);
+                      }}
+                      title={shape.label}
+                    >
+                      <shape.icon />
+                    </button>
+                  ))}
                     {/* Flowchart Shapes */}
-                    {flowchartItems.map(shape => (
-                      <button
-                        key={shape.id}
-                        className={`shape-btn ${selectedShape === shape.id ? 'active' : ''}`}
-                        onClick={() => {
-                          setSelectedShape(shape.id as ShapeType);
-                          setShowShapeMenu(false);
-                        }}
-                        title={shape.label}
-                      >
-                        <shape.icon />
-                      </button>
-                    ))}
+                  {flowchartItems.map(shape => (
+                    <button
+                      key={shape.id}
+                      className={`shape-btn ${selectedShape === shape.id ? 'active' : ''}`}
+                      onClick={() => {
+                        setSelectedShape(shape.id as ShapeType);
+                        setShowShapeMenu(false);
+                      }}
+                      title={shape.label}
+                    >
+                      <shape.icon />
+                    </button>
+                  ))}
                     {/* Container Shapes */}
                     {containerItems.map(shape => (
                       <button
                         key={shape.id}
                         className={`shape-btn container-btn ${selectedShape === shape.id ? 'active' : ''}`}
-                        onClick={() => {
-                          setSelectedShape(shape.id as ShapeType);
-                          setShowShapeMenu(false);
-                        }}
-                        title={shape.label}
-                      >
-                        <shape.icon />
-                      </button>
-                    ))}
+                      onClick={() => {
+                        setSelectedShape(shape.id as ShapeType);
+                        setShowShapeMenu(false);
+                      }}
+                      title={shape.label}
+                    >
+                      <shape.icon />
+                    </button>
+                  ))}
                   </div>
                   
                   {/* Library Button */}
@@ -4554,6 +4707,55 @@ stream
 
             <div className="toolbar-divider" />
 
+            {/* Format picker */}
+            <div className="format-picker-container">
+              <button 
+                className={`toolbar-btn ${showFormatPicker ? 'active' : ''}`}
+                onClick={() => setShowFormatPicker(!showFormatPicker)}
+                title="Change paper format"
+              >
+                <Icons.GridPattern />
+                <Icons.ChevronDown />
+              </button>
+              {showFormatPicker && (
+                <div className="format-picker-dropdown">
+                  <div className="format-picker-header">
+                    <span>Paper Format</span>
+                    <span className="current-format">{activeWhiteboard?.template || 'blank'}</span>
+                  </div>
+                  <div className="format-picker-options">
+                    {templates.map(template => (
+                      <button
+                        key={template.id}
+                        className={`format-option ${activeWhiteboard?.template === template.id ? 'active' : ''}`}
+                        onClick={() => changePaperFormat(template.id)}
+                      >
+                        <div className={`format-option-preview template-${template.id}`}>
+                          {template.id === 'ruled' && (
+                            <div className="preview-lines-mini">
+                              {[...Array(3)].map((_, i) => <div key={i} className="line" />)}
+                            </div>
+                          )}
+                          {template.id === 'grid' && <div className="preview-grid-mini" />}
+                          {template.id === 'dots' && (
+                            <div className="preview-dots-mini">
+                              {[...Array(9)].map((_, i) => <div key={i} className="dot" />)}
+                            </div>
+                          )}
+                        </div>
+                        <span className="format-option-name">{template.label}</span>
+                        {activeWhiteboard?.template === template.id && <Icons.Check />}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="format-picker-info">
+                    <Icons.Info />
+                    <span>Paper: {activeWhiteboard?.paperSize?.toUpperCase() || 'A4'} ({activeWhiteboard?.paperOrientation || 'portrait'})</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Action buttons */}
             <button 
               className="toolbar-btn"
@@ -4606,7 +4808,7 @@ stream
         {/* Canvas Container */}
         <div 
           ref={containerRef}
-          className={`canvas-container template-${activeWhiteboard?.template || 'blank'}`}
+          className="canvas-container"
         >
           <canvas
             ref={canvasRef}
@@ -4836,40 +5038,98 @@ stream
         </div>
       </main>
 
-      {/* Template Selection Modal */}
+      {/* New Whiteboard Modal with Paper Size Selection */}
       {showTemplateModal && (
         <div className="modal-overlay" onClick={() => setShowTemplateModal(false)}>
-          <div className="template-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="new-whiteboard-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Choose a Template</h3>
+              <h3>
+                <Icons.Paper />
+                New Whiteboard
+              </h3>
               <button className="close-btn" onClick={() => setShowTemplateModal(false)}>
                 <Icons.X />
               </button>
             </div>
-            <div className="templates-grid">
+            
+            <div className="new-whiteboard-content">
+              {/* Paper Size Selection */}
+              <div className="paper-size-section">
+                <h4>Paper Size</h4>
+                <div className="paper-sizes-grid">
+                  {(Object.entries(PAPER_SIZES) as [PaperSizeType, { width: number; height: number; label: string }][]).map(([size, info]) => (
+                    <button
+                      key={size}
+                      className={`paper-size-btn ${newBoardPaperSize === size ? 'active' : ''}`}
+                      onClick={() => setNewBoardPaperSize(size)}
+                    >
+                      <div className="paper-size-preview">
+                        {size === 'infinite' ? (
+                          <Icons.Infinite />
+                        ) : (
+                          <div 
+                            className="paper-preview-rect"
+                            style={{
+                              width: Math.min(40, info.width / 30),
+                              height: Math.min(50, info.height / 30),
+                            }}
+                          />
+                        )}
+                      </div>
+                      <span className="paper-size-name">{size.toUpperCase()}</span>
+                      <span className="paper-size-dims">{info.label.split('(')[1]?.replace(')', '') || ''}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Orientation Selection (only for non-infinite) */}
+              {newBoardPaperSize !== 'infinite' && (
+                <div className="orientation-section">
+                  <h4>Orientation</h4>
+                  <div className="orientation-btns">
+                    <button
+                      className={`orientation-btn ${newBoardOrientation === 'portrait' ? 'active' : ''}`}
+                      onClick={() => setNewBoardOrientation('portrait')}
+                    >
+                      <Icons.Portrait />
+                      <span>Portrait</span>
+                    </button>
+                    <button
+                      className={`orientation-btn ${newBoardOrientation === 'landscape' ? 'active' : ''}`}
+                      onClick={() => setNewBoardOrientation('landscape')}
+                    >
+                      <Icons.Landscape />
+                      <span>Landscape</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Paper Format/Pattern Selection */}
+              <div className="format-section">
+                <h4>Paper Format</h4>
+                <div className="format-grid">
               {templates.map(template => (
                 <button
                   key={template.id}
-                  className="template-card"
-                  onClick={() => createNewWhiteboard(template.id)}
+                      className={`format-btn ${newBoardTemplate === template.id ? 'active' : ''}`}
+                      onClick={() => setNewBoardTemplate(template.id)}
                 >
-                  <div className={`template-preview template-${template.id}`}>
+                      <div className={`format-preview template-${template.id}`}>
+                        {template.id === 'blank' && <div className="preview-blank" />}
                     {template.id === 'ruled' && (
                       <div className="preview-lines">
-                        {[...Array(6)].map((_, i) => <div key={i} className="line" />)}
+                            {[...Array(4)].map((_, i) => <div key={i} className="line" />)}
                       </div>
                     )}
-                    {template.id === 'grid' && (
-                      <div className="preview-grid" />
-                    )}
+                        {template.id === 'grid' && <div className="preview-grid" />}
                     {template.id === 'dots' && (
                       <div className="preview-dots">
-                        {[...Array(36)].map((_, i) => <div key={i} className="dot" />)}
+                            {[...Array(16)].map((_, i) => <div key={i} className="dot" />)}
                       </div>
                     )}
-                    {template.id === 'isometric' && (
-                      <div className="preview-iso" />
-                    )}
+                        {template.id === 'isometric' && <div className="preview-iso" />}
                     {template.id === 'cornell' && (
                       <div className="preview-cornell">
                         <div className="left-section" />
@@ -4877,12 +5137,28 @@ stream
                       </div>
                     )}
                   </div>
-                  <div className="template-info">
-                    <span className="template-name">{template.label}</span>
-                    <span className="template-desc">{template.description}</span>
-                  </div>
+                      <span className="format-name">{template.label}</span>
                 </button>
               ))}
+                </div>
+              </div>
+
+              {/* Create Button */}
+              <div className="modal-actions">
+                <button 
+                  className="action-btn secondary"
+                  onClick={() => setShowTemplateModal(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="action-btn primary"
+                  onClick={() => createNewWhiteboard(newBoardPaperSize, newBoardOrientation, newBoardTemplate)}
+                >
+                  <Icons.Plus />
+                  Create Whiteboard
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -5455,24 +5731,24 @@ stream
               {scanMode === 'preview' && scanImage && !scanResult && (
                 <div className="scan-preview-area">
                   <div className="image-preview-container">
-                    <div className="image-preview">
+                  <div className="image-preview">
                       <img src={enhancedImage || scanImage} alt="Whiteboard to scan" />
-                      {scanProcessing && (
-                        <div className="processing-overlay">
-                          <div className="processing-spinner">
-                            <Icons.Loader />
-                          </div>
-                          <p>{scanProgressMessage || 'Processing...'}</p>
-                          <div className="progress-bar">
-                            <div 
-                              className="progress-fill" 
-                              style={{ width: `${scanProgress}%` }}
-                            />
-                          </div>
-                          <span className="progress-text">{Math.round(scanProgress)}%</span>
+                    {scanProcessing && (
+                      <div className="processing-overlay">
+                        <div className="processing-spinner">
+                          <Icons.Loader />
                         </div>
-                      )}
-                    </div>
+                          <p>{scanProgressMessage || 'Processing...'}</p>
+                        <div className="progress-bar">
+                          <div 
+                            className="progress-fill" 
+                            style={{ width: `${scanProgress}%` }}
+                          />
+                        </div>
+                        <span className="progress-text">{Math.round(scanProgress)}%</span>
+                      </div>
+                    )}
+                        </div>
                     
                     {/* Enhancement Options */}
                     {showEnhancePreview && !scanProcessing && (
@@ -5677,19 +5953,19 @@ stream
                   </div>
                   
                   <div className="scan-actions">
-                    <button 
-                      className="action-btn secondary"
+                        <button 
+                          className="action-btn secondary"
                       onClick={resetScanModal}
-                    >
-                      Scan Another
-                    </button>
-                    <button 
-                      className="action-btn primary"
-                      onClick={applyScanResult}
-                    >
-                      <Icons.Check />
+                        >
+                          Scan Another
+                        </button>
+                        <button 
+                          className="action-btn primary"
+                          onClick={applyScanResult}
+                        >
+                          <Icons.Check />
                       Add Selected to Whiteboard
-                    </button>
+                        </button>
                   </div>
                 </div>
               )}
