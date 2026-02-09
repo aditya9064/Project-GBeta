@@ -9,6 +9,7 @@
 
 import { Router, Request, Response } from 'express';
 import { AIEngine } from '../services/ai-engine.js';
+import { StyleAnalyzer } from '../services/style-analyzer.js';
 import type { UnifiedMessage, AIResponseConfig } from '../types.js';
 
 const router = Router();
@@ -78,6 +79,30 @@ router.put('/config', (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to update config',
+    });
+  }
+});
+
+/* ─── POST /api/ai/analyze-style ──────────────────────── */
+
+router.post('/analyze-style', async (req: Request, res: Response) => {
+  try {
+    const messages = req.body.messages as UnifiedMessage[];
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      res.status(400).json({ success: false, error: 'Messages array is required' });
+      return;
+    }
+
+    const { profiles, result } = await StyleAnalyzer.analyzeMessages(messages);
+
+    // Store profiles in the AI engine for future draft generation
+    AIEngine.setStyleProfiles(profiles);
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : 'Style analysis failed',
     });
   }
 });

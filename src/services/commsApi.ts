@@ -43,6 +43,10 @@ export interface UnifiedMessage {
   attachments?: Attachment[];
   threadCount?: number;
   metadata?: Record<string, unknown>;
+  /** True if this message came from a group chat / channel (Slack channel, Teams group) */
+  isGroupChat?: boolean;
+  /** True if the user was mentioned or their name appeared in this group message */
+  mentionsUser?: boolean;
 }
 
 export interface MessageAnalysis {
@@ -85,6 +89,85 @@ export interface AIConfig {
   includeSignature: boolean;
   maxResponseLength: number;
   orgContext: string;
+}
+
+/* ─── VIP & Approval Types ─────────────────────────────── */
+
+export interface VIPContact {
+  id: string;
+  name: string;
+  email?: string;
+  channel?: Channel;
+  avatarColor: string;
+  initials: string;
+}
+
+export interface ApprovalItem {
+  id: string;
+  messageId: string;
+  from: string;
+  fromInitial: string;
+  fromColor: string;
+  channel: Channel;
+  subject?: string;
+  originalPreview: string;
+  originalFull: string;
+  slackChannel?: string;
+  teamsChannel?: string;
+  aiDraft: string;
+  confidence: number;
+  createdAt: Date;
+}
+
+export interface VIPNotification {
+  id: string;
+  messageId: string;
+  from: string;
+  fromInitial: string;
+  fromColor: string;
+  channel: Channel;
+  subject?: string;
+  preview: string;
+  timestamp: Date;
+}
+
+/* ─── Channel Group Summary (for grouped chat view) ───── */
+
+export interface ChannelGroupSummary {
+  id: string;
+  channel: Channel;
+  channelName: string;
+  totalInChannel: number;
+  relevantMessages: UnifiedMessage[];
+  high: UnifiedMessage[];
+  medium: UnifiedMessage[];
+  low: UnifiedMessage[];
+}
+
+export interface StyleProfile {
+  contactName: string;
+  contactEmail?: string;
+  formality: string;
+  averageLength: string;
+  emojiUsage: string;
+  greetingStyle: string;
+  closingStyle: string;
+  vocabularyLevel: string;
+  sentenceStructure: string;
+  usesContractions: boolean;
+  capitalization: string;
+  pronounPreference: string;
+  asksFollowUpQuestions: boolean;
+  humorStyle: string;
+  paragraphStyle: string;
+  endsWithActionItems: boolean;
+  acknowledgmentStyle: string;
+  signOffName: string;
+  commonTransitions: string[];
+  hedgeWords: string[];
+  avgWordsPerMessage: number;
+  styleConfidence: number;
+  messageCount: number;
 }
 
 /* ─── Generic fetch wrapper ────────────────────────────── */
@@ -246,6 +329,20 @@ export const AIAPI = {
       body: JSON.stringify(config),
     });
     return result.success ? result.data! : null;
+  },
+
+  /** Analyze user's communication style from messages */
+  async analyzeStyle(messages: UnifiedMessage[]): Promise<{
+    profilesCreated: number;
+    messagesAnalyzed: number;
+    overallConfidence: number;
+    contacts: { name: string; email?: string; messageCount: number; confidence: number }[];
+  } | null> {
+    const result = await apiFetch<any>('/ai/analyze-style', {
+      method: 'POST',
+      body: JSON.stringify({ messages }),
+    });
+    return result.success ? result.data : null;
   },
 };
 

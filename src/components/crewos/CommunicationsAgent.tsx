@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Mail,
   MessageSquare,
@@ -29,6 +29,7 @@ import {
   Unlink,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Brain,
   Target,
   TrendingUp,
@@ -40,10 +41,17 @@ import {
   BarChart3,
   Lightbulb,
   MessageCircle,
+  Plus,
+  UserPlus,
+  Crown,
+  AtSign,
+  Layers,
 } from 'lucide-react';
 import { useCommsAgent } from '../../hooks/useCommsAgent';
+import { ApprovalPopup, VIPNotificationPopup } from './ApprovalPopup';
 import type { Channel, MessageStatus, Priority } from '../../services/commsApi';
 import './CommunicationsAgent.css';
+import './ApprovalPopup.css';
 
 /* ─── Helpers ──────────────────────────────────────────── */
 
@@ -76,7 +84,7 @@ const statusLabels: Record<MessageStatus, string> = {
   ai_drafted: 'AI Drafted',
   approved: 'Approved',
   sent: 'Sent',
-  escalated: 'Escalated',
+  escalated: 'Needs Your Input',
 };
 
 const statusIcons: Record<MessageStatus, React.ReactNode> = {
@@ -98,6 +106,7 @@ export function CommunicationsAgent() {
   const [showFilters, setShowFilters] = useState(false);
   const [showConnections, setShowConnections] = useState(false);
   const [showAIInsights, setShowAIInsights] = useState(false);
+  const [showVIPPanel, setShowVIPPanel] = useState(false);
   const [slackTokenInput, setSlackTokenInput] = useState('');
   const [showSlackInput, setShowSlackInput] = useState(false);
 
@@ -113,11 +122,36 @@ export function CommunicationsAgent() {
     connections,
     isGenerating,
     lastAnalysis,
+    approvalQueue,
+    vipContacts,
+    vipNotifications,
+    styleProfiles,
+    isAnalyzingStyle,
+    styleAnalyzed,
+    channelGroups,
+    individualMessages,
+    expandedGroupId,
+    expandedImportance,
     isLoading,
     isSyncing,
     backendConnected,
     error,
   } = state;
+
+  // Compute unique contacts from messages (for VIP suggestions)
+  const uniqueContacts = useMemo(() => {
+    const seen = new Map<string, { name: string; email?: string; channel: Channel }>();
+    for (const msg of messages) {
+      const key = msg.fromEmail || msg.from;
+      if (!seen.has(key)) {
+        seen.set(key, { name: msg.from, email: msg.fromEmail, channel: msg.channel as Channel });
+      }
+    }
+    // Filter out already-VIP contacts
+    return Array.from(seen.values()).filter(
+      c => !vipContacts.some(v => v.name === c.name)
+    );
+  }, [messages, vipContacts]);
 
   // Stats
   const allMessages = messages;
@@ -201,15 +235,26 @@ export function CommunicationsAgent() {
         <div className="comms-header-right">
           <button
             className={`comms-btn comms-btn-secondary ${showConnections ? 'active' : ''}`}
-            onClick={() => { setShowConnections(!showConnections); setShowAIInsights(false); }}
+            onClick={() => { setShowConnections(!showConnections); setShowAIInsights(false); setShowVIPPanel(false); }}
             title="Manage Connections"
           >
             <Link2 size={15} />
             <span>Connections</span>
           </button>
           <button
+            className={`comms-btn comms-btn-secondary ${showVIPPanel ? 'active' : ''}`}
+            onClick={() => { setShowVIPPanel(!showVIPPanel); setShowConnections(false); setShowAIInsights(false); }}
+            title="VIP Contacts"
+          >
+            <Crown size={15} />
+            <span>VIP Contacts</span>
+            {vipContacts.length > 0 && (
+              <span className="comms-vip-header-count">{vipContacts.length}</span>
+            )}
+          </button>
+          <button
             className={`comms-btn comms-btn-secondary ${showAIInsights ? 'active' : ''}`}
-            onClick={() => { setShowAIInsights(!showAIInsights); setShowConnections(false); }}
+            onClick={() => { setShowAIInsights(!showAIInsights); setShowConnections(false); setShowVIPPanel(false); }}
             title="AI Engine Settings"
           >
             <Brain size={15} />
@@ -387,6 +432,138 @@ export function CommunicationsAgent() {
               </span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── STYLE ANALYSIS (inside connections panel) ── */}
+      {showConnections && (
+        <div className="comms-style-section">
+          {!styleAnalyzed && !isAnalyzingStyle && (
+            <div className="comms-style-banner">
+              <div className="comms-style-banner-icon">
+                <Sparkles size={18} />
+              </div>
+              <div className="comms-style-banner-info">
+                <h4>Learn Your Communication Style</h4>
+                <p>We'll analyze how you write to different people — tone, formality, greeting style, and language patterns. <strong>We never store message content</strong>, only style characteristics.</p>
+              </div>
+              <button className="comms-btn comms-btn-primary" onClick={() => actions.analyzeStyle()}>
+                <Brain size={15} />
+                <span>Analyze Style</span>
+              </button>
+            </div>
+          )}
+          {isAnalyzingStyle && (
+            <div className="comms-style-analyzing">
+              <Loader2 size={20} className="comms-spin" />
+              <div>
+                <h4>Analyzing your communication style...</h4>
+                <p>Learning tone, formality, and language patterns. No message content is stored.</p>
+              </div>
+            </div>
+          )}
+          {styleAnalyzed && styleProfiles.length > 0 && (
+            <div className="comms-style-complete">
+              <div className="comms-style-complete-header">
+                <CheckCircle size={16} />
+                <span>Style learned for <strong>{styleProfiles.length}</strong> contacts — AI drafts will now match your writing style</span>
+              </div>
+              <div className="comms-style-profiles-grid">
+                {styleProfiles.slice(0, 6).map(profile => (
+                  <div key={profile.contactName} className="comms-style-profile-card">
+                    <div className="comms-style-profile-top">
+                      <span className="comms-style-profile-name">{profile.contactName}</span>
+                      <span className={`comms-style-confidence ${profile.styleConfidence >= 90 ? 'high' : profile.styleConfidence >= 70 ? 'medium' : 'low'}`}>
+                        {profile.styleConfidence}%
+                      </span>
+                    </div>
+                    <div className="comms-style-profile-traits">
+                      <span className="comms-style-trait">{profile.formality}</span>
+                      <span className="comms-style-trait">{profile.averageLength}</span>
+                      <span className="comms-style-trait">{profile.usesContractions ? 'contractions' : 'formal'}</span>
+                      <span className="comms-style-trait">{profile.paragraphStyle.replace(/_/g, ' ')}</span>
+                      {profile.emojiUsage !== 'none' && (
+                        <span className="comms-style-trait">{profile.emojiUsage} emoji</span>
+                      )}
+                      {profile.humorStyle !== 'none' && (
+                        <span className="comms-style-trait">{profile.humorStyle.replace(/_/g, ' ')}</span>
+                      )}
+                    </div>
+                    <div className="comms-style-profile-detail">
+                      <span>Greeting: "{profile.greetingStyle}" · Closing: "{profile.closingStyle}"</span>
+                    </div>
+                    <div className="comms-style-profile-detail">
+                      <span>~{profile.avgWordsPerMessage} words/msg · {profile.messageCount} messages analyzed</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {styleProfiles.length > 6 && (
+                <div className="comms-style-more">
+                  +{styleProfiles.length - 6} more profiles
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── VIP CONTACTS PANEL ────────────────────────── */}
+      {showVIPPanel && (
+        <div className="comms-vip-panel">
+          <div className="comms-vip-panel-header">
+            <h3><Crown size={16} /> VIP Contacts</h3>
+            <p>Messages from VIP contacts won't be auto-replied to. You'll get a notification to handle them personally.</p>
+          </div>
+
+          {vipContacts.length > 0 && (
+            <div className="comms-vip-list">
+              {vipContacts.map(contact => (
+                <div key={contact.id} className="comms-vip-item">
+                  <div className="comms-vip-avatar" style={{ background: contact.avatarColor }}>
+                    {contact.initials}
+                  </div>
+                  <div className="comms-vip-info">
+                    <span className="comms-vip-name">{contact.name}</span>
+                    {contact.email && <span className="comms-vip-email">{contact.email}</span>}
+                  </div>
+                  <button
+                    className="comms-vip-remove-btn"
+                    onClick={() => actions.removeVIPContact(contact.id)}
+                    title="Remove VIP"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {vipContacts.length === 0 && (
+            <div className="comms-vip-empty">
+              <Shield size={28} />
+              <p>No VIP contacts yet. Add people you want to handle personally.</p>
+            </div>
+          )}
+
+          <div className="comms-vip-add-section">
+            <h4><UserPlus size={14} /> Add from your contacts</h4>
+            <div className="comms-vip-suggestions">
+              {uniqueContacts.slice(0, 12).map(c => (
+                <button
+                  key={c.name}
+                  className="comms-vip-suggestion-btn"
+                  onClick={() => actions.addVIPContact(c)}
+                >
+                  <Plus size={12} />
+                  <span>{c.name}</span>
+                </button>
+              ))}
+              {uniqueContacts.length === 0 && (
+                <span className="comms-vip-no-suggestions">All contacts are already VIP</span>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -600,77 +777,233 @@ export function CommunicationsAgent() {
               <p>Try adjusting your filters or connect your accounts</p>
             </div>
           ) : (
-            messages.map(msg => (
-              <div
-                key={msg.id}
-                className={`comms-list-item ${selectedMessage?.id === msg.id ? 'selected' : ''} ${
-                  msg.status === 'pending' ? 'unread' : ''
-                }`}
-                onClick={() => handleSelectMessage(msg)}
-              >
-                <div className="comms-list-item-left">
-                  <div className="comms-list-avatar" style={{ background: msg.fromColor }}>
-                    {msg.fromInitial}
+            <>
+              {/* ── Channel Group Summaries ─────────────── */}
+              {channelGroups.length > 0 && (
+                <div className="comms-channel-groups">
+                  <div className="comms-channel-groups-header">
+                    <Layers size={13} />
+                    <span>Group Channels</span>
+                    <span className="comms-channel-groups-count">
+                      {channelGroups.reduce((sum, g) => sum + g.relevantMessages.length, 0)} mentions
+                    </span>
                   </div>
-                  <div className="comms-list-item-content">
-                    <div className="comms-list-item-top">
-                      <span className="comms-list-from">{msg.from}</span>
-                      <div className="comms-list-meta">
-                        <span
-                          className="comms-list-channel-badge"
-                          style={{ color: channelColors[msg.channel] }}
-                        >
-                          {channelIcons[msg.channel]}
-                          <span>{channelLabels[msg.channel]}</span>
-                        </span>
-                        <span className="comms-list-time">{msg.relativeTime}</span>
+                  {channelGroups.map(group => {
+                    const isExpanded = expandedGroupId === group.id;
+                    const expandedMsgs = isExpanded && expandedImportance
+                      ? group[expandedImportance]
+                      : [];
+
+                    return (
+                      <div key={group.id} className={`comms-group-card ${isExpanded ? 'expanded' : ''}`}>
+                        {/* Group header */}
+                        <div className="comms-group-card-header">
+                          <div className="comms-group-card-icon" style={{ background: channelColors[group.channel] }}>
+                            {channelIcons[group.channel]}
+                          </div>
+                          <div className="comms-group-card-info">
+                            <div className="comms-group-card-title">
+                              {channelLabels[group.channel]} · {group.channelName}
+                            </div>
+                            <div className="comms-group-card-meta">
+                              <AtSign size={11} />
+                              <span>
+                                <strong>{group.relevantMessages.length}</strong> messages mention you
+                              </span>
+                              <span className="comms-group-card-total">
+                                ({group.totalInChannel} total in channel)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Importance breakdown */}
+                        <div className="comms-group-importance">
+                          {group.high.length > 0 && (
+                            <div
+                              className={`comms-importance-row ${isExpanded && expandedImportance === 'high' ? 'active' : ''}`}
+                              onClick={() => actions.expandGroup(group.id, 'high')}
+                            >
+                              <span className="comms-importance-dot" style={{ background: '#EF4444' }} />
+                              <span className="comms-importance-count">{group.high.length}</span>
+                              <span className="comms-importance-label">High importance</span>
+                              <span className="comms-importance-tag needs-input">
+                                <AlertCircle size={10} /> Needs your input
+                              </span>
+                              <span className="comms-importance-view-btn">
+                                {isExpanded && expandedImportance === 'high' ? <ChevronUp size={13} /> : <ChevronRight size={13} />}
+                                View
+                              </span>
+                            </div>
+                          )}
+                          {group.medium.length > 0 && (
+                            <div
+                              className={`comms-importance-row ${isExpanded && expandedImportance === 'medium' ? 'active' : ''}`}
+                              onClick={() => actions.expandGroup(group.id, 'medium')}
+                            >
+                              <span className="comms-importance-dot" style={{ background: '#F59E0B' }} />
+                              <span className="comms-importance-count">{group.medium.length}</span>
+                              <span className="comms-importance-label">Medium importance</span>
+                              <span className="comms-importance-tag ai-ready">
+                                <Sparkles size={10} /> AI drafts ready
+                              </span>
+                              <span className="comms-importance-view-btn">
+                                {isExpanded && expandedImportance === 'medium' ? <ChevronUp size={13} /> : <ChevronRight size={13} />}
+                                View
+                              </span>
+                            </div>
+                          )}
+                          {group.low.length > 0 && (
+                            <div
+                              className={`comms-importance-row ${isExpanded && expandedImportance === 'low' ? 'active' : ''}`}
+                              onClick={() => actions.expandGroup(group.id, 'low')}
+                            >
+                              <span className="comms-importance-dot" style={{ background: '#10B981' }} />
+                              <span className="comms-importance-count">{group.low.length}</span>
+                              <span className="comms-importance-label">Low importance</span>
+                              <span className="comms-importance-tag ai-ready">
+                                <Sparkles size={10} /> AI drafts ready
+                              </span>
+                              <span className="comms-importance-view-btn">
+                                {isExpanded && expandedImportance === 'low' ? <ChevronUp size={13} /> : <ChevronRight size={13} />}
+                                View
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Expanded messages */}
+                        {isExpanded && expandedMsgs.length > 0 && (
+                          <div className="comms-group-expanded-messages">
+                            {expandedMsgs.map(msg => (
+                              <div
+                                key={msg.id}
+                                className={`comms-group-msg-item ${selectedMessage?.id === msg.id ? 'selected' : ''}`}
+                                onClick={() => handleSelectMessage(msg)}
+                              >
+                                <div className="comms-group-msg-avatar" style={{ background: msg.fromColor }}>
+                                  {msg.fromInitial}
+                                </div>
+                                <div className="comms-group-msg-content">
+                                  <div className="comms-group-msg-top">
+                                    <span className="comms-group-msg-from">{msg.from}</span>
+                                    <span className="comms-group-msg-time">{msg.relativeTime}</span>
+                                  </div>
+                                  <p className="comms-group-msg-preview">{msg.preview}</p>
+                                  <div className="comms-group-msg-badges">
+                                    <span className={`comms-status-badge status-${msg.status}`}>
+                                      {statusIcons[msg.status]}
+                                      <span>{statusLabels[msg.status]}</span>
+                                    </span>
+                                    {msg.status === 'escalated' && (
+                                      <span className="comms-needs-input-badge">
+                                        <AlertCircle size={10} /> Respond manually
+                                      </span>
+                                    )}
+                                    {msg.aiDraft && (
+                                      <span className="comms-ai-ready-badge">
+                                        <Sparkles size={10} /> AI draft
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    {msg.subject && <div className="comms-list-subject">{msg.subject}</div>}
-                    {msg.slackChannel && (
-                      <div className="comms-list-channel-name">
-                        <Hash size={12} /> {msg.slackChannel}
-                      </div>
-                    )}
-                    {msg.teamsChannel && (
-                      <div className="comms-list-channel-name">
-                        <Users size={12} /> {msg.teamsChannel}
-                      </div>
-                    )}
-                    <div className="comms-list-preview">{msg.preview}</div>
-                    <div className="comms-list-item-bottom">
-                      <span className={`comms-status-badge status-${msg.status}`}>
-                        {statusIcons[msg.status]}
-                        <span>{statusLabels[msg.status]}</span>
-                      </span>
-                      <span
-                        className="comms-priority-dot"
-                        style={{ background: priorityColors[msg.priority] }}
-                        title={`${msg.priority} priority`}
-                      />
-                      {msg.attachments && msg.attachments.length > 0 && (
-                        <span className="comms-list-attachment-count">
-                          <Paperclip size={12} />
-                          {msg.attachments.length}
-                        </span>
-                      )}
-                      {msg.threadCount && (
-                        <span className="comms-list-thread-count">
-                          <MessageSquare size={12} />
-                          {msg.threadCount}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
-                <button
-                  className={`comms-star-btn ${msg.starred ? 'starred' : ''}`}
-                  onClick={e => handleToggleStar(msg.id, e)}
+              )}
+
+              {/* ── Separator between groups and individual msgs ── */}
+              {channelGroups.length > 0 && individualMessages.length > 0 && (
+                <div className="comms-list-separator">
+                  <Mail size={12} />
+                  <span>Direct Messages</span>
+                </div>
+              )}
+
+              {/* ── Individual Messages (non-group) ──────── */}
+              {individualMessages.map(msg => (
+                <div
+                  key={msg.id}
+                  className={`comms-list-item ${selectedMessage?.id === msg.id ? 'selected' : ''} ${
+                    msg.status === 'pending' ? 'unread' : ''
+                  }`}
+                  onClick={() => handleSelectMessage(msg)}
                 >
-                  <Star size={14} fill={msg.starred ? '#F59E0B' : 'none'} />
-                </button>
-              </div>
-            ))
+                  <div className="comms-list-item-left">
+                    <div className="comms-list-avatar" style={{ background: msg.fromColor }}>
+                      {msg.fromInitial}
+                    </div>
+                    <div className="comms-list-item-content">
+                      <div className="comms-list-item-top">
+                        <span className="comms-list-from">{msg.from}</span>
+                        <div className="comms-list-meta">
+                          <span
+                            className="comms-list-channel-badge"
+                            style={{ color: channelColors[msg.channel] }}
+                          >
+                            {channelIcons[msg.channel]}
+                            <span>{channelLabels[msg.channel]}</span>
+                          </span>
+                          <span className="comms-list-time">{msg.relativeTime}</span>
+                        </div>
+                      </div>
+                      {msg.subject && <div className="comms-list-subject">{msg.subject}</div>}
+                      {msg.slackChannel && (
+                        <div className="comms-list-channel-name">
+                          <Hash size={12} /> {msg.slackChannel}
+                        </div>
+                      )}
+                      {msg.teamsChannel && (
+                        <div className="comms-list-channel-name">
+                          <Users size={12} /> {msg.teamsChannel}
+                        </div>
+                      )}
+                      <div className="comms-list-preview">{msg.preview}</div>
+                      <div className="comms-list-item-bottom">
+                        {actions.isVIP(msg.from) || (msg.fromEmail && actions.isVIP(msg.fromEmail)) ? (
+                          <span className="comms-vip-badge">
+                            <Crown size={10} />
+                            <span>VIP</span>
+                          </span>
+                        ) : null}
+                        <span className={`comms-status-badge status-${msg.status}`}>
+                          {statusIcons[msg.status]}
+                          <span>{statusLabels[msg.status]}</span>
+                        </span>
+                        <span
+                          className="comms-priority-dot"
+                          style={{ background: priorityColors[msg.priority] }}
+                          title={`${msg.priority} priority`}
+                        />
+                        {msg.attachments && msg.attachments.length > 0 && (
+                          <span className="comms-list-attachment-count">
+                            <Paperclip size={12} />
+                            {msg.attachments.length}
+                          </span>
+                        )}
+                        {msg.threadCount && (
+                          <span className="comms-list-thread-count">
+                            <MessageSquare size={12} />
+                            {msg.threadCount}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    className={`comms-star-btn ${msg.starred ? 'starred' : ''}`}
+                    onClick={e => handleToggleStar(msg.id, e)}
+                  >
+                    <Star size={14} fill={msg.starred ? '#F59E0B' : 'none'} />
+                  </button>
+                </div>
+              ))}
+            </>
           )}
         </div>
 
@@ -900,6 +1233,28 @@ export function CommunicationsAgent() {
           )}
         </div>
       </div>
+
+      {/* ─── NOTIFICATION STACK (fixed bottom-right) ──── */}
+      {(vipNotifications.length > 0 || approvalQueue.length > 0) && (
+        <div className="notification-stack">
+          {vipNotifications.map(notif => (
+            <VIPNotificationPopup
+              key={notif.id}
+              notification={notif}
+              onView={(id) => actions.viewVIPNotification(id)}
+              onDismiss={(id) => actions.dismissVIPNotification(id)}
+            />
+          ))}
+          {approvalQueue.length > 0 && (
+            <ApprovalPopup
+              items={approvalQueue}
+              onApprove={(id) => actions.approveItem(id)}
+              onReview={(id) => actions.reviewItem(id)}
+              onCancel={(id) => actions.cancelItem(id)}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

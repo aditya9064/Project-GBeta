@@ -105,7 +105,7 @@ export const TeamsService = {
     try {
       const tokenResponse = await msal.acquireTokenByCode({
         code,
-        scopes: config.microsoft.scopes,
+        scopes: [...config.microsoft.scopes],
         redirectUri: config.microsoft.redirectUri,
       });
 
@@ -122,7 +122,7 @@ export const TeamsService = {
         accountName: me.displayName,
         connectedAt: new Date(),
         lastSyncAt: new Date(),
-        scopes: config.microsoft.scopes,
+        scopes: [...config.microsoft.scopes],
       };
 
       return connectionState;

@@ -143,3 +143,107 @@ export interface DraftResponse {
   draft: GeneratedResponse;
 }
 
+/* ─── Style Analysis ──────────────────────────────────── */
+
+export interface StyleProfile {
+  contactId: string;
+  contactName: string;
+  contactEmail?: string;
+  /** Communication style characteristics (NO content stored) */
+  formality: 'very_formal' | 'formal' | 'neutral' | 'casual' | 'very_casual';
+  averageLength: 'brief' | 'moderate' | 'detailed';
+  emojiUsage: 'none' | 'minimal' | 'moderate' | 'frequent';
+  greetingStyle: string;
+  closingStyle: string;
+  vocabularyLevel: 'simple' | 'moderate' | 'advanced' | 'technical';
+  sentenceStructure: 'short_direct' | 'balanced' | 'complex_detailed';
+  usesSlang: boolean;
+  usesBulletPoints: boolean;
+  typicalCategories: string[];
+  relationship: RelationshipType;
+  analyzedAt: Date;
+  messageCount: number;
+
+  /* ── Granular style fingerprint (for >90% voice accuracy) ── */
+
+  /** Does the user use contractions? ("don't" vs "do not") */
+  usesContractions: boolean;
+  /** Capitalization style: "standard", "all_lower", "sentence_case", "title_case" */
+  capitalization: 'standard' | 'all_lower' | 'sentence_case' | 'title_case';
+  /** Punctuation habits */
+  punctuation: {
+    /** Uses exclamation marks? e.g. "Sounds great!" */
+    exclamationFrequency: 'never' | 'rare' | 'moderate' | 'frequent';
+    /** Uses ellipsis? e.g. "well..." */
+    usesEllipsis: boolean;
+    /** Uses em-dashes? e.g. "the project — our top priority — needs..." */
+    usesEmDash: boolean;
+    /** Ends questions with ? or leaves them as statements */
+    questionMarkUsage: 'always' | 'sometimes' | 'rarely';
+    /** Uses semicolons in compound sentences */
+    usesSemicolons: boolean;
+    /** Uses parenthetical asides */
+    usesParentheses: boolean;
+  };
+  /** Common transitional phrases the user uses (e.g. "that said", "moving forward", "to be honest") */
+  commonTransitions: string[];
+  /** Common filler/hedge phrases (e.g. "I think", "maybe", "just", "probably") */
+  hedgeWords: string[];
+  /** How the user refers to themselves: "I" heavy, "we" (team-oriented), avoids pronouns */
+  pronounPreference: 'i_focused' | 'we_focused' | 'mixed' | 'avoids_pronouns';
+  /** Does the user ask questions back? (engagement style) */
+  asksFollowUpQuestions: boolean;
+  /** Humor/personality indicators */
+  humorStyle: 'none' | 'dry_wit' | 'casual_jokes' | 'playful' | 'sarcastic';
+  /** Paragraph structure: single block, short paragraphs, spaced-out */
+  paragraphStyle: 'single_block' | 'short_paragraphs' | 'well_structured' | 'one_liners';
+  /** Response time awareness: does the user apologize for late replies, reference timing? */
+  timeAwareness: boolean;
+  /** Action-orientation: does the user typically end with next steps / action items? */
+  endsWithActionItems: boolean;
+  /** Acknowledgment style: how the user acknowledges receipt ("Got it", "Thanks for sharing", "Noted") */
+  acknowledgmentStyle: string;
+  /** Typical sign-off name (e.g. "John", "J", full name, or none) */
+  signOffName: string;
+  /** Average words per message (precise number) */
+  avgWordsPerMessage: number;
+  /** Average sentences per message */
+  avgSentencesPerMessage: number;
+  /** Channel-specific tone override (user may be casual on Slack but formal in email) */
+  channelOverride?: 'email' | 'slack' | 'teams';
+  /** Overall style confidence (0-100 — how sure we are about this profile) */
+  styleConfidence: number;
+  /** Number of distinct style samples analyzed */
+  sampleCount: number;
+}
+
+export interface StyleAnalysisResult {
+  profilesCreated: number;
+  messagesAnalyzed: number;
+  overallConfidence: number;
+  contacts: { name: string; email?: string; messageCount: number; confidence: number }[];
+}
+
+/* ─── VIP Contacts ────────────────────────────────────── */
+
+export interface VIPContact {
+  id: string;
+  name: string;
+  email?: string;
+  channel?: Channel;
+  addedAt: Date;
+  reason?: string;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  messageId: string;
+  originalFrom: string;
+  originalPreview: string;
+  originalChannel: Channel;
+  aiDraft: string;
+  confidence: number;
+  createdAt: Date;
+  status: 'pending' | 'approved' | 'reviewed' | 'cancelled';
+}
+
