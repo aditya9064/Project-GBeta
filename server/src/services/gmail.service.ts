@@ -127,7 +127,7 @@ export const GmailService = {
   getAuthUrl(): string {
     return oauth2Client.generateAuthUrl({
       access_type: 'offline',
-      scope: config.google.scopes,
+      scope: [...config.google.scopes],
       prompt: 'consent',
     });
   },
@@ -150,7 +150,7 @@ export const GmailService = {
         accountName: profile.data.emailAddress?.split('@')[0] || undefined,
         connectedAt: new Date(),
         lastSyncAt: new Date(),
-        scopes: config.google.scopes,
+        scopes: [...config.google.scopes],
       };
 
       return connectionState;

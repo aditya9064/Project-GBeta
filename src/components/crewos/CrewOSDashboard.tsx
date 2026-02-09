@@ -43,11 +43,13 @@ import {
   Package,
   Tag,
   ChevronDown,
+  TrendingUp,
 } from 'lucide-react';
 import './CrewOSDashboard.css';
 import { DocumentIntelligence } from './DocumentIntelligence';
 import { CommunicationsAgent } from './CommunicationsAgent';
 import { SettingsPage } from './SettingsPage';
+import { SalesIntelligence } from './SalesIntelligence';
 
 /* ─── TYPES ────────────────────────────────────────────────── */
 
@@ -383,6 +385,81 @@ const agentCatalog: CatalogAgent[] = [
       { id: 'v1', version: 'v1.0', releaseDate: '18 Dec 2025', changes: 'Initial employment agreement generation with core terms', availability: 'stable', accuracy: '94.8%', latency: '2.0min' },
     ],
   },
+  /* ─── SALES INTELLIGENCE AGENTS ──────────────────────── */
+  {
+    id: 'cat-lead-scoring',
+    name: 'Lead Scoring Agent',
+    description: 'AI-powered lead scoring using firmographic data, behavioral signals, and engagement patterns. Predicts conversion probability with 94% accuracy.',
+    category: 'Sales Intelligence',
+    icon: 'data',
+    tags: [
+      { label: 'Scoring', className: 'crewos-tag-classification' },
+      { label: 'Sales', className: 'crewos-tag-extraction' },
+    ],
+    versions: [
+      { id: 'v2', version: 'v2.0', releaseDate: '7 Feb 2026', changes: 'Multi-signal scoring, engagement decay modeling, buying committee detection, champion tracking', availability: 'stable', accuracy: '94.2%', latency: '45ms' },
+      { id: 'v1', version: 'v1.0', releaseDate: '10 Jan 2026', changes: 'Basic lead scoring with firmographic and behavioral signals', availability: 'stable', accuracy: '88.5%', latency: '80ms' },
+    ],
+  },
+  {
+    id: 'cat-deal-forecast',
+    name: 'Deal Forecasting Agent',
+    description: 'Predicts deal close dates, win probabilities, and revenue forecasts using pipeline velocity analysis and historical patterns.',
+    category: 'Sales Intelligence',
+    icon: 'data',
+    tags: [
+      { label: 'Forecasting', className: 'crewos-tag-analysis' },
+      { label: 'Sales', className: 'crewos-tag-extraction' },
+    ],
+    versions: [
+      { id: 'v2', version: 'v2.0', releaseDate: '5 Feb 2026', changes: 'Time-series forecasting, seasonal adjustments, pipeline coverage analysis, quota attainment prediction', availability: 'stable', accuracy: '89.7%', latency: '120ms' },
+      { id: 'v1', version: 'v1.0', releaseDate: '15 Dec 2025', changes: 'Basic win probability prediction and close date estimation', availability: 'stable', accuracy: '82.1%', latency: '200ms' },
+    ],
+  },
+  {
+    id: 'cat-engagement-analyzer',
+    name: 'Engagement Analyzer Agent',
+    description: 'Real-time buyer intent analysis across email, website, content, and meeting signals. Identifies buying committee members and tracks engagement depth.',
+    category: 'Sales Intelligence',
+    icon: 'research',
+    tags: [
+      { label: 'NLP', className: 'crewos-tag-nlp' },
+      { label: 'Sales', className: 'crewos-tag-extraction' },
+    ],
+    versions: [
+      { id: 'v2', version: 'v2.0', releaseDate: '6 Feb 2026', changes: 'Multi-channel signal aggregation, intent scoring, champion change detection, competitive signal tracking', availability: 'stable', accuracy: '91.3%', latency: '28ms' },
+      { id: 'v1', version: 'v1.0', releaseDate: '20 Dec 2025', changes: 'Basic email and website engagement tracking', availability: 'stable', accuracy: '84.7%', latency: '55ms' },
+    ],
+  },
+  {
+    id: 'cat-competitive-radar',
+    name: 'Competitive Radar Agent',
+    description: 'Identifies competitive threats by analyzing deal patterns, pricing page visits, competitor mentions, and market intelligence feeds.',
+    category: 'Sales Intelligence',
+    icon: 'research',
+    tags: [
+      { label: 'Research', className: 'crewos-tag-research' },
+      { label: 'Classification', className: 'crewos-tag-classification' },
+    ],
+    versions: [
+      { id: 'v1', version: 'v1.0', releaseDate: '1 Feb 2026', changes: 'Competitive mention detection, displacement playbooks, win/loss pattern analysis', availability: 'beta', accuracy: '86.4%', latency: '200ms' },
+    ],
+  },
+  {
+    id: 'cat-next-action',
+    name: 'Next Best Action Agent',
+    description: 'Recommends optimal next steps for each deal based on successful deal progression patterns, channel preferences, and timing analysis.',
+    category: 'Sales Intelligence',
+    icon: 'workflow',
+    tags: [
+      { label: 'Recommendation', className: 'crewos-tag-workflow' },
+      { label: 'Sales', className: 'crewos-tag-extraction' },
+    ],
+    versions: [
+      { id: 'v2', version: 'v2.0', releaseDate: '8 Feb 2026', changes: 'Contextual action ranking, timing optimization, multi-threading recommendations, risk mitigation actions', availability: 'stable', accuracy: '88.1%', latency: '85ms' },
+      { id: 'v1', version: 'v1.0', releaseDate: '5 Jan 2026', changes: 'Basic next action suggestions based on deal stage', availability: 'stable', accuracy: '79.3%', latency: '150ms' },
+    ],
+  },
 ];
 
 /* ─── INITIAL DEPLOYED AGENTS (pre-seeded board) ───────────── */
@@ -577,6 +654,7 @@ export function CrewOSDashboard() {
   const isDocAI = activeNav === 'docai';
   const isComms = activeNav === 'comms';
   const isSettings = activeNav === 'settings';
+  const isSales = activeNav === 'sales';
 
   // Apply search, filter, then sort to get displayed agents
   const filteredAndSortedAgents = (() => {
@@ -867,6 +945,15 @@ export function CrewOSDashboard() {
             </button>
 
             <button
+              className={`crewos-nav-item ${activeNav === 'sales' ? 'active' : ''}`}
+              onClick={() => setActiveNav('sales')}
+            >
+              <span className="crewos-nav-item-icon"><TrendingUp size={18} /></span>
+              <span className="crewos-nav-item-text">Sales Intelligence</span>
+              <span className="crewos-badge">5</span>
+            </button>
+
+            <button
               className={`crewos-nav-item ${activeNav === 'escalations' ? 'active' : ''}`}
               onClick={() => setActiveNav('escalations')}
             >
@@ -954,8 +1041,11 @@ export function CrewOSDashboard() {
         {/* Settings View */}
         {isSettings && <SettingsPage />}
 
+        {/* Sales Intelligence View */}
+        {isSales && <SalesIntelligence />}
+
         {/* Agent Workforce View */}
-        {!isDocAI && !isComms && !isSettings && (
+        {!isDocAI && !isComms && !isSettings && !isSales && (
         <div className="crewos-main">
           {/* Header */}
           <div className="crewos-header">
