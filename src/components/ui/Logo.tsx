@@ -11,22 +11,25 @@ export function Logo({ size = 'md', showText = true, className = '' }: LogoProps
     <div className={`${styles.logo} ${styles[size]} ${className}`}>
       <div className={styles.mark}>
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="32" height="32" rx="8" fill="url(#gradient)" />
+          <rect width="32" height="32" rx="8" fill="url(#crewos-gradient)" />
+          {/* C for CrewOS + sparkle for AI agents */}
           <path
-            d="M10 16C10 12.6863 12.6863 10 16 10V10C19.3137 10 22 12.6863 22 16V22H16C12.6863 22 10 19.3137 10 16V16Z"
-            fill="white"
-            fillOpacity="0.9"
+            d="M22 11.5Q22 8 16 8Q10 8 10 11.5V20.5Q10 24 16 24Q22 24 22 20.5"
+            stroke="white"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            fill="none"
           />
-          <circle cx="16" cy="16" r="3" fill="url(#gradient)" />
+          <circle cx="16" cy="16" r="1.5" fill="white" opacity="0.9" />
           <defs>
-            <linearGradient id="gradient" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#8B5CF6" />
-              <stop offset="1" stopColor="#6366F1" />
+            <linearGradient id="crewos-gradient" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#c86a2e" />
+              <stop offset="1" stopColor="#e07a3a" />
             </linearGradient>
           </defs>
         </svg>
       </div>
-      {showText && <span className={styles.text}>Nova</span>}
+      {showText && <span className={styles.text}>CrewOS</span>}
     </div>
   );
 }

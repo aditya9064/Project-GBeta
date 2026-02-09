@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   LayoutDashboard,
   Activity,
@@ -42,10 +42,12 @@ import {
   Sparkles,
   Package,
   Tag,
+  ChevronDown,
 } from 'lucide-react';
 import './CrewOSDashboard.css';
 import { DocumentIntelligence } from './DocumentIntelligence';
 import { CommunicationsAgent } from './CommunicationsAgent';
+import { SettingsPage } from './SettingsPage';
 
 /* ─── TYPES ────────────────────────────────────────────────── */
 
@@ -545,6 +547,9 @@ const statusConfig: Record<DeployStatus, { label: string; color: string; bg: str
 
 /* ─── COMPONENT ───────────────────────────────────────────── */
 
+type SortField = 'title' | 'date' | 'status' | 'column';
+type SortDir = 'asc' | 'desc';
+
 export function CrewOSDashboard() {
   const [activeNav, setActiveNav] = useState('agents');
   const [activeTab, setActiveTab] = useState('board');
@@ -552,15 +557,61 @@ export function CrewOSDashboard() {
   const [showCatalog, setShowCatalog] = useState(false);
   const [expandedCatalog, setExpandedCatalog] = useState<string | null>(null);
   const [deployingVersion, setDeployingVersion] = useState<string | null>(null);
+  // Sort & filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortField>('title');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [filterColumn, setFilterColumn] = useState<BoardColumn | 'all'>('all');
+  const [filterStatus, setFilterStatus] = useState<DeployStatus | 'all'>('all');
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+
+  useEffect(() => {
+    const close = () => { setShowSortDropdown(false); setShowFilterDropdown(false); };
+    if (showSortDropdown || showFilterDropdown) {
+      document.addEventListener('click', close);
+      return () => document.removeEventListener('click', close);
+    }
+  }, [showSortDropdown, showFilterDropdown]);
 
   const isDocAI = activeNav === 'docai';
   const isComms = activeNav === 'comms';
+  const isSettings = activeNav === 'settings';
 
-  // Filter agents by column
-  const activeAgents = agents.filter(a => a.column === 'active');
-  const trainingAgents = agents.filter(a => a.column === 'training');
-  const reviewAgents = agents.filter(a => a.column === 'review');
-  const deployedAgents = agents.filter(a => a.column === 'deployed');
+  // Apply search, filter, then sort to get displayed agents
+  const filteredAndSortedAgents = (() => {
+    let list = [...agents];
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        a =>
+          a.title.toLowerCase().includes(q) ||
+          a.description.toLowerCase().includes(q) ||
+          a.tags.some(t => t.label.toLowerCase().includes(q))
+      );
+    }
+    if (filterColumn !== 'all') {
+      list = list.filter(a => a.column === filterColumn);
+    }
+    if (filterStatus !== 'all') {
+      list = list.filter(a => a.status === filterStatus);
+    }
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === 'title') cmp = a.title.localeCompare(b.title);
+      else if (sortBy === 'date') cmp = a.date.localeCompare(b.date);
+      else if (sortBy === 'status') cmp = a.status.localeCompare(b.status);
+      else if (sortBy === 'column') cmp = a.column.localeCompare(b.column);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  })();
+
+  // Filter agents by column (for board view)
+  const activeAgents = filteredAndSortedAgents.filter(a => a.column === 'active');
+  const trainingAgents = filteredAndSortedAgents.filter(a => a.column === 'training');
+  const reviewAgents = filteredAndSortedAgents.filter(a => a.column === 'review');
+  const deployedAgents = filteredAndSortedAgents.filter(a => a.column === 'deployed');
 
   // Check if a catalog agent version is already deployed
   const isVersionDeployed = useCallback((catalogId: string, versionId: string) => {
@@ -900,8 +951,11 @@ export function CrewOSDashboard() {
         {/* Document Intelligence View */}
         {isDocAI && <DocumentIntelligence />}
 
+        {/* Settings View */}
+        {isSettings && <SettingsPage />}
+
         {/* Agent Workforce View */}
-        {!isDocAI && !isComms && (
+        {!isDocAI && !isComms && !isSettings && (
         <div className="crewos-main">
           {/* Header */}
           <div className="crewos-header">
@@ -953,18 +1007,100 @@ export function CrewOSDashboard() {
           <div className="crewos-search-row">
             <div className="crewos-search-input">
               <span className="crewos-search-input-icon"><Search size={17} /></span>
-              <input type="text" placeholder="Search agents..." />
+              <input
+                type="text"
+                placeholder="Search agents..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
 
             <div className="crewos-filters">
-              <button className="crewos-filter-item">
-                <span className="crewos-filter-icon"><SlidersHorizontal size={14} /></span>
-                Sort by
-              </button>
-              <button className="crewos-filter-item">
-                <span className="crewos-filter-icon"><Eye size={14} /></span>
-                Filters
-              </button>
+              <div className="crewos-filter-dropdown-wrap">
+                <button
+                  type="button"
+                  className="crewos-filter-item"
+                  onClick={(e) => { e.stopPropagation(); setShowSortDropdown(!showSortDropdown); setShowFilterDropdown(false); }}
+                  aria-expanded={showSortDropdown}
+                >
+                  <span className="crewos-filter-icon"><SlidersHorizontal size={14} /></span>
+                  Sort by {sortBy}
+                  <ChevronDown size={14} className="crewos-filter-chevron" />
+                </button>
+                {showSortDropdown && (
+                  <div className="crewos-filter-menu" onClick={(e) => e.stopPropagation()}>
+                    {(['title', 'date', 'status', 'column'] as SortField[]).map((field) => (
+                      <button
+                        key={field}
+                        type="button"
+                        className={`crewos-filter-menu-item ${sortBy === field ? 'active' : ''}`}
+                        onClick={() => { setSortBy(field); setShowSortDropdown(false); }}
+                      >
+                        {field.charAt(0).toUpperCase() + field.slice(1)}
+                      </button>
+                    ))}
+                    <div className="crewos-filter-menu-divider" />
+                    <button
+                      type="button"
+                      className="crewos-filter-menu-item"
+                      onClick={() => { setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); }}
+                    >
+                      Order: {sortDir === 'asc' ? 'Ascending' : 'Descending'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="crewos-filter-dropdown-wrap">
+                <button
+                  type="button"
+                  className="crewos-filter-item"
+                  onClick={(e) => { e.stopPropagation(); setShowFilterDropdown(!showFilterDropdown); setShowSortDropdown(false); }}
+                  aria-expanded={showFilterDropdown}
+                >
+                  <span className="crewos-filter-icon"><Eye size={14} /></span>
+                  Filters
+                  {(filterColumn !== 'all' || filterStatus !== 'all') && (
+                    <span className="crewos-filter-badge">on</span>
+                  )}
+                  <ChevronDown size={14} className="crewos-filter-chevron" />
+                </button>
+                {showFilterDropdown && (
+                  <div className="crewos-filter-menu crewos-filter-menu-wide" onClick={(e) => e.stopPropagation()}>
+                    <div className="crewos-filter-menu-label">Column</div>
+                    {(['all', 'active', 'training', 'review', 'deployed'] as const).map((col) => (
+                      <button
+                        key={col}
+                        type="button"
+                        className={`crewos-filter-menu-item ${filterColumn === col ? 'active' : ''}`}
+                        onClick={() => { setFilterColumn(col); }}
+                      >
+                        {col === 'all' ? 'All columns' : col.charAt(0).toUpperCase() + col.slice(1)}
+                      </button>
+                    ))}
+                    <div className="crewos-filter-menu-divider" />
+                    <div className="crewos-filter-menu-label">Status</div>
+                    {(['all', 'running', 'idle', 'error', 'provisioning'] as const).map((st) => (
+                      <button
+                        key={st}
+                        type="button"
+                        className={`crewos-filter-menu-item ${filterStatus === st ? 'active' : ''}`}
+                        onClick={() => { setFilterStatus(st); }}
+                      >
+                        {st === 'all' ? 'All statuses' : st.charAt(0).toUpperCase() + st.slice(1)}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="crewos-filter-menu-item crewos-filter-clear"
+                      onClick={() => { setFilterColumn('all'); setFilterStatus('all'); setShowFilterDropdown(false); }}
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <button className="crewos-filter-item">
                 <span className="crewos-filter-icon"><User size={14} /></span>
                 Me
@@ -976,7 +1112,63 @@ export function CrewOSDashboard() {
             </div>
           </div>
 
+          {/* List View */}
+          {activeTab === 'list' && (
+            <div className="crewos-list-view">
+              <div className="crewos-list-table">
+                <div className="crewos-list-thead">
+                  <div className="crewos-list-th crewos-list-th-agent">Agent</div>
+                  <div className="crewos-list-th">Column</div>
+                  <div className="crewos-list-th">Status</div>
+                  <div className="crewos-list-th">Version</div>
+                  <div className="crewos-list-th">Date</div>
+                </div>
+                {filteredAndSortedAgents.length === 0 ? (
+                  <div className="crewos-list-empty">No agents match your search or filters.</div>
+                ) : (
+                  filteredAndSortedAgents.map((agent) => {
+                    const st = statusConfig[agent.status];
+                    return (
+                      <div className="crewos-list-row" key={agent.id}>
+                        <div className="crewos-list-cell crewos-list-cell-agent">
+                          <div className="crewos-list-agent-info">
+                            <div className="crewos-list-agent-title">{agent.title}</div>
+                            <div className="crewos-list-agent-desc">{agent.description}</div>
+                          </div>
+                        </div>
+                        <div className="crewos-list-cell">
+                          <span className={`crewos-list-pill crewos-list-pill-${agent.column}`}>
+                            {agent.column}
+                          </span>
+                        </div>
+                        <div className="crewos-list-cell">
+                          <span className="crewos-list-status" style={{ background: st.bg, color: st.color }}>
+                            {st.label}
+                          </span>
+                        </div>
+                        <div className="crewos-list-cell">{agent.version}</div>
+                        <div className="crewos-list-cell">{agent.date}</div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Workflow placeholder */}
+          {activeTab === 'workflow' && (
+            <div className="crewos-list-view">
+              <div className="crewos-list-empty crewos-workflow-placeholder">
+                <GitBranch size={48} strokeWidth={1.5} />
+                <p>Workflow view</p>
+                <span>Pipeline and workflow automation view coming soon.</span>
+              </div>
+            </div>
+          )}
+
           {/* Kanban Board */}
+          {activeTab === 'board' && (
           <div className="crewos-kanban">
             <div className="crewos-columns">
               {/* Active */}
@@ -1028,6 +1220,7 @@ export function CrewOSDashboard() {
               </div>
             </div>
           </div>
+          )}
         </div>
         )}
         </div>

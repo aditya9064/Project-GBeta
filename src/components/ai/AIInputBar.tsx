@@ -87,7 +87,7 @@ export function AIInputBar({ expanded, onToggleExpand }: AIInputBarProps) {
               <div style={{ width: 24, height: 24, background: 'var(--color-ai-muted)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Sparkles size={14} />
               </div>
-              <span style={{ flex: 1 }}>Nova AI</span>
+              <span style={{ flex: 1 }}>CrewOS AI</span>
               <IconButton aria-label="Dismiss" size="sm" onClick={() => setResponse(null)}><X size={14} /></IconButton>
             </div>
             <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', lineHeight: 1.625 }}>{response}</p>
@@ -118,7 +118,7 @@ export function AIInputBar({ expanded, onToggleExpand }: AIInputBarProps) {
 
         <textarea
           ref={inputRef}
-          placeholder="Ask Nova anything..."
+          placeholder="Ask CrewOS anything..."
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onFocus={() => setIsFocused(true)}

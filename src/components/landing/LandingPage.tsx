@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import './LandingPage.css';
 
-// Feature data for Nova
+// Feature data for CrewOS
 const features = [
   {
     id: 'agents',
@@ -105,7 +105,7 @@ const pricing = [
 const faqs = [
   {
     q: "What AI agents are available?",
-    a: "Nova includes 12+ pre-built agents: Invoice Processing, Support Triage, Content Writer, Code Review, Compliance Monitor, Contract Review, Receipt Scanner, Research Analyst, and more. Plus 6 document generation models."
+    a: "CrewOS includes 12+ pre-built agents: Invoice Processing, Support Triage, Content Writer, Code Review, Compliance Monitor, Contract Review, Receipt Scanner, Research Analyst, and more. Plus 6 document generation models."
   },
   {
     q: "How does document generation work?",
@@ -121,7 +121,7 @@ const faqs = [
   },
   {
     q: "What integrations are available?",
-    a: "Nova integrates with Slack, Google Workspace, Microsoft 365, Salesforce, HubSpot, and 50+ other tools. We also offer a full REST API for custom integrations."
+    a: "CrewOS integrates with Slack, Google Workspace, Microsoft 365, Salesforce, HubSpot, and 50+ other tools. We also offer a full REST API for custom integrations."
   }
 ];
 
@@ -194,10 +194,11 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             <div className="nav-logo">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                 <rect width="32" height="32" rx="8" fill="currentColor"/>
-                <path d="M8 22L14 10L20 18L26 10" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M22 11.5Q22 8 16 8Q10 8 10 11.5V20.5Q10 24 16 24Q22 24 22 20.5" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+                <circle cx="16" cy="16" r="1.5" fill="white" opacity="0.9"/>
               </svg>
             </div>
-            <span className="nav-brand-text">Nova</span>
+            <span className="nav-brand-text">CrewOS</span>
           </div>
 
           <div className={`nav-links ${mobileMenuOpen ? 'open' : ''}`}>
@@ -321,7 +322,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           <div className="section-header">
             <span className="section-label">Features</span>
             <h2>Everything you need to run AI at scale</h2>
-            <p>Nova brings together AI agents, document generation, and analytics in one platform.</p>
+            <p>CrewOS brings together AI agents, document generation, and analytics in one platform.</p>
           </div>
 
           <div className="features-tabs">
@@ -491,7 +492,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           <div className="testimonials-grid">
             <div className="testimonial-card">
               <div className="testimonial-content">
-                <p>"Nova's document generation saved our legal team 40 hours a month. Lease agreements that took days now take minutes."</p>
+                <p>"CrewOS's document generation saved our legal team 40 hours a month. Lease agreements that took days now take minutes."</p>
               </div>
               <div className="testimonial-author">
                 <div className="author-avatar">SK</div>
@@ -563,7 +564,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         <div className="section-container">
           <div className="cta-content">
             <h2>Ready to deploy your AI workforce?</h2>
-            <p>Join hundreds of teams using Nova to automate their operations.</p>
+            <p>Join hundreds of teams using CrewOS to automate their operations.</p>
             <div className="cta-buttons">
               <button className="btn-primary large" onClick={handleGetStarted}>
                 Get Started Free
@@ -584,9 +585,10 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               <div className="footer-logo">
                 <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                   <rect width="32" height="32" rx="8" fill="currentColor"/>
-                  <path d="M8 22L14 10L20 18L26 10" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M22 11.5Q22 8 16 8Q10 8 10 11.5V20.5Q10 24 16 24Q22 24 22 20.5" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+                  <circle cx="16" cy="16" r="1.5" fill="white" opacity="0.9"/>
                 </svg>
-                <span>Nova</span>
+                <span>CrewOS</span>
               </div>
               <p>AI agent workforce platform for modern teams.</p>
             </div>
@@ -631,7 +633,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
 
           <div className="footer-bottom">
-            <p>© 2026 Nova. All rights reserved.</p>
+            <p>© 2026 CrewOS. All rights reserved.</p>
             <div className="footer-legal">
               <button onClick={handleGetStarted}>Privacy</button>
               <button onClick={handleGetStarted}>Terms</button>

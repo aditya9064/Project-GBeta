@@ -43,7 +43,7 @@ export function AuthPage({ onBack }: AuthPageProps) {
     setError(null);
     setLoading(true);
     try {
-      await signIn('demo@nova.app', 'demo123');
+      await signIn('demo@crewos.app', 'demo123');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -64,16 +64,18 @@ export function AuthPage({ onBack }: AuthPageProps) {
         <div className="brand-content">
           <div className="brand-logo">
             <svg viewBox="0 0 48 48" fill="none">
+              <rect width="48" height="48" rx="12" fill="rgba(224, 122, 58, 0.9)" />
               <path
-                d="M14 24L20 30L34 16"
+                d="M33 17.5Q33 12 24 12Q15 12 15 17.5V30.5Q15 36 24 36Q33 36 33 30.5"
                 stroke="white"
                 strokeWidth="4"
                 strokeLinecap="round"
-                strokeLinejoin="round"
+                fill="none"
               />
+              <circle cx="24" cy="24" r="2.5" fill="white" opacity="0.9" />
             </svg>
           </div>
-          <h1 className="brand-title">Nova</h1>
+          <h1 className="brand-title">CrewOS</h1>
           <p className="brand-tagline">
             The AI-powered workspace for modern teams. Manage projects, collaborate seamlessly, and achieve more together.
           </p>
@@ -98,8 +100,8 @@ export function AuthPage({ onBack }: AuthPageProps) {
             </h2>
             <p className="auth-subtitle">
               {isLogin 
-                ? 'Sign in to continue to Nova' 
-                : 'Get started with Nova for free'}
+                ? 'Sign in to continue to CrewOS' 
+                : 'Get started with CrewOS for free'}
             </p>
           </div>
 

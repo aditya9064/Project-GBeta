@@ -1,4 +1,4 @@
-/* Nova Landing Page — Black / Orange / White */
+/* CrewOS Landing Page — Black / Orange / White */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
@@ -118,6 +118,7 @@
   gap: 12px;
 }
 
+/* Login / Get Started - always black & orange, never purple/blue */
 .nav-login {
   padding: 8px 16px;
   background: transparent;
@@ -129,8 +130,11 @@
   transition: color 0.2s;
 }
 
-.nav-login:hover {
+.nav-login:hover,
+.nav-login:active,
+.nav-login:focus {
   color: var(--nova-primary);
+  background: transparent;
 }
 
 .nav-cta {
@@ -145,10 +149,17 @@
   transition: all 0.2s;
 }
 
-.nav-cta:hover {
+.nav-cta:hover,
+.nav-cta:active,
+.nav-cta:focus {
   background: var(--nova-primary-dark);
+  color: white;
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(224, 122, 58, 0.3);
+}
+
+.nav-cta:active {
+  transform: translateY(0);
 }
 
 .mobile-menu-toggle {
@@ -169,7 +180,7 @@
   transition: all 0.2s;
 }
 
-/* Buttons */
+/* Buttons - always black & orange, never purple/blue */
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -186,9 +197,20 @@
   box-shadow: 0 4px 14px rgba(224, 122, 58, 0.3);
 }
 
+.btn-primary:hover,
+.btn-primary:active,
+.btn-primary:focus {
+  background: var(--nova-gradient);
+  color: white;
+  box-shadow: 0 6px 20px rgba(224, 122, 58, 0.4);
+}
+
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(224, 122, 58, 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
 }
 
 .btn-primary.large {
@@ -211,9 +233,12 @@
   transition: all 0.2s;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover,
+.btn-secondary:active,
+.btn-secondary:focus {
   border-color: rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.05);
+  color: var(--nova-text);
 }
 
 .btn-secondary.large {

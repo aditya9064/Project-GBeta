@@ -1,11 +1,26 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 // Demo user type (matches Firebase User interface for compatibility)
-interface DemoUser {
+export interface DemoUser {
   uid: string;
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+}
+
+// Extended profile for settings (stored with user)
+export interface UserProfileUpdate {
+  displayName?: string;
+  email?: string;
+  fullName?: string;
+  company?: string;
+  role?: string;
+}
+
+interface StoredProfileExtras {
+  fullName?: string;
+  company?: string;
+  role?: string;
 }
 
 interface AuthContextType {
@@ -15,12 +30,15 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updateProfile: (data: UserProfileUpdate) => Promise<void>;
+  getProfileExtras: () => StoredProfileExtras;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Local storage key for persisting demo auth
-const AUTH_STORAGE_KEY = 'nova_demo_auth';
+const AUTH_STORAGE_KEY = 'crewos_demo_auth';
+const PROFILE_STORAGE_KEY = 'crewos_demo_profile';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<DemoUser | null>(null);
@@ -30,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (window.location.hash === '#logout') {
       localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(PROFILE_STORAGE_KEY);
       window.location.hash = '';
       setLoading(false);
       return;
@@ -106,11 +125,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await new Promise(resolve => setTimeout(resolve, 300));
     
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(PROFILE_STORAGE_KEY);
     setUser(null);
   };
 
+  const updateProfile = async (data: UserProfileUpdate) => {
+    if (!user) return;
+    const updated: DemoUser = {
+      ...user,
+      displayName: data.displayName ?? user.displayName,
+      email: data.email ?? user.email,
+    };
+    setUser(updated);
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updated));
+    const profileExtras = {
+      fullName: data.fullName,
+      company: data.company,
+      role: data.role,
+    };
+    const existing = localStorage.getItem(PROFILE_STORAGE_KEY);
+    const merged = existing ? { ...JSON.parse(existing), ...profileExtras } : profileExtras;
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(merged));
+  };
+
+  const getProfileExtras = (): StoredProfileExtras => {
+    try {
+      const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, userProfile: user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, userProfile: user, loading, signIn, signUp, signOut, updateProfile, getProfileExtras }}>
       {children}
     </AuthContext.Provider>
   );

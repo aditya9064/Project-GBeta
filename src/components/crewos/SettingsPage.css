@@ -1,0 +1,172 @@
+/* Settings page — matches CrewOS container background */
+.crewos-settings {
+  flex: 1;
+  overflow-y: auto;
+  background: #f5f5f9;
+  padding: 32px 40px 48px;
+}
+
+.crewos-settings-inner {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.crewos-settings-header {
+  margin-bottom: 32px;
+}
+
+.crewos-settings-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+
+.crewos-settings-subtitle {
+  font-size: 14px;
+  color: #6b6b80;
+  margin: 0;
+}
+
+.crewos-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.crewos-settings-section {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px 28px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.crewos-settings-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0 0 6px;
+}
+
+.crewos-settings-section-desc {
+  font-size: 13px;
+  color: #6b6b80;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.crewos-settings-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.crewos-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crewos-settings-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a2e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.crewos-settings-field label svg {
+  color: #6b6b80;
+  flex-shrink: 0;
+}
+
+.crewos-settings-field input {
+  padding: 12px 14px;
+  background: #f5f5f9;
+  border: 1px solid #e5e5eb;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #1a1a2e;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.crewos-settings-field input:focus {
+  border-color: #e07a3a;
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.12);
+}
+
+.crewos-settings-field input::placeholder {
+  color: #9a9ab0;
+}
+
+.crewos-settings-actions {
+  margin-top: 24px;
+}
+
+.crewos-settings-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #e07a3a 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.crewos-settings-save:hover:not(:disabled) {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.crewos-settings-save:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.crewos-settings-account-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #f5f5f9;
+  border-radius: 12px;
+  border: 1px solid #e5e5eb;
+}
+
+.crewos-settings-account-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #e07a3a;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.crewos-settings-account-info {
+  min-width: 0;
+}
+
+.crewos-settings-account-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 2px;
+}
+
+.crewos-settings-account-email {
+  font-size: 13px;
+  color: #6b6b80;
+}
