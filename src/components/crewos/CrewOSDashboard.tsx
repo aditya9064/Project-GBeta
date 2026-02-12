@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Activity,
@@ -42,14 +43,14 @@ import {
   Sparkles,
   Package,
   Tag,
-  ChevronDown,
   TrendingUp,
+  LogOut,
 } from 'lucide-react';
 import './CrewOSDashboard.css';
 import { DocumentIntelligence } from './DocumentIntelligence';
 import { CommunicationsAgent } from './CommunicationsAgent';
-import { SettingsPage } from './SettingsPage';
 import { SalesIntelligence } from './SalesIntelligence';
+import { useAuth } from '../../contexts/AuthContext';
 
 /* ─── TYPES ────────────────────────────────────────────────── */
 
@@ -111,189 +112,6 @@ interface CatalogAgent {
 /* ─── AGENT CATALOG ────────────────────────────────────────── */
 
 const agentCatalog: CatalogAgent[] = [
-  {
-    id: 'cat-invoice',
-    name: 'Invoice Processing Agent',
-    description: 'Extracts line items, amounts, and vendor data from uploaded invoices using custom LayoutLMv3 model.',
-    category: 'Document AI',
-    icon: 'vision',
-    tags: [
-      { label: 'Vision', className: 'crewos-tag-vision' },
-      { label: 'Extraction', className: 'crewos-tag-extraction' },
-    ],
-    versions: [
-      { id: 'v3', version: 'v3.0', releaseDate: '3 Feb 2026', changes: 'LayoutLMv3 backbone, 12K labeled samples, multi-currency support', availability: 'stable', accuracy: '98.7%', latency: '45ms' },
-      { id: 'v2', version: 'v2.1', releaseDate: '12 Jan 2026', changes: 'Improved table extraction, better handling of multi-page invoices', availability: 'stable', accuracy: '96.2%', latency: '62ms' },
-      { id: 'v1', version: 'v1.0', releaseDate: '1 Dec 2025', changes: 'Initial release with basic line item extraction', availability: 'deprecated', accuracy: '91.0%', latency: '120ms' },
-    ],
-  },
-  {
-    id: 'cat-triage',
-    name: 'Support Triage Agent',
-    description: 'Classifies incoming support tickets by category, severity, and intent. Routes to appropriate team members.',
-    category: 'NLP',
-    icon: 'nlp',
-    tags: [
-      { label: 'NLP', className: 'crewos-tag-nlp' },
-      { label: 'Classification', className: 'crewos-tag-classification' },
-    ],
-    versions: [
-      { id: 'v2', version: 'v2.0', releaseDate: '1 Feb 2026', changes: 'Multi-label classification, intent chaining, auto-escalation rules', availability: 'stable', accuracy: '95.1%', latency: '18ms' },
-      { id: 'v1', version: 'v1.2', releaseDate: '10 Jan 2026', changes: 'Added severity scoring and SLA prediction', availability: 'stable', accuracy: '92.4%', latency: '25ms' },
-    ],
-  },
-  {
-    id: 'cat-content',
-    name: 'Content Writer Agent',
-    description: 'Generates blog posts, social media copy, and marketing content fine-tuned on brand voice and style guidelines.',
-    category: 'Generation',
-    icon: 'nlp',
-    tags: [
-      { label: 'NLP', className: 'crewos-tag-nlp' },
-      { label: 'Generation', className: 'crewos-tag-generation' },
-    ],
-    versions: [
-      { id: 'v2', version: 'v2.0', releaseDate: '5 Feb 2026', changes: 'GPT-4 backbone, brand voice fine-tuning, multi-format output', availability: 'beta', accuracy: '—', latency: '1.2s' },
-      { id: 'v1', version: 'v1.0', releaseDate: '15 Dec 2025', changes: 'Initial release with blog and social media generation', availability: 'stable', accuracy: '—', latency: '2.1s' },
-    ],
-  },
-  {
-    id: 'cat-code',
-    name: 'Code Review Agent',
-    description: 'Analyzes pull requests for bugs, security vulnerabilities, and style violations. Trained on your codebase.',
-    category: 'Development',
-    icon: 'code',
-    tags: [
-      { label: 'Dev', className: 'crewos-tag-dev' },
-      { label: 'Analysis', className: 'crewos-tag-analysis' },
-    ],
-    versions: [
-      { id: 'v3', version: 'v3.0', releaseDate: '3 Feb 2026', changes: 'Security vuln detection, codebase-aware context, auto-fix suggestions', availability: 'beta', accuracy: '89.3%', latency: '3.4s' },
-      { id: 'v2', version: 'v2.0', releaseDate: '20 Jan 2026', changes: 'Multi-language support, custom rule engine, PR summary generation', availability: 'stable', accuracy: '86.1%', latency: '4.2s' },
-      { id: 'v1', version: 'v1.0', releaseDate: '5 Dec 2025', changes: 'Basic bug detection and style checking', availability: 'deprecated', accuracy: '78.5%', latency: '6.8s' },
-    ],
-  },
-  {
-    id: 'cat-compliance',
-    name: 'Compliance Monitor Agent',
-    description: 'Monitors transactions for regulatory compliance and AML patterns. Flags suspicious activity for human review.',
-    category: 'Compliance',
-    icon: 'workflow',
-    tags: [
-      { label: 'Classification', className: 'crewos-tag-classification' },
-      { label: 'NLP', className: 'crewos-tag-nlp' },
-    ],
-    versions: [
-      { id: 'v2', version: 'v2.0', releaseDate: '28 Jan 2026', changes: 'Real-time streaming, expanded AML patterns, regulatory update sync', availability: 'stable', accuracy: '97.6%', latency: '8ms' },
-      { id: 'v1', version: 'v1.0', releaseDate: '12 Dec 2025', changes: 'Basic transaction monitoring and flag generation', availability: 'stable', accuracy: '94.2%', latency: '15ms' },
-    ],
-  },
-  {
-    id: 'cat-contract',
-    name: 'Contract Review Agent',
-    description: 'Analyzes legal contracts, identifies key clauses, flags risks, and extracts critical terms and obligations.',
-    category: 'Document AI',
-    icon: 'nlp',
-    tags: [
-      { label: 'NLP', className: 'crewos-tag-nlp' },
-      { label: 'Workflow', className: 'crewos-tag-workflow' },
-    ],
-    versions: [
-      { id: 'v1', version: 'v1.2', releaseDate: '6 Feb 2026', changes: 'Clause comparison, risk scoring, obligation timeline extraction', availability: 'stable', accuracy: '93.8%', latency: '890ms' },
-      { id: 'v0', version: 'v1.0', releaseDate: '18 Jan 2026', changes: 'Initial release with clause identification and risk flagging', availability: 'stable', accuracy: '90.1%', latency: '1.1s' },
-    ],
-  },
-  {
-    id: 'cat-receipt',
-    name: 'Receipt Scanner Agent',
-    description: 'Processes expense receipts from photos, extracts merchant, amount, date, and category with high accuracy.',
-    category: 'Document AI',
-    icon: 'vision',
-    tags: [
-      { label: 'Extraction', className: 'crewos-tag-extraction' },
-      { label: 'Vision', className: 'crewos-tag-vision' },
-    ],
-    versions: [
-      { id: 'v2', version: 'v2.0', releaseDate: '2 Feb 2026', changes: 'Multi-receipt batch processing, 98.5% accuracy, auto-categorization', availability: 'stable', accuracy: '98.5%', latency: '32ms' },
-      { id: 'v1', version: 'v1.0', releaseDate: '10 Dec 2025', changes: 'Single receipt OCR and field extraction', availability: 'deprecated', accuracy: '94.0%', latency: '85ms' },
-    ],
-  },
-  {
-    id: 'cat-research',
-    name: 'Research Analyst Agent',
-    description: 'Compiles market research reports from multiple data sources with automated analysis, synthesis, and citations.',
-    category: 'Research',
-    icon: 'research',
-    tags: [
-      { label: 'Research', className: 'crewos-tag-research' },
-      { label: 'NLP', className: 'crewos-tag-nlp' },
-    ],
-    versions: [
-      { id: 'v2', version: 'v2.0', releaseDate: '24 Jan 2026', changes: 'Multi-source aggregation, citation verification, executive summary gen', availability: 'stable', accuracy: '—', latency: '12s' },
-      { id: 'v1', version: 'v1.0', releaseDate: '1 Dec 2025', changes: 'Basic web research and report compilation', availability: 'stable', accuracy: '—', latency: '25s' },
-    ],
-  },
-  {
-    id: 'cat-onboarding',
-    name: 'Customer Onboarding Agent',
-    description: 'Guides new customers through product setup, answers FAQs, and collects required documentation step by step.',
-    category: 'Workflow',
-    icon: 'workflow',
-    tags: [
-      { label: 'NLP', className: 'crewos-tag-nlp' },
-      { label: 'Workflow', className: 'crewos-tag-workflow' },
-    ],
-    versions: [
-      { id: 'v1', version: 'v1.1', releaseDate: '23 Jan 2026', changes: 'Adaptive flow engine, multi-language support, document collection', availability: 'stable', accuracy: '—', latency: '200ms' },
-      { id: 'v0', version: 'v1.0', releaseDate: '8 Jan 2026', changes: 'Step-by-step onboarding with FAQ integration', availability: 'stable', accuracy: '—', latency: '350ms' },
-    ],
-  },
-  {
-    id: 'cat-email',
-    name: 'Email Response Agent',
-    description: 'Drafts contextual email responses based on conversation history, customer data, and company communication policies.',
-    category: 'Communications',
-    icon: 'nlp',
-    tags: [
-      { label: 'NLP', className: 'crewos-tag-nlp' },
-      { label: 'Generation', className: 'crewos-tag-generation' },
-    ],
-    versions: [
-      { id: 'v2', version: 'v2.0', releaseDate: '20 Jan 2026', changes: 'Context-aware threading, tone adaptation, CRM integration', availability: 'stable', accuracy: '—', latency: '680ms' },
-      { id: 'v1', version: 'v1.0', releaseDate: '5 Dec 2025', changes: 'Basic email draft generation from templates', availability: 'stable', accuracy: '—', latency: '1.5s' },
-    ],
-  },
-  {
-    id: 'cat-kb',
-    name: 'Knowledge Base Agent',
-    description: 'Answers employee questions using custom RAG pipeline over internal docs, SOPs, and policy documents.',
-    category: 'Knowledge',
-    icon: 'data',
-    tags: [
-      { label: 'RAG', className: 'crewos-tag-rag' },
-      { label: 'NLP', className: 'crewos-tag-nlp' },
-    ],
-    versions: [
-      { id: 'v3', version: 'v3.0', releaseDate: '9 Jan 2026', changes: 'Hybrid search, multi-doc reasoning, citation linking, real-time index', availability: 'stable', accuracy: '96.1%', latency: '340ms' },
-      { id: 'v2', version: 'v2.0', releaseDate: '15 Dec 2025', changes: 'Improved chunking, better relevance ranking', availability: 'stable', accuracy: '92.0%', latency: '520ms' },
-      { id: 'v1', version: 'v1.0', releaseDate: '20 Nov 2025', changes: 'Basic RAG pipeline with document QA', availability: 'deprecated', accuracy: '85.0%', latency: '800ms' },
-    ],
-  },
-  {
-    id: 'cat-sentiment',
-    name: 'Sentiment Analysis Agent',
-    description: 'Analyzes customer feedback, reviews, and survey responses to track sentiment trends and flag critical issues.',
-    category: 'Analytics',
-    icon: 'data',
-    tags: [
-      { label: 'NLP', className: 'crewos-tag-nlp' },
-      { label: 'Classification', className: 'crewos-tag-classification' },
-    ],
-    versions: [
-      { id: 'v2', version: 'v2.0', releaseDate: '2 Jan 2026', changes: 'Aspect-based sentiment, emotion detection, trend analysis dashboard', availability: 'stable', accuracy: '94.3%', latency: '12ms' },
-      { id: 'v1', version: 'v1.0', releaseDate: '10 Nov 2025', changes: 'Basic positive/negative/neutral classification', availability: 'stable', accuracy: '88.5%', latency: '18ms' },
-    ],
-  },
   /* ─── DOCUMENT GENERATION AGENTS ────────────────────────── */
   {
     id: 'cat-docgen-lease',
@@ -385,6 +203,66 @@ const agentCatalog: CatalogAgent[] = [
       { id: 'v1', version: 'v1.0', releaseDate: '18 Dec 2025', changes: 'Initial employment agreement generation with core terms', availability: 'stable', accuracy: '94.8%', latency: '2.0min' },
     ],
   },
+  /* ─── COMMUNICATIONS AGENTS ─────────────────────────────── */
+  {
+    id: 'cat-email',
+    name: 'Email Response Agent',
+    description: 'Drafts contextual email responses based on conversation history, customer data, and company communication policies.',
+    category: 'Communications',
+    icon: 'nlp',
+    tags: [
+      { label: 'NLP', className: 'crewos-tag-nlp' },
+      { label: 'Generation', className: 'crewos-tag-generation' },
+    ],
+    versions: [
+      { id: 'v2', version: 'v2.0', releaseDate: '20 Jan 2026', changes: 'Context-aware threading, tone adaptation, CRM integration', availability: 'stable', accuracy: '—', latency: '680ms' },
+      { id: 'v1', version: 'v1.0', releaseDate: '5 Dec 2025', changes: 'Basic email draft generation from templates', availability: 'stable', accuracy: '—', latency: '1.5s' },
+    ],
+  },
+  {
+    id: 'cat-sms',
+    name: 'SMS Campaign Agent',
+    description: 'Generates personalized SMS messages for campaigns, reminders, and follow-ups with compliance guardrails and opt-out handling.',
+    category: 'Communications',
+    icon: 'nlp',
+    tags: [
+      { label: 'NLP', className: 'crewos-tag-nlp' },
+      { label: 'Workflow', className: 'crewos-tag-workflow' },
+    ],
+    versions: [
+      { id: 'v2', version: 'v2.0', releaseDate: '4 Feb 2026', changes: 'A/B message variants, TCPA compliance engine, delivery scheduling, opt-out management', availability: 'stable', accuracy: '—', latency: '120ms' },
+      { id: 'v1', version: 'v1.0', releaseDate: '12 Jan 2026', changes: 'Basic SMS generation with template personalization', availability: 'stable', accuracy: '—', latency: '250ms' },
+    ],
+  },
+  {
+    id: 'cat-chat',
+    name: 'Live Chat Agent',
+    description: 'Handles real-time customer chat with context-aware responses, escalation detection, and seamless handoff to human agents.',
+    category: 'Communications',
+    icon: 'nlp',
+    tags: [
+      { label: 'NLP', className: 'crewos-tag-nlp' },
+      { label: 'Classification', className: 'crewos-tag-classification' },
+    ],
+    versions: [
+      { id: 'v2', version: 'v2.0', releaseDate: '6 Feb 2026', changes: 'Multi-turn context, sentiment-aware escalation, knowledge base integration, agent handoff', availability: 'stable', accuracy: '92.4%', latency: '180ms' },
+      { id: 'v1', version: 'v1.0', releaseDate: '15 Dec 2025', changes: 'Basic FAQ answering and ticket creation from chat', availability: 'stable', accuracy: '86.0%', latency: '350ms' },
+    ],
+  },
+  {
+    id: 'cat-social',
+    name: 'Social Media Response Agent',
+    description: 'Monitors and responds to social media mentions, DMs, and comments with brand-consistent messaging and sentiment-aware tone.',
+    category: 'Communications',
+    icon: 'nlp',
+    tags: [
+      { label: 'NLP', className: 'crewos-tag-nlp' },
+      { label: 'Generation', className: 'crewos-tag-generation' },
+    ],
+    versions: [
+      { id: 'v1', version: 'v1.0', releaseDate: '1 Feb 2026', changes: 'Multi-platform monitoring, sentiment-aware responses, brand voice enforcement, crisis detection', availability: 'stable', accuracy: '—', latency: '450ms' },
+    ],
+  },
   /* ─── SALES INTELLIGENCE AGENTS ──────────────────────── */
   {
     id: 'cat-lead-scoring',
@@ -462,149 +340,6 @@ const agentCatalog: CatalogAgent[] = [
   },
 ];
 
-/* ─── INITIAL DEPLOYED AGENTS (pre-seeded board) ───────────── */
-
-const initialDeployed: DeployedAgent[] = [
-  {
-    id: 'a1', catalogId: 'cat-invoice', versionId: 'v3',
-    tags: [{ label: 'Vision', className: 'crewos-tag-vision' }, { label: 'Extraction', className: 'crewos-tag-extraction' }],
-    title: 'Invoice Processing Agent', version: 'v3.0',
-    description: 'Extracts line items, amounts, and vendor data from uploaded invoices using custom LayoutLMv3 model trained on 12K labeled samples',
-    date: '3 Feb', column: 'active', status: 'running',
-    avatars: [{ initial: 'AM', color: '#e07a3a' }, { initial: 'SC', color: '#e07a3a' }, { initial: 'MJ', color: '#1a1a2e' }],
-    extraAvatars: 3, comments: 2, attachments: 1, uptime: '99.8%', accuracy: '98.7%', latency: '45ms',
-  },
-  {
-    id: 'a2', catalogId: 'cat-triage', versionId: 'v2',
-    tags: [{ label: 'NLP', className: 'crewos-tag-nlp' }, { label: 'Classification', className: 'crewos-tag-classification' }],
-    title: 'Support Triage Agent', version: 'v2.0',
-    description: 'Classifies incoming support tickets by category, severity, and intent. Routes to appropriate team members automatically',
-    date: '1 Feb', column: 'active', status: 'running',
-    avatars: [{ initial: 'SC', color: '#e07a3a' }],
-    comments: 6, attachments: 2, uptime: '99.5%', accuracy: '95.1%', latency: '18ms',
-  },
-  {
-    id: 'a3', catalogId: 'cat-content', versionId: 'v2',
-    tags: [{ label: 'NLP', className: 'crewos-tag-nlp' }, { label: 'Generation', className: 'crewos-tag-generation' }],
-    title: 'Content Writer Agent', version: 'v2.0',
-    description: 'Generates blog posts, social media copy, and marketing content fine-tuned on brand voice and style guidelines',
-    date: '5 Feb', column: 'active', status: 'idle',
-    avatars: [{ initial: 'PP', color: '#d46b2c' }, { initial: 'AM', color: '#e07a3a' }],
-    comments: 8, attachments: 3, accuracy: '—', latency: '1.2s',
-  },
-  {
-    id: 'a4', catalogId: 'cat-compliance', versionId: 'v2',
-    tags: [{ label: 'Classification', className: 'crewos-tag-classification' }, { label: 'NLP', className: 'crewos-tag-nlp' }],
-    title: 'Compliance Monitor Agent', version: 'v2.0',
-    description: 'Monitors transactions for regulatory compliance and AML patterns. Flags suspicious activity for human review',
-    date: '28 Jan', column: 'active', status: 'running',
-    avatars: [{ initial: 'AR', color: '#3a3a52' }, { initial: 'MJ', color: '#1a1a2e' }],
-    comments: 4, attachments: 2, uptime: '99.9%', accuracy: '97.6%', latency: '8ms',
-  },
-  {
-    id: 'a5', catalogId: 'cat-contract', versionId: 'v1',
-    tags: [{ label: 'NLP', className: 'crewos-tag-nlp' }, { label: 'Workflow', className: 'crewos-tag-workflow' }],
-    title: 'Contract Review Agent', version: 'v1.2',
-    description: 'Analyzes legal contracts, identifies key clauses, flags risks, and extracts critical terms and obligations automatically',
-    date: '6 Feb', column: 'active', status: 'running',
-    avatars: [{ initial: 'SC', color: '#e07a3a' }, { initial: 'PP', color: '#d46b2c' }],
-    comments: 3, attachments: 1, uptime: '99.2%', accuracy: '93.8%', latency: '890ms',
-  },
-  {
-    id: 'a6', catalogId: 'cat-receipt', versionId: 'v2',
-    tags: [{ label: 'Extraction', className: 'crewos-tag-extraction' }, { label: 'Vision', className: 'crewos-tag-vision' }],
-    title: 'Receipt Scanner Agent', version: 'v2.0',
-    description: 'Processes expense receipts from photos, extracts merchant, amount, date, and category with 98.5% accuracy',
-    date: '2 Feb', column: 'active', status: 'error',
-    avatars: [{ initial: 'AM', color: '#e07a3a' }],
-    comments: 1, attachments: 4, accuracy: '98.5%', latency: '32ms',
-  },
-  // Training
-  {
-    id: 't1', catalogId: 'cat-code', versionId: 'v3',
-    tags: [{ label: 'Dev', className: 'crewos-tag-dev' }, { label: 'Analysis', className: 'crewos-tag-analysis' }],
-    title: 'Code Review Agent', version: 'v3.0',
-    description: 'Analyzes pull requests for bugs, security vulnerabilities, and style violations. Trained on your codebase patterns and conventions',
-    date: '3 Feb', column: 'training', status: 'provisioning',
-    avatars: [{ initial: 'AR', color: '#3a3a52' }, { initial: 'MJ', color: '#1a1a2e' }],
-    extraAvatars: 2, comments: 4, attachments: 1, image: 'chart', hasGear: true, accuracy: '89.3%', latency: '3.4s',
-  },
-  {
-    id: 't2', catalogId: 'cat-invoice', versionId: 'v2',
-    tags: [{ label: 'Vision', className: 'crewos-tag-vision' }, { label: 'Extraction', className: 'crewos-tag-extraction' }],
-    title: 'Document Parser Agent', version: 'v2.1',
-    description: 'Extracts structured data from contracts, receipts, and forms. Currently training on 12K labeled document samples',
-    date: '30 Jan', column: 'training', status: 'provisioning',
-    avatars: [{ initial: 'SC', color: '#e07a3a' }],
-    comments: 3, attachments: 2,
-  },
-  // Review
-  {
-    id: 'r1', catalogId: 'cat-research', versionId: 'v2',
-    tags: [{ label: 'Research', className: 'crewos-tag-research' }, { label: 'NLP', className: 'crewos-tag-nlp' }],
-    title: 'Research Analyst Agent', version: 'v2.0',
-    description: 'Compiles market research reports from multiple data sources with automated analysis, synthesis, and citations',
-    date: '24 Jan', column: 'review', status: 'idle',
-    avatars: [{ initial: 'PP', color: '#d46b2c' }, { initial: 'AM', color: '#e07a3a' }, { initial: 'SC', color: '#e07a3a' }],
-    extraAvatars: 12, comments: 3, attachments: 1,
-  },
-  {
-    id: 'r2', catalogId: 'cat-onboarding', versionId: 'v1',
-    tags: [{ label: 'NLP', className: 'crewos-tag-nlp' }, { label: 'Workflow', className: 'crewos-tag-workflow' }],
-    title: 'Customer Onboarding Agent', version: 'v1.1',
-    description: 'Guides new customers through product setup, answers FAQs, and collects required documentation step by step',
-    date: '23 Jan', column: 'review', status: 'idle',
-    avatars: [{ initial: 'MJ', color: '#1a1a2e' }, { initial: 'AR', color: '#3a3a52' }],
-    image: 'metrics', comments: 5, attachments: 3,
-  },
-  {
-    id: 'r3', catalogId: 'cat-email', versionId: 'v2',
-    tags: [{ label: 'NLP', className: 'crewos-tag-nlp' }, { label: 'Generation', className: 'crewos-tag-generation' }],
-    title: 'Email Response Agent', version: 'v2.0',
-    description: 'Drafts contextual email responses based on conversation history, customer data, and company communication policies',
-    date: '20 Jan', column: 'review', status: 'idle',
-    avatars: [{ initial: 'PP', color: '#d46b2c' }],
-    comments: 2, attachments: 1,
-  },
-  // Deployed
-  {
-    id: 'd1', catalogId: 'cat-invoice', versionId: 'v2',
-    tags: [{ label: 'Vision', className: 'crewos-tag-vision' }, { label: 'Extraction', className: 'crewos-tag-extraction' }],
-    title: 'Form Digitizer Agent', version: 'v2.0',
-    description: 'Converts handwritten and printed forms into structured digital data with field-level confidence scoring',
-    date: '12 Jan', column: 'deployed', status: 'running',
-    avatars: [{ initial: 'AM', color: '#e07a3a' }, { initial: 'MJ', color: '#1a1a2e' }],
-    extraAvatars: 2, comments: 3, attachments: 1, uptime: '99.9%', accuracy: '97.2%', latency: '55ms',
-  },
-  {
-    id: 'd2', catalogId: 'cat-kb', versionId: 'v3',
-    tags: [{ label: 'RAG', className: 'crewos-tag-rag' }, { label: 'NLP', className: 'crewos-tag-nlp' }],
-    title: 'Knowledge Base Agent', version: 'v3.0',
-    description: 'Answers employee questions using custom RAG pipeline over internal docs, SOPs, and policy documents',
-    date: '9 Jan', column: 'deployed', status: 'running',
-    avatars: [{ initial: 'SC', color: '#e07a3a' }, { initial: 'PP', color: '#d46b2c' }],
-    comments: 5, attachments: 3, uptime: '99.7%', accuracy: '96.1%', latency: '340ms',
-  },
-  {
-    id: 'd3', catalogId: 'cat-research', versionId: 'v1',
-    tags: [{ label: 'Research', className: 'crewos-tag-research' }, { label: 'Extraction', className: 'crewos-tag-extraction' }],
-    title: 'Competitive Intel Agent', version: 'v1.0',
-    description: 'Monitors competitor websites, job postings, and press releases. Generates weekly competitive landscape reports',
-    date: '4 Jan', column: 'deployed', status: 'running',
-    avatars: [{ initial: 'AR', color: '#3a3a52' }],
-    comments: 2, attachments: 1, uptime: '98.5%',
-  },
-  {
-    id: 'd4', catalogId: 'cat-sentiment', versionId: 'v2',
-    tags: [{ label: 'NLP', className: 'crewos-tag-nlp' }, { label: 'Classification', className: 'crewos-tag-classification' }],
-    title: 'Sentiment Analysis Agent', version: 'v2.0',
-    description: 'Analyzes customer feedback, reviews, and survey responses to track sentiment trends and flag critical issues',
-    date: '2 Jan', column: 'deployed', status: 'running',
-    avatars: [{ initial: 'MJ', color: '#1a1a2e' }, { initial: 'AM', color: '#e07a3a' }],
-    comments: 4, attachments: 2, uptime: '99.6%', accuracy: '94.3%', latency: '12ms',
-  },
-];
-
 const members = [
   { name: 'Aditya Miriyala', initial: 'AM', color: '#e07a3a', time: '08:06:28 for this week' },
   { name: 'Sarah Chen', initial: 'SC', color: '#e07a3a', time: '12:41:07 for this week' },
@@ -624,72 +359,73 @@ const statusConfig: Record<DeployStatus, { label: string; color: string; bg: str
 
 /* ─── COMPONENT ───────────────────────────────────────────── */
 
-type SortField = 'title' | 'date' | 'status' | 'column';
-type SortDir = 'asc' | 'desc';
+/* ─── URL → Nav mapping ───────────────────────────────────── */
+
+const pathToNav: Record<string, string> = {
+  '/': 'agents',
+  '/agents': 'agents',
+  '/comms': 'comms',
+  '/docai': 'docai',
+  '/sales': 'sales',
+  '/overview': 'overview',
+  '/activity': 'activity',
+  '/escalations': 'escalations',
+  '/settings': 'settings',
+};
+
+const navToPath: Record<string, string> = {
+  agents: '/agents',
+  comms: '/comms',
+  docai: '/docai',
+  sales: '/sales',
+  overview: '/overview',
+  activity: '/activity',
+  escalations: '/escalations',
+  settings: '/settings',
+};
 
 export function CrewOSDashboard() {
-  const [activeNav, setActiveNav] = useState('agents');
+  const { signOut } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Derive activeNav from URL path (persists on refresh)
+  const activeNav = pathToNav[location.pathname] || 'agents';
+
+  // Navigate helper — updates URL instead of local state
+  const setActiveNav = useCallback((nav: string) => {
+    const path = navToPath[nav] || '/agents';
+    navigate(path);
+  }, [navigate]);
+
   const [activeTab, setActiveTab] = useState('board');
-  const [agents, setAgents] = useState<DeployedAgent[]>(initialDeployed);
+  const [agents, setAgents] = useState<DeployedAgent[]>([]);
   const [showCatalog, setShowCatalog] = useState(false);
   const [expandedCatalog, setExpandedCatalog] = useState<string | null>(null);
   const [deployingVersion, setDeployingVersion] = useState<string | null>(null);
-  // Sort & filter state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortField>('title');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [filterColumn, setFilterColumn] = useState<BoardColumn | 'all'>('all');
-  const [filterStatus, setFilterStatus] = useState<DeployStatus | 'all'>('all');
-  const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<DeployedAgent | null>(null);
 
+  // Handle OAuth callback redirect — auto-switch to Communications page
   useEffect(() => {
-    const close = () => { setShowSortDropdown(false); setShowFilterDropdown(false); };
-    if (showSortDropdown || showFilterDropdown) {
-      document.addEventListener('click', close);
-      return () => document.removeEventListener('click', close);
+    const params = new URLSearchParams(location.search);
+    const connected = params.get('connected');
+    const error = params.get('error');
+
+    if (connected || error) {
+      // Navigate to Communications page so the user sees the connection status
+      navigate('/comms', { replace: true });
     }
-  }, [showSortDropdown, showFilterDropdown]);
+  }, [location.search, navigate]);
 
   const isDocAI = activeNav === 'docai';
   const isComms = activeNav === 'comms';
-  const isSettings = activeNav === 'settings';
   const isSales = activeNav === 'sales';
 
-  // Apply search, filter, then sort to get displayed agents
-  const filteredAndSortedAgents = (() => {
-    let list = [...agents];
-    const q = searchQuery.trim().toLowerCase();
-    if (q) {
-      list = list.filter(
-        a =>
-          a.title.toLowerCase().includes(q) ||
-          a.description.toLowerCase().includes(q) ||
-          a.tags.some(t => t.label.toLowerCase().includes(q))
-      );
-    }
-    if (filterColumn !== 'all') {
-      list = list.filter(a => a.column === filterColumn);
-    }
-    if (filterStatus !== 'all') {
-      list = list.filter(a => a.status === filterStatus);
-    }
-    list.sort((a, b) => {
-      let cmp = 0;
-      if (sortBy === 'title') cmp = a.title.localeCompare(b.title);
-      else if (sortBy === 'date') cmp = a.date.localeCompare(b.date);
-      else if (sortBy === 'status') cmp = a.status.localeCompare(b.status);
-      else if (sortBy === 'column') cmp = a.column.localeCompare(b.column);
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
-    return list;
-  })();
-
-  // Filter agents by column (for board view)
-  const activeAgents = filteredAndSortedAgents.filter(a => a.column === 'active');
-  const trainingAgents = filteredAndSortedAgents.filter(a => a.column === 'training');
-  const reviewAgents = filteredAndSortedAgents.filter(a => a.column === 'review');
-  const deployedAgents = filteredAndSortedAgents.filter(a => a.column === 'deployed');
+  // Filter agents by column
+  const activeAgents = agents.filter(a => a.column === 'active');
+  const trainingAgents = agents.filter(a => a.column === 'training');
+  const reviewAgents = agents.filter(a => a.column === 'review');
+  const deployedAgents = agents.filter(a => a.column === 'deployed');
 
   // Check if a catalog agent version is already deployed
   const isVersionDeployed = useCallback((catalogId: string, versionId: string) => {
@@ -733,11 +469,25 @@ export function CrewOSDashboard() {
     }, 800);
   }, []);
 
+  /* Card click handler — Communications agents go to the comms page */
+  const handleCardClick = useCallback((agent: DeployedAgent) => {
+    const catAgent = agentCatalog.find(c => c.id === agent.catalogId);
+    if (catAgent?.category === 'Communications') {
+      setActiveNav('comms');
+    } else if (catAgent?.category === 'Document Generation') {
+      setActiveNav('docai');
+    } else if (catAgent?.category === 'Sales Intelligence') {
+      setActiveNav('sales');
+    } else {
+      setSelectedAgent(agent);
+    }
+  }, [setActiveNav]);
+
   /* Card renderer */
   const renderCard = (agent: DeployedAgent) => {
     const st = statusConfig[agent.status];
     return (
-    <div className="crewos-card" key={agent.id}>
+    <div className="crewos-card" key={agent.id} onClick={() => handleCardClick(agent)} style={{ cursor: 'pointer' }}>
         {/* Status + Version bar */}
         <div className="crewos-card-status-bar">
           <div className="crewos-card-status-pill" style={{ background: st.bg, color: st.color }}>
@@ -969,6 +719,14 @@ export function CrewOSDashboard() {
               <span className="crewos-nav-item-icon"><Settings size={18} /></span>
               <span className="crewos-nav-item-text">Settings</span>
             </button>
+
+            <button
+              className="crewos-nav-item crewos-nav-logout"
+              onClick={signOut}
+            >
+              <span className="crewos-nav-item-icon"><LogOut size={18} /></span>
+              <span className="crewos-nav-item-text">Log Out</span>
+            </button>
           </div>
 
           {/* Pipelines */}
@@ -1038,14 +796,11 @@ export function CrewOSDashboard() {
         {/* Document Intelligence View */}
         {isDocAI && <DocumentIntelligence />}
 
-        {/* Settings View */}
-        {isSettings && <SettingsPage />}
-
         {/* Sales Intelligence View */}
         {isSales && <SalesIntelligence />}
 
         {/* Agent Workforce View */}
-        {!isDocAI && !isComms && !isSettings && !isSales && (
+        {!isDocAI && !isComms && !isSales && (
         <div className="crewos-main">
           {/* Header */}
           <div className="crewos-header">
@@ -1097,100 +852,18 @@ export function CrewOSDashboard() {
           <div className="crewos-search-row">
             <div className="crewos-search-input">
               <span className="crewos-search-input-icon"><Search size={17} /></span>
-              <input
-                type="text"
-                placeholder="Search agents..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+              <input type="text" placeholder="Search agents..." />
             </div>
 
             <div className="crewos-filters">
-              <div className="crewos-filter-dropdown-wrap">
-                <button
-                  type="button"
-                  className="crewos-filter-item"
-                  onClick={(e) => { e.stopPropagation(); setShowSortDropdown(!showSortDropdown); setShowFilterDropdown(false); }}
-                  aria-expanded={showSortDropdown}
-                >
-                  <span className="crewos-filter-icon"><SlidersHorizontal size={14} /></span>
-                  Sort by {sortBy}
-                  <ChevronDown size={14} className="crewos-filter-chevron" />
-                </button>
-                {showSortDropdown && (
-                  <div className="crewos-filter-menu" onClick={(e) => e.stopPropagation()}>
-                    {(['title', 'date', 'status', 'column'] as SortField[]).map((field) => (
-                      <button
-                        key={field}
-                        type="button"
-                        className={`crewos-filter-menu-item ${sortBy === field ? 'active' : ''}`}
-                        onClick={() => { setSortBy(field); setShowSortDropdown(false); }}
-                      >
-                        {field.charAt(0).toUpperCase() + field.slice(1)}
-                      </button>
-                    ))}
-                    <div className="crewos-filter-menu-divider" />
-                    <button
-                      type="button"
-                      className="crewos-filter-menu-item"
-                      onClick={() => { setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); }}
-                    >
-                      Order: {sortDir === 'asc' ? 'Ascending' : 'Descending'}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="crewos-filter-dropdown-wrap">
-                <button
-                  type="button"
-                  className="crewos-filter-item"
-                  onClick={(e) => { e.stopPropagation(); setShowFilterDropdown(!showFilterDropdown); setShowSortDropdown(false); }}
-                  aria-expanded={showFilterDropdown}
-                >
-                  <span className="crewos-filter-icon"><Eye size={14} /></span>
-                  Filters
-                  {(filterColumn !== 'all' || filterStatus !== 'all') && (
-                    <span className="crewos-filter-badge">on</span>
-                  )}
-                  <ChevronDown size={14} className="crewos-filter-chevron" />
-                </button>
-                {showFilterDropdown && (
-                  <div className="crewos-filter-menu crewos-filter-menu-wide" onClick={(e) => e.stopPropagation()}>
-                    <div className="crewos-filter-menu-label">Column</div>
-                    {(['all', 'active', 'training', 'review', 'deployed'] as const).map((col) => (
-                      <button
-                        key={col}
-                        type="button"
-                        className={`crewos-filter-menu-item ${filterColumn === col ? 'active' : ''}`}
-                        onClick={() => { setFilterColumn(col); }}
-                      >
-                        {col === 'all' ? 'All columns' : col.charAt(0).toUpperCase() + col.slice(1)}
-                      </button>
-                    ))}
-                    <div className="crewos-filter-menu-divider" />
-                    <div className="crewos-filter-menu-label">Status</div>
-                    {(['all', 'running', 'idle', 'error', 'provisioning'] as const).map((st) => (
-                      <button
-                        key={st}
-                        type="button"
-                        className={`crewos-filter-menu-item ${filterStatus === st ? 'active' : ''}`}
-                        onClick={() => { setFilterStatus(st); }}
-                      >
-                        {st === 'all' ? 'All statuses' : st.charAt(0).toUpperCase() + st.slice(1)}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      className="crewos-filter-menu-item crewos-filter-clear"
-                      onClick={() => { setFilterColumn('all'); setFilterStatus('all'); setShowFilterDropdown(false); }}
-                    >
-                      Clear filters
-                    </button>
-                  </div>
-                )}
-              </div>
-
+              <button className="crewos-filter-item">
+                <span className="crewos-filter-icon"><SlidersHorizontal size={14} /></span>
+                Sort by
+              </button>
+              <button className="crewos-filter-item">
+                <span className="crewos-filter-icon"><Eye size={14} /></span>
+                Filters
+              </button>
               <button className="crewos-filter-item">
                 <span className="crewos-filter-icon"><User size={14} /></span>
                 Me
@@ -1202,72 +875,51 @@ export function CrewOSDashboard() {
             </div>
           </div>
 
-          {/* List View */}
-          {activeTab === 'list' && (
-            <div className="crewos-list-view">
-              <div className="crewos-list-table">
-                <div className="crewos-list-thead">
-                  <div className="crewos-list-th crewos-list-th-agent">Agent</div>
-                  <div className="crewos-list-th">Column</div>
-                  <div className="crewos-list-th">Status</div>
-                  <div className="crewos-list-th">Version</div>
-                  <div className="crewos-list-th">Date</div>
-                </div>
-                {filteredAndSortedAgents.length === 0 ? (
-                  <div className="crewos-list-empty">No agents match your search or filters.</div>
-                ) : (
-                  filteredAndSortedAgents.map((agent) => {
-                    const st = statusConfig[agent.status];
-                    return (
-                      <div className="crewos-list-row" key={agent.id}>
-                        <div className="crewos-list-cell crewos-list-cell-agent">
-                          <div className="crewos-list-agent-info">
-                            <div className="crewos-list-agent-title">{agent.title}</div>
-                            <div className="crewos-list-agent-desc">{agent.description}</div>
-                          </div>
-                        </div>
-                        <div className="crewos-list-cell">
-                          <span className={`crewos-list-pill crewos-list-pill-${agent.column}`}>
-                            {agent.column}
-                          </span>
-                        </div>
-                        <div className="crewos-list-cell">
-                          <span className="crewos-list-status" style={{ background: st.bg, color: st.color }}>
-                            {st.label}
-                          </span>
-                        </div>
-                        <div className="crewos-list-cell">{agent.version}</div>
-                        <div className="crewos-list-cell">{agent.date}</div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Workflow placeholder */}
-          {activeTab === 'workflow' && (
-            <div className="crewos-list-view">
-              <div className="crewos-list-empty crewos-workflow-placeholder">
-                <GitBranch size={48} strokeWidth={1.5} />
-                <p>Workflow view</p>
-                <span>Pipeline and workflow automation view coming soon.</span>
-              </div>
-            </div>
-          )}
-
           {/* Kanban Board */}
-          {activeTab === 'board' && (
+          {agents.length === 0 ? (
+            <div className="crewos-empty-state">
+              <div className="crewos-empty-glow" />
+              <div className="crewos-empty-icon">
+                <Sparkles size={32} />
+              </div>
+              <h2 className="crewos-empty-title">Your AI workforce starts here</h2>
+              <p className="crewos-empty-description">
+                Deploy your first agent from the catalog and watch it appear on your board. Build, train, and scale your AI team.
+              </p>
+              <button className="crewos-empty-cta" onClick={() => setShowCatalog(true)}>
+                <Rocket size={18} />
+                <span>Deploy Your First Agent</span>
+                <ArrowRight size={16} />
+              </button>
+              <div className="crewos-empty-hints">
+                <div className="crewos-empty-hint">
+                  <div className="crewos-empty-hint-icon"><Bot size={16} /></div>
+                  <div>
+                    <div className="crewos-empty-hint-title">Choose from 20+ agents</div>
+                    <div className="crewos-empty-hint-desc">Invoice processing, support triage, content generation, and more</div>
+                  </div>
+                </div>
+                <div className="crewos-empty-hint">
+                  <div className="crewos-empty-hint-icon"><Layers size={16} /></div>
+                  <div>
+                    <div className="crewos-empty-hint-title">Version control built-in</div>
+                    <div className="crewos-empty-hint-desc">Pick the exact version you need — stable, beta, or latest</div>
+                  </div>
+                </div>
+                <div className="crewos-empty-hint">
+                  <div className="crewos-empty-hint-icon"><Zap size={16} /></div>
+                  <div>
+                    <div className="crewos-empty-hint-title">Instant deployment</div>
+                    <div className="crewos-empty-hint-desc">Agents go live in seconds and start processing immediately</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
           <div className="crewos-kanban">
             <div className="crewos-columns">
               {/* Active */}
               <div className="crewos-column">
-                <div className="crewos-column-header">
-                  <span className="crewos-column-dot crewos-dot-active" />
-                  <span className="crewos-column-title">Active</span>
-                  <span className="crewos-column-count">({activeAgents.length})</span>
-                </div>
                 <div className="crewos-cards">
                   {activeAgents.map(renderCard)}
                 </div>
@@ -1275,11 +927,6 @@ export function CrewOSDashboard() {
 
               {/* Training */}
               <div className="crewos-column">
-                <div className="crewos-column-header">
-                  <span className="crewos-column-dot crewos-dot-training" />
-                  <span className="crewos-column-title">Training</span>
-                  <span className="crewos-column-count">({trainingAgents.length})</span>
-                </div>
                 <div className="crewos-cards">
                   {trainingAgents.map(renderCard)}
                 </div>
@@ -1287,11 +934,6 @@ export function CrewOSDashboard() {
 
               {/* Review */}
               <div className="crewos-column">
-                <div className="crewos-column-header">
-                  <span className="crewos-column-dot crewos-dot-review" />
-                  <span className="crewos-column-title">Review</span>
-                  <span className="crewos-column-count">({reviewAgents.length})</span>
-                </div>
                 <div className="crewos-cards">
                   {reviewAgents.map(renderCard)}
                 </div>
@@ -1299,11 +941,6 @@ export function CrewOSDashboard() {
 
               {/* Deployed */}
               <div className="crewos-column">
-                <div className="crewos-column-header">
-                  <span className="crewos-column-dot crewos-dot-deployed" />
-                  <span className="crewos-column-title">Deployed</span>
-                  <span className="crewos-column-count">({deployedAgents.length})</span>
-                </div>
                 <div className="crewos-cards">
                   {deployedAgents.map(renderCard)}
                 </div>
@@ -1425,6 +1062,122 @@ export function CrewOSDashboard() {
             </div>
           </div>
         )}
+
+        {/* ──────── AGENT DETAIL MODAL ──────── */}
+        {selectedAgent && (() => {
+          const catAgent = agentCatalog.find(c => c.id === selectedAgent.catalogId);
+          const selVersion = catAgent?.versions.find(v => v.id === selectedAgent.versionId) || catAgent?.versions[0];
+          const st = statusConfig[selectedAgent.status];
+          return (
+            <div className="crewos-modal-overlay" onClick={() => setSelectedAgent(null)}>
+              <div className="crewos-agent-detail-modal" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="crewos-detail-header">
+                  <div className="crewos-detail-header-left">
+                    <h2 className="crewos-detail-title">{selectedAgent.title}</h2>
+                    <div className="crewos-detail-meta">
+                      <div className="crewos-card-status-pill" style={{ background: st.bg, color: st.color }}>
+                        {selectedAgent.status === 'running' && <CheckCircle2 size={12} />}
+                        {selectedAgent.status === 'idle' && <Circle size={12} />}
+                        {selectedAgent.status === 'error' && <AlertCircle size={12} />}
+                        {selectedAgent.status === 'provisioning' && <Loader2 size={12} className="crewos-spin" />}
+                        {st.label}
+                      </div>
+                      <span className="crewos-detail-version">{selectedAgent.version}</span>
+                      <span className="crewos-detail-date"><Calendar size={13} /> Deployed {selectedAgent.date}</span>
+                    </div>
+                  </div>
+                  <button className="crewos-modal-close" onClick={() => setSelectedAgent(null)}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Tags */}
+                <div className="crewos-detail-tags">
+                  {selectedAgent.tags.map(tag => (
+                    <span key={tag.label} className={`crewos-card-tag ${tag.className}`}>{tag.label}</span>
+                  ))}
+                  {catAgent && <span className="crewos-detail-category">{catAgent.category}</span>}
+                </div>
+
+                {/* Description */}
+                <div className="crewos-detail-section">
+                  <h3 className="crewos-detail-section-title">Description</h3>
+                  <p className="crewos-detail-description">{selectedAgent.description}</p>
+                </div>
+
+                {/* Metrics */}
+                {(selectedAgent.accuracy || selectedAgent.latency || selectedAgent.uptime) && (
+                  <div className="crewos-detail-section">
+                    <h3 className="crewos-detail-section-title">Performance</h3>
+                    <div className="crewos-detail-metrics">
+                      {selectedAgent.accuracy && selectedAgent.accuracy !== '—' && (
+                        <div className="crewos-detail-metric-card">
+                          <span className="crewos-detail-metric-val">{selectedAgent.accuracy}</span>
+                          <span className="crewos-detail-metric-label">Accuracy</span>
+                        </div>
+                      )}
+                      {selectedAgent.latency && (
+                        <div className="crewos-detail-metric-card">
+                          <span className="crewos-detail-metric-val">{selectedAgent.latency}</span>
+                          <span className="crewos-detail-metric-label">Latency</span>
+                        </div>
+                      )}
+                      {selectedAgent.uptime && (
+                        <div className="crewos-detail-metric-card">
+                          <span className="crewos-detail-metric-val">{selectedAgent.uptime}</span>
+                          <span className="crewos-detail-metric-label">Uptime</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Version Info */}
+                {selVersion && (
+                  <div className="crewos-detail-section">
+                    <h3 className="crewos-detail-section-title">Version Details</h3>
+                    <div className="crewos-detail-version-card">
+                      <div className="crewos-detail-version-row">
+                        <span className="crewos-detail-version-label">Version</span>
+                        <span className="crewos-detail-version-value">{selVersion.version}</span>
+                      </div>
+                      <div className="crewos-detail-version-row">
+                        <span className="crewos-detail-version-label">Release Date</span>
+                        <span className="crewos-detail-version-value">{selVersion.releaseDate}</span>
+                      </div>
+                      <div className="crewos-detail-version-row">
+                        <span className="crewos-detail-version-label">Availability</span>
+                        <span className={`crewos-avail-badge crewos-avail-${selVersion.availability}`}>{selVersion.availability}</span>
+                      </div>
+                      <div className="crewos-detail-version-row">
+                        <span className="crewos-detail-version-label">Changes</span>
+                        <span className="crewos-detail-version-value">{selVersion.changes}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Team */}
+                <div className="crewos-detail-section">
+                  <h3 className="crewos-detail-section-title">Team</h3>
+                  <div className="crewos-detail-team">
+                    {selectedAgent.avatars.map(av => (
+                      <div key={av.initial} className="crewos-detail-team-member">
+                        <div className="crewos-card-avatar" style={{ background: av.color }}>{av.initial}</div>
+                      </div>
+                    ))}
+                    {selectedAgent.extraAvatars && (
+                      <div className="crewos-detail-team-member">
+                        <div className="crewos-card-avatar crewos-card-avatar-extra">+{selectedAgent.extraAvatars}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }

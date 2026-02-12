@@ -11,6 +11,7 @@
 
 import { google, gmail_v1 } from 'googleapis';
 import { config } from '../config.js';
+import { TokenStore } from './tokenStore.js';
 import type { UnifiedMessage, ChannelConnection, Attachment } from '../types.js';
 
 const { OAuth2 } = google.auth;
@@ -123,13 +124,38 @@ function getHeaderValue(headers: gmail_v1.Schema$MessagePartHeader[] | undefined
 /* ─── Public API ───────────────────────────────────────── */
 
 export const GmailService = {
+  /** Restore tokens from Firestore if not already connected in-memory */
+  async restoreFromStore(): Promise<void> {
+    if (connectionState.status === 'connected' && gmailClient) return; // Already connected
+
+    const stored = await TokenStore.load('gmail');
+    if (!stored) return;
+
+    try {
+      oauth2Client.setCredentials(stored.tokens as any);
+      gmailClient = google.gmail({ version: 'v1', auth: oauth2Client });
+      connectionState = stored.connection as unknown as ChannelConnection;
+      console.log('🔄 Gmail: Restored tokens from Firestore');
+    } catch (err) {
+      console.error('❌ Gmail: Failed to restore tokens:', err);
+    }
+  },
+
   /** Generate the OAuth2 consent URL for Gmail */
   getAuthUrl(): string {
-    return oauth2Client.generateAuthUrl({
+    console.log('🔍 Gmail OAuth Debug:');
+    console.log('  - Client ID:', config.google.clientId ? `${config.google.clientId.substring(0, 20)}...` : 'NOT SET');
+    console.log('  - Redirect URI:', config.google.redirectUri);
+    console.log('  - Redirect URI from env:', process.env.GOOGLE_REDIRECT_URI || 'NOT SET (using default)');
+    
+    const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: [...config.google.scopes],
       prompt: 'consent',
     });
+    
+    console.log('  - Generated Auth URL:', authUrl.substring(0, 100) + '...');
+    return authUrl;
   },
 
   /** Exchange an authorization code for tokens and initialize the Gmail client */
@@ -152,6 +178,9 @@ export const GmailService = {
         lastSyncAt: new Date(),
         scopes: [...config.google.scopes],
       };
+
+      // Persist tokens to Firestore so they survive function restarts
+      await TokenStore.save('gmail', tokens as Record<string, unknown>, connectionState as unknown as Record<string, unknown>);
 
       return connectionState;
     } catch (err) {
@@ -190,11 +219,37 @@ export const GmailService = {
       q: 'is:unread OR is:important',
     });
 
-    if (!listRes.data.messages) return [];
+    return this.processMessages(listRes.data.messages || [], false);
+  },
 
-    const messages: UnifiedMessage[] = [];
+  /** 
+   * Fetch user's SENT messages for voice learning.
+   * This is critical for building the user's own style profile.
+   */
+  async fetchSentMessages(maxResults = 100): Promise<UnifiedMessage[]> {
+    if (!gmailClient) throw new Error('Gmail not connected');
 
-    for (const msg of listRes.data.messages) {
+    const listRes = await gmailClient.users.messages.list({
+      userId: 'me',
+      maxResults,
+      labelIds: ['SENT'],
+    });
+
+    return this.processMessages(listRes.data.messages || [], true);
+  },
+
+  /** Process a list of messages into UnifiedMessage format */
+  async processMessages(
+    messages: gmail_v1.Schema$Message[],
+    isFromUser: boolean
+  ): Promise<UnifiedMessage[]> {
+    if (!gmailClient) throw new Error('Gmail not connected');
+
+    if (messages.length === 0) return [];
+
+    const unifiedMessages: UnifiedMessage[] = [];
+
+    for (const msg of messages) {
       try {
         const detail = await gmailClient.users.messages.get({
           userId: 'me',
@@ -204,12 +259,17 @@ export const GmailService = {
 
         const headers = detail.data.payload?.headers;
         const from = getHeaderValue(headers, 'From');
+        const to = getHeaderValue(headers, 'To');
         const subject = getHeaderValue(headers, 'Subject');
         const date = getHeaderValue(headers, 'Date');
 
         // Parse sender name from "Name <email>" format
         const nameMatch = from.match(/^"?([^"<]+)"?\s*<?/);
         const senderName = nameMatch ? nameMatch[1].trim() : from.split('@')[0];
+
+        // For sent messages, get the recipient instead
+        const toMatch = to.match(/^"?([^"<]+)"?\s*<?/);
+        const recipientName = toMatch ? toMatch[1].trim() : to.split('@')[0];
 
         const body = detail.data.payload ? extractEmailBody(detail.data.payload) : '';
         const attachments = detail.data.payload ? extractAttachments(detail.data.payload) : [];
@@ -229,14 +289,15 @@ export const GmailService = {
           } catch { /* ignore */ }
         }
 
-        messages.push({
+        unifiedMessages.push({
           id: `gmail-${msg.id}`,
           externalId: msg.id!,
           channel: 'email',
-          from: senderName,
-          fromEmail: from,
-          fromInitial: getInitials(senderName),
-          fromColor: generateColor(senderName),
+          // For sent messages, "from" is the user and we store the recipient
+          from: isFromUser ? recipientName : senderName,
+          fromEmail: isFromUser ? to : from,
+          fromInitial: getInitials(isFromUser ? recipientName : senderName),
+          fromColor: generateColor(isFromUser ? recipientName : senderName),
           subject: subject || '(No Subject)',
           preview: body.slice(0, 200).replace(/\n/g, ' '),
           fullMessage: body,
@@ -252,6 +313,7 @@ export const GmailService = {
           starred: detail.data.labelIds?.includes('STARRED') || false,
           attachments: attachments.length > 0 ? attachments : undefined,
           threadCount: threadCount > 1 ? threadCount : undefined,
+          isFromUser, // NEW: Flag to indicate this is the user's own message
           metadata: {
             threadId,
             labelIds: detail.data.labelIds,
@@ -264,8 +326,8 @@ export const GmailService = {
     }
 
     connectionState.lastSyncAt = new Date();
-    connectionState.messageCount = messages.length;
-    return messages;
+    connectionState.messageCount = unifiedMessages.length;
+    return unifiedMessages;
   },
 
   /** Send a reply to an email */
@@ -331,6 +393,8 @@ export const GmailService = {
       channel: 'email',
       status: 'disconnected',
     };
+    // Remove tokens from Firestore
+    TokenStore.delete('gmail').catch(() => {});
   },
 };
 

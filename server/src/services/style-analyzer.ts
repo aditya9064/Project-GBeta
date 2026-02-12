@@ -677,7 +677,7 @@ export const StyleAnalyzer = {
     }
 
     // Final instruction
-    parts.push('CRITICAL: Write as if you ARE this person. Match their exact voice — their word choices, their rhythm, their personality. The response should be indistinguishable from something they actually wrote.');
+    parts.push('CRITICAL: Write as if you ARE this person. Match their exact voice — word choices, rhythm, personality. The response should be indistinguishable from something they actually wrote.');
 
     return parts.join('\n');
   },

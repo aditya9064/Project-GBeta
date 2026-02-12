@@ -97,7 +97,7 @@ export interface CommsAgentActions {
 
   // Connection actions
   connectGmail: () => Promise<void>;
-  connectSlack: (token: string) => Promise<void>;
+  connectSlack: () => Promise<void>;
   connectTeams: () => Promise<void>;
   disconnectChannel: (channel: Channel) => Promise<void>;
   refreshConnections: () => Promise<void>;
@@ -332,7 +332,7 @@ const MOCK_MESSAGES: UnifiedMessage[] = [
 /* ─── Hook ─────────────────────────────────────────────── */
 
 export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
-  const [messages, setMessages] = useState<UnifiedMessage[]>(MOCK_MESSAGES);
+  const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<UnifiedMessage | null>(null);
   const [connections, setConnections] = useState<ChannelConnection[]>([]);
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null);
@@ -761,36 +761,76 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
 
   // Connection actions
   const connectGmail = useCallback(async () => {
-    if (!backendConnected) return;
-    const authUrl = await ConnectionsAPI.connectGmail();
-    if (authUrl) window.open(authUrl, '_blank', 'width=600,height=700');
+    console.log('🔍 connectGmail called:', { backendConnected });
+    
+    // Always try to connect, even if backend health check failed
+    // The API call will fail gracefully if backend is down
+    console.log('📞 Calling ConnectionsAPI.connectGmail()...');
+    try {
+      const authUrl = await ConnectionsAPI.connectGmail();
+      console.log('✅ Got auth URL:', authUrl ? 'Yes' : 'No');
+      if (authUrl) {
+        console.log('🚀 Opening OAuth popup:', authUrl.substring(0, 100) + '...');
+        window.open(authUrl, '_blank', 'width=600,height=700');
+      } else {
+        console.error('❌ No auth URL returned - backend may not be accessible');
+        alert('Failed to connect to Gmail. Please check if the backend is running.');
+      }
+    } catch (err) {
+      console.error('❌ Error connecting Gmail:', err);
+      alert('Error connecting to Gmail: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
   }, [backendConnected]);
 
-  const connectSlack = useCallback(async (token: string) => {
-    if (!backendConnected) return;
-    await ConnectionsAPI.connectSlack(token);
-    const conns = await ConnectionsAPI.getConnections();
-    setConnections(conns);
+  const connectSlack = useCallback(async () => {
+    console.log('🔍 connectSlack called:', { backendConnected });
+    try {
+      const authUrl = await ConnectionsAPI.connectSlack();
+      console.log('✅ Slack auth URL:', authUrl ? 'Yes' : 'No');
+      if (authUrl) {
+        window.open(authUrl, '_blank', 'width=600,height=700');
+      } else {
+        alert('Failed to connect to Slack. Backend may not be running.');
+      }
+    } catch (err) {
+      console.error('❌ Error connecting Slack:', err);
+      alert('Error connecting to Slack: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
   }, [backendConnected]);
 
   const connectTeams = useCallback(async () => {
-    if (!backendConnected) return;
-    const authUrl = await ConnectionsAPI.connectTeams();
-    if (authUrl) window.open(authUrl, '_blank', 'width=600,height=700');
+    console.log('🔍 connectTeams called:', { backendConnected });
+    try {
+      const authUrl = await ConnectionsAPI.connectTeams();
+      console.log('✅ Teams auth URL:', authUrl ? 'Yes' : 'No');
+      if (authUrl) {
+        window.open(authUrl, '_blank', 'width=600,height=700');
+      } else {
+        alert('Teams integration is coming soon.');
+      }
+    } catch (err) {
+      console.error('❌ Error connecting Teams:', err);
+    }
   }, [backendConnected]);
 
   const disconnectChannel = useCallback(async (channel: Channel) => {
-    if (!backendConnected) return;
-    await ConnectionsAPI.disconnect(channel);
-    const conns = await ConnectionsAPI.getConnections();
-    setConnections(conns);
-  }, [backendConnected]);
+    try {
+      await ConnectionsAPI.disconnect(channel);
+      const conns = await ConnectionsAPI.getConnections();
+      setConnections(conns);
+    } catch (err) {
+      console.error('❌ Error disconnecting:', err);
+    }
+  }, []);
 
   const refreshConnections = useCallback(async () => {
-    if (!backendConnected) return;
-    const conns = await ConnectionsAPI.getConnections();
-    setConnections(conns);
-  }, [backendConnected]);
+    try {
+      const conns = await ConnectionsAPI.getConnections();
+      setConnections(conns);
+    } catch (err) {
+      console.error('❌ Error refreshing connections:', err);
+    }
+  }, []);
 
   const updateAIConfig = useCallback(async (config: Partial<AIConfig>) => {
     if (backendConnected) {

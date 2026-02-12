@@ -40,6 +40,7 @@ export interface UnifiedMessage {
   attachments?: Attachment[];
   threadCount?: number;
   conversationHistory?: ConversationMessage[];
+  isFromUser?: boolean; // True if this is a message SENT by the user (for voice learning)
   metadata?: Record<string, unknown>;
 }
 

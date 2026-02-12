@@ -1,15 +1,25 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  signInAnonymously,
+  GoogleAuthProvider,
+  signOut as firebaseSignOut,
+  sendPasswordResetEmail,
+  updateProfile,
+  User,
+} from 'firebase/auth';
+import { auth } from '../lib/firebase';
 
-// Demo user type (matches Firebase User interface for compatibility)
-export interface DemoUser {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-  photoURL: string | null;
+interface ProfileExtras {
+  fullName?: string;
+  company?: string;
+  role?: string;
 }
 
-// Extended profile for settings (stored with user)
-export interface UserProfileUpdate {
+interface ProfileUpdate {
   displayName?: string;
   email?: string;
   fullName?: string;
@@ -17,148 +27,154 @@ export interface UserProfileUpdate {
   role?: string;
 }
 
-interface StoredProfileExtras {
-  fullName?: string;
-  company?: string;
-  role?: string;
-}
-
 interface AuthContextType {
-  user: DemoUser | null;
-  userProfile: DemoUser | null;
+  user: User | null;
+  userProfile: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  demoSignIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (data: UserProfileUpdate) => Promise<void>;
-  getProfileExtras: () => StoredProfileExtras;
+  resetPassword: (email: string) => Promise<void>;
+  updateProfile: (data: ProfileUpdate) => Promise<void>;
+  getProfileExtras: () => ProfileExtras;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Local storage key for persisting demo auth
-const AUTH_STORAGE_KEY = 'crewos_demo_auth';
-const PROFILE_STORAGE_KEY = 'crewos_demo_profile';
+const googleProvider = new GoogleAuthProvider();
+const PROFILE_EXTRAS_KEY = 'nova_profile_extras';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<DemoUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Check for existing session on mount (or handle #logout)
+  // Listen to Firebase Auth state changes
   useEffect(() => {
-    if (window.location.hash === '#logout') {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-      localStorage.removeItem(PROFILE_STORAGE_KEY);
-      window.location.hash = '';
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
       setLoading(false);
-      return;
-    }
-    const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
-      }
-    }
-    setLoading(false);
+    });
+    return unsubscribe;
   }, []);
 
+  // Email/password sign in
   const signIn = async (email: string, password: string) => {
-    // Validate inputs
     if (!email || !password) {
       throw new Error('Email and password are required');
     }
-    
-    if (password.length < 6) {
-      throw new Error('Password must be at least 6 characters');
-    }
-
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    // Create demo user
-    const demoUser: DemoUser = {
-      uid: `demo_${Date.now()}`,
-      email: email,
-      displayName: email.split('@')[0],
-      photoURL: null
-    };
-
-    // Persist to localStorage
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(demoUser));
-    setUser(demoUser);
-  };
-
-  const signUp = async (email: string, password: string) => {
-    // Validate inputs
-    if (!email || !password) {
-      throw new Error('Email and password are required');
-    }
-
-    if (!email.includes('@')) {
-      throw new Error('Please enter a valid email address');
-    }
-    
-    if (password.length < 6) {
-      throw new Error('Password must be at least 6 characters');
-    }
-
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    // Create demo user
-    const demoUser: DemoUser = {
-      uid: `demo_${Date.now()}`,
-      email: email,
-      displayName: email.split('@')[0],
-      photoURL: null
-    };
-
-    // Persist to localStorage
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(demoUser));
-    setUser(demoUser);
-  };
-
-  const signOut = async () => {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    localStorage.removeItem(PROFILE_STORAGE_KEY);
-    setUser(null);
-  };
-
-  const updateProfile = async (data: UserProfileUpdate) => {
-    if (!user) return;
-    const updated: DemoUser = {
-      ...user,
-      displayName: data.displayName ?? user.displayName,
-      email: data.email ?? user.email,
-    };
-    setUser(updated);
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updated));
-    const profileExtras = {
-      fullName: data.fullName,
-      company: data.company,
-      role: data.role,
-    };
-    const existing = localStorage.getItem(PROFILE_STORAGE_KEY);
-    const merged = existing ? { ...JSON.parse(existing), ...profileExtras } : profileExtras;
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(merged));
-  };
-
-  const getProfileExtras = (): StoredProfileExtras => {
     try {
-      const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : {};
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error: unknown) {
+      throw mapFirebaseError(error);
+    }
+  };
+
+  // Email/password sign up
+  const signUp = async (email: string, password: string, displayName?: string) => {
+    if (!email || !password) {
+      throw new Error('Email and password are required');
+    }
+    if (password.length < 6) {
+      throw new Error('Password must be at least 6 characters');
+    }
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      // Set display name if provided
+      if (displayName && credential.user) {
+        await updateProfile(credential.user, { displayName });
+      }
+    } catch (error: unknown) {
+      throw mapFirebaseError(error);
+    }
+  };
+
+  // Google sign in
+  const signInWithGoogle = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: unknown) {
+      throw mapFirebaseError(error);
+    }
+  };
+
+  // Demo / anonymous sign in
+  const demoSignIn = async () => {
+    try {
+      const credential = await signInAnonymously(auth);
+      // Give anonymous users a friendly display name
+      if (credential.user) {
+        await updateProfile(credential.user, { displayName: 'Demo User' });
+      }
+    } catch (error: unknown) {
+      throw mapFirebaseError(error);
+    }
+  };
+
+  // Sign out
+  const signOut = async () => {
+    await firebaseSignOut(auth);
+  };
+
+  // Password reset
+  const resetPassword = async (email: string) => {
+    if (!email) {
+      throw new Error('Email is required');
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error: unknown) {
+      throw mapFirebaseError(error);
+    }
+  };
+
+  // Update user profile (displayName + extras stored locally)
+  const handleUpdateProfile = async (data: ProfileUpdate) => {
+    if (!user) throw new Error('Not authenticated');
+
+    // Update Firebase displayName if changed
+    if (data.displayName !== undefined) {
+      await updateProfile(user, { displayName: data.displayName });
+    }
+
+    // Store extras in localStorage keyed by uid
+    const extras = getProfileExtras();
+    const updated: ProfileExtras = {
+      fullName: data.fullName ?? extras.fullName,
+      company: data.company ?? extras.company,
+      role: data.role ?? extras.role,
+    };
+    localStorage.setItem(`${PROFILE_EXTRAS_KEY}_${user.uid}`, JSON.stringify(updated));
+  };
+
+  // Get extra profile fields from localStorage
+  const getProfileExtras = (): ProfileExtras => {
+    if (!user) return {};
+    try {
+      const stored = localStorage.getItem(`${PROFILE_EXTRAS_KEY}_${user.uid}`);
+      return stored ? JSON.parse(stored) : {};
     } catch {
       return {};
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, userProfile: user, loading, signIn, signUp, signOut, updateProfile, getProfileExtras }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        userProfile: user,
+        loading,
+        signIn,
+        signUp,
+        signInWithGoogle,
+        demoSignIn,
+        signOut,
+        resetPassword,
+        updateProfile: handleUpdateProfile,
+        getProfileExtras,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -170,4 +186,24 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+}
+
+// Map Firebase error codes to user-friendly messages
+function mapFirebaseError(error: unknown): Error {
+  const code = (error as { code?: string })?.code || '';
+  const errorMap: Record<string, string> = {
+    'auth/email-already-in-use': 'An account with this email already exists.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+    'auth/user-disabled': 'This account has been disabled.',
+    'auth/user-not-found': 'No account found with this email.',
+    'auth/wrong-password': 'Incorrect password. Please try again.',
+    'auth/invalid-credential': 'Invalid email or password. Please try again.',
+    'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/popup-closed-by-user': 'Sign-in popup was closed. Please try again.',
+    'auth/cancelled-popup-request': 'Sign-in was cancelled.',
+    'auth/network-request-failed': 'Network error. Please check your connection.',
+    'auth/popup-blocked': 'Pop-up was blocked by your browser. Please allow pop-ups and try again.',
+  };
+  return new Error(errorMap[code] || 'An unexpected error occurred. Please try again.');
 }

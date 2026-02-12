@@ -19,15 +19,83 @@ import type { UnifiedMessage, APIResponse, MessagesResponse, Channel } from '../
 
 const router = Router();
 
+/* ─── Middleware: Restore tokens from Firestore ────────── */
+
+router.use(async (_req: Request, _res: Response, next: Function) => {
+  await Promise.all([
+    GmailService.restoreFromStore(),
+    SlackService.restoreFromStore(),
+    TeamsService.restoreFromStore(),
+  ]);
+  next();
+});
+
 /* ─── In-memory message store ──────────────────────────── */
 
 let messageStore: UnifiedMessage[] = [];
 let lastSyncTime: Date | null = null;
 
+/**
+ * Auto-sync helper — fetches messages from all connected services.
+ * Called automatically when the in-memory store is empty (cold start)
+ * so that GET /api/messages always returns real data.
+ */
+async function autoSyncIfEmpty(): Promise<void> {
+  if (messageStore.length > 0) return; // Already have messages in memory
+
+  const hasConnected =
+    GmailService.getConnection().status === 'connected' ||
+    SlackService.getConnection().status === 'connected' ||
+    TeamsService.getConnection().status === 'connected';
+
+  if (!hasConnected) return; // No connected services
+
+  console.log('📬 Auto-syncing messages (cold start detected)...');
+  const newMessages: UnifiedMessage[] = [];
+
+  // Fetch from Gmail
+  if (GmailService.getConnection().status === 'connected') {
+    try {
+      const emails = await GmailService.fetchMessages(20);
+      newMessages.push(...emails);
+    } catch (err) {
+      console.error('Auto-sync Gmail error:', err);
+    }
+  }
+
+  // Fetch from Slack
+  if (SlackService.getConnection().status === 'connected') {
+    try {
+      const slackMsgs = await SlackService.fetchMessages(20);
+      newMessages.push(...slackMsgs);
+    } catch (err) {
+      console.error('Auto-sync Slack error:', err);
+    }
+  }
+
+  // Fetch from Teams
+  if (TeamsService.getConnection().status === 'connected') {
+    try {
+      const teamsMsgs = await TeamsService.fetchMessages(20);
+      newMessages.push(...teamsMsgs);
+    } catch (err) {
+      console.error('Auto-sync Teams error:', err);
+    }
+  }
+
+  messageStore = newMessages;
+  messageStore.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+  lastSyncTime = new Date();
+  console.log(`📬 Auto-synced ${messageStore.length} messages`);
+}
+
 /* ─── GET /api/messages ────────────────────────────────── */
 
 router.get('/', async (req: Request, res: Response) => {
   try {
+    // Auto-fetch messages on cold start (stateless Cloud Functions)
+    await autoSyncIfEmpty();
+
     const { channel, status, priority, search, limit } = req.query;
 
     let filtered = [...messageStore];
@@ -351,4 +419,3 @@ router.post('/draft-all', async (_req: Request, res: Response) => {
 });
 
 export { router as messagesRouter, messageStore };
-

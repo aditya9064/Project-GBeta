@@ -40,6 +40,7 @@ import type {
   StyleProfile,
 } from '../types.js';
 import { StyleAnalyzer } from './style-analyzer.js';
+import { UserVoiceService } from './user-voice.service.js';
 
 /* ─── OpenAI Client ────────────────────────────────────── */
 
@@ -688,6 +689,9 @@ export const AIEngine = {
    * 1. Analyze → 2. Build Context → 3. Select Strategy
    * 4. Style-Aware Generate → 5. Quality & Style Score
    * 6. Refine (if score < threshold)
+   * 
+   * IMPORTANT: Uses the USER'S OWN voice profile (learned from their
+   * sent messages) to generate responses that sound like them.
    */
   async generateResponse(message: UnifiedMessage): Promise<GeneratedResponse> {
     console.log(`\n🧠 AI Engine: Processing message from ${message.from} (${message.channel})`);
@@ -701,18 +705,32 @@ export const AIEngine = {
     console.log('  📋 Stage 2: Building context...');
     let context = buildContext(message, analysis);
 
-    // Look up style profile for this contact
-    const styleProfile = this.getStyleProfileForContact(message.from) ||
-                          (message.fromEmail ? this.getStyleProfileForContact(message.fromEmail) : null);
-
-    const stylePrompt = styleProfile
-      ? StyleAnalyzer.getStylePromptForContact(styleProfile)
-      : null;
-
-    if (stylePrompt) {
-      console.log(`  🎨 Style profile found for ${message.from} (confidence: ${styleProfile!.styleConfidence}%)`);
+    // ─── Use USER'S OWN voice profile (not contact-specific) ───
+    // This is the key difference from a ChatGPT wrapper:
+    // We use the user's learned writing style, not generic AI output
+    
+    let styleProfile: StyleProfile | null = null;
+    let stylePrompt: string | null = null;
+    
+    // First, try to get the user's own voice profile
+    const userVoiceProfile = UserVoiceService.getProfile();
+    if (userVoiceProfile && userVoiceProfile.isReady) {
+      // Use channel-specific style if available
+      stylePrompt = UserVoiceService.getStylePrompt(message.channel);
+      styleProfile = userVoiceProfile.styleProfile;
+      console.log(`  🎨 Using USER's voice profile (${userVoiceProfile.confidence}% confidence, ${userVoiceProfile.messagesAnalyzed} messages analyzed)`);
     } else {
-      console.log(`  ℹ️  No style profile for ${message.from} — using default voice`);
+      // Fallback: try contact-specific profile (legacy behavior)
+      styleProfile = this.getStyleProfileForContact(message.from) ||
+                     (message.fromEmail ? this.getStyleProfileForContact(message.fromEmail) : null);
+      stylePrompt = styleProfile ? StyleAnalyzer.getStylePromptForContact(styleProfile) : null;
+      
+      if (stylePrompt) {
+        console.log(`  🎨 Using contact-specific style for ${message.from}`);
+      } else {
+        console.log(`  ⚠️  No voice profile learned yet — using default voice`);
+        console.log(`      Connect Gmail/Slack and run voice learning to personalize responses`);
+      }
     }
 
     // Stage 3: Select response strategy
@@ -830,7 +848,7 @@ export const AIEngine = {
     };
   },
 
-  /** Quick analyze using only heuristics (no API call) */
+  /** Quick analyze (heuristic, no API call) */
   quickAnalyze(message: UnifiedMessage): MessageAnalysis {
     return inferAnalysisFromContent(message);
   },

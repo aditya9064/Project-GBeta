@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Mail,
   MessageSquare,
@@ -99,6 +100,8 @@ const statusIcons: Record<MessageStatus, React.ReactNode> = {
 
 export function CommunicationsAgent() {
   const [state, actions] = useCommsAgent();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   /* ── Local UI state ──────────────────────────────────── */
   const [editingDraft, setEditingDraft] = useState(false);
@@ -107,8 +110,25 @@ export function CommunicationsAgent() {
   const [showConnections, setShowConnections] = useState(false);
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showVIPPanel, setShowVIPPanel] = useState(false);
-  const [slackTokenInput, setSlackTokenInput] = useState('');
-  const [showSlackInput, setShowSlackInput] = useState(false);
+
+  // Handle OAuth callback (check for ?connected=gmail|slack|teams or ?error=...)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const connected = params.get('connected');
+    const error = params.get('error');
+
+    if (connected || error) {
+      // Refresh connections to get updated status
+      if (state.backendConnected) {
+        actions.refreshConnections();
+        // Also sync messages to get new ones from the connected account
+        actions.syncMessages();
+      }
+
+      // Clean up URL
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.search, state.backendConnected, actions, navigate, location.pathname]);
 
   const {
     messages,
@@ -201,35 +221,42 @@ export function CommunicationsAgent() {
     { id: 'teams', label: 'Teams', icon: <Users size={15} />, count: channelCounts.teams },
   ];
 
+  const hasConnections = connections.some(c => c.status === 'connected');
+  const isEmpty = messages.length === 0 && !hasConnections;
+
   return (
     <div className="comms-agent">
       {/* ─── HEADER ─────────────────────────────────── */}
       <div className="comms-header">
         <div className="comms-header-left">
           <h1 className="comms-title">Communications Agent</h1>
-          <div className="comms-header-stats">
-            <div className="comms-stat">
-              <span className="comms-stat-dot" style={{ background: '#EF4444' }} />
-              <span className="comms-stat-count">{pendingCount}</span>
-              <span className="comms-stat-label">Pending</span>
-            </div>
-            <div className="comms-stat">
-              <span className="comms-stat-dot" style={{ background: '#8B5CF6' }} />
-              <span className="comms-stat-count">{draftedCount}</span>
-              <span className="comms-stat-label">AI Drafted</span>
-            </div>
-            <div className="comms-stat">
-              <span className="comms-stat-dot" style={{ background: '#10B981' }} />
-              <span className="comms-stat-count">{sentCount}</span>
-              <span className="comms-stat-label">Sent</span>
-            </div>
-          </div>
+          {!isEmpty && (
+            <>
+              <div className="comms-header-stats">
+                <div className="comms-stat">
+                  <span className="comms-stat-dot" style={{ background: '#EF4444' }} />
+                  <span className="comms-stat-count">{pendingCount}</span>
+                  <span className="comms-stat-label">Pending</span>
+                </div>
+                <div className="comms-stat">
+                  <span className="comms-stat-dot" style={{ background: '#8B5CF6' }} />
+                  <span className="comms-stat-count">{draftedCount}</span>
+                  <span className="comms-stat-label">AI Drafted</span>
+                </div>
+                <div className="comms-stat">
+                  <span className="comms-stat-dot" style={{ background: '#10B981' }} />
+                  <span className="comms-stat-count">{sentCount}</span>
+                  <span className="comms-stat-label">Sent</span>
+                </div>
+              </div>
 
-          {/* Backend status indicator */}
-          <div className={`comms-backend-status ${backendConnected ? 'connected' : ''}`}>
-            {backendConnected ? <Wifi size={13} /> : <WifiOff size={13} />}
-            <span>{backendConnected ? 'Live' : 'Demo Mode'}</span>
-          </div>
+              {/* Backend status indicator */}
+              <div className={`comms-backend-status ${backendConnected ? 'connected' : ''}`}>
+                {backendConnected ? <Wifi size={13} /> : <WifiOff size={13} />}
+                <span>{backendConnected ? 'Live' : 'Demo Mode'}</span>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="comms-header-right">
@@ -241,41 +268,45 @@ export function CommunicationsAgent() {
             <Link2 size={15} />
             <span>Connections</span>
           </button>
-          <button
-            className={`comms-btn comms-btn-secondary ${showVIPPanel ? 'active' : ''}`}
-            onClick={() => { setShowVIPPanel(!showVIPPanel); setShowConnections(false); setShowAIInsights(false); }}
-            title="VIP Contacts"
-          >
-            <Crown size={15} />
-            <span>VIP Contacts</span>
-            {vipContacts.length > 0 && (
-              <span className="comms-vip-header-count">{vipContacts.length}</span>
-            )}
-          </button>
-          <button
-            className={`comms-btn comms-btn-secondary ${showAIInsights ? 'active' : ''}`}
-            onClick={() => { setShowAIInsights(!showAIInsights); setShowConnections(false); setShowVIPPanel(false); }}
-            title="AI Engine Settings"
-          >
-            <Brain size={15} />
-            <span>AI Engine</span>
-          </button>
-          <button
-            className="comms-btn comms-btn-secondary"
-            onClick={() => actions.syncMessages()}
-            disabled={isSyncing}
-          >
-            <RefreshCw size={15} className={isSyncing ? 'comms-spin' : ''} />
-            <span>{isSyncing ? 'Syncing...' : 'Sync'}</span>
-          </button>
-          <button
-            className="comms-btn comms-btn-primary"
-            onClick={() => actions.autoDraftAll()}
-            disabled={isGenerating}
-          >
-            <Bot size={15} />
-            <span>{isGenerating ? 'Drafting...' : 'Auto-Draft All'}</span>
-          </button>
+          {!isEmpty && (
+            <>
+              <button
+                className={`comms-btn comms-btn-secondary ${showVIPPanel ? 'active' : ''}`}
+                onClick={() => { setShowVIPPanel(!showVIPPanel); setShowConnections(false); setShowAIInsights(false); }}
+                title="VIP Contacts"
+              >
+                <Crown size={15} />
+                <span>VIP Contacts</span>
+                {vipContacts.length > 0 && (
+                  <span className="comms-vip-header-count">{vipContacts.length}</span>
+                )}
+              </button>
+              <button
+                className={`comms-btn comms-btn-secondary ${showAIInsights ? 'active' : ''}`}
+                onClick={() => { setShowAIInsights(!showAIInsights); setShowConnections(false); setShowVIPPanel(false); }}
+                title="AI Engine Settings"
+              >
+                <Brain size={15} />
+                <span>AI Engine</span>
+              </button>
+              <button
+                className="comms-btn comms-btn-secondary"
+                onClick={() => actions.syncMessages()}
+                disabled={isSyncing}
+              >
+                <RefreshCw size={15} className={isSyncing ? 'comms-spin' : ''} />
+                <span>{isSyncing ? 'Syncing...' : 'Sync'}</span>
+              </button>
+              <button
+                className="comms-btn comms-btn-primary"
+                onClick={() => actions.autoDraftAll()}
+                disabled={isGenerating}
+              >
+                <Bot size={15} />
+                <span>{isGenerating ? 'Drafting...' : 'Auto-Draft All'}</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -331,7 +362,7 @@ export function CommunicationsAgent() {
               </div>
               <div className="comms-connection-info">
                 <h4>Slack</h4>
-                <p>Bot Token · Web API</p>
+                <p>OAuth · Add to Slack</p>
                 {connections.find(c => c.channel === 'slack')?.status === 'connected' ? (
                   <span className="comms-connection-status connected">
                     <CheckCircle size={12} /> Connected
@@ -343,45 +374,22 @@ export function CommunicationsAgent() {
                   <span className="comms-connection-status">Not connected</span>
                 )}
               </div>
-              {showSlackInput && connections.find(c => c.channel === 'slack')?.status !== 'connected' ? (
-                <div className="comms-slack-input-row">
-                  <input
-                    type="text"
-                    placeholder="xoxb-your-bot-token"
-                    value={slackTokenInput}
-                    onChange={e => setSlackTokenInput(e.target.value)}
-                    className="comms-slack-token-input"
-                  />
-                  <button
-                    className="comms-connection-btn"
-                    onClick={() => {
-                      if (slackTokenInput.trim()) {
-                        actions.connectSlack(slackTokenInput.trim());
-                        setShowSlackInput(false);
-                      }
-                    }}
-                  >
-                    Connect
-                  </button>
-                </div>
-              ) : (
-                <button
-                  className={`comms-connection-btn ${connections.find(c => c.channel === 'slack')?.status === 'connected' ? 'disconnect' : ''}`}
-                  onClick={() => {
-                    const conn = connections.find(c => c.channel === 'slack');
-                    if (conn?.status === 'connected') {
-                      actions.disconnectChannel('slack');
-                    } else {
-                      setShowSlackInput(true);
-                    }
-                  }}
-                >
-                  {connections.find(c => c.channel === 'slack')?.status === 'connected' ?
-                    <><Unlink size={13} /> Disconnect</> :
-                    <><Link2 size={13} /> Connect</>
+              <button
+                className={`comms-connection-btn ${connections.find(c => c.channel === 'slack')?.status === 'connected' ? 'disconnect' : ''}`}
+                onClick={() => {
+                  const conn = connections.find(c => c.channel === 'slack');
+                  if (conn?.status === 'connected') {
+                    actions.disconnectChannel('slack');
+                  } else {
+                    actions.connectSlack();
                   }
-                </button>
-              )}
+                }}
+              >
+                {connections.find(c => c.channel === 'slack')?.status === 'connected' ?
+                  <><Unlink size={13} /> Disconnect</> :
+                  <><Link2 size={13} /> Add to Slack</>
+                }
+              </button>
             </div>
 
             {/* Teams */}
@@ -677,7 +685,48 @@ export function CommunicationsAgent() {
         </div>
       )}
 
+      {/* ─── EMPTY STATE (no connections) ──────────────── */}
+      {isEmpty && !showConnections && (
+        <div className="comms-empty-state">
+          <div className="comms-empty-icon">
+            <Mail size={48} />
+          </div>
+          <h2 className="comms-empty-title">Connect your accounts</h2>
+          <p className="comms-empty-description">
+            Link your email, Slack, or Teams accounts to let the AI agent manage your communications. Messages will appear here once connected.
+          </p>
+          <div className="comms-empty-channels">
+            <div className="comms-empty-channel">
+              <div className="comms-empty-channel-icon" style={{ background: '#EA4335' }}>
+                <Mail size={20} />
+              </div>
+              <span>Gmail</span>
+            </div>
+            <div className="comms-empty-channel">
+              <div className="comms-empty-channel-icon" style={{ background: '#4A154B' }}>
+                <Hash size={20} />
+              </div>
+              <span>Slack</span>
+            </div>
+            <div className="comms-empty-channel">
+              <div className="comms-empty-channel-icon" style={{ background: '#6264A7' }}>
+                <Users size={20} />
+              </div>
+              <span>Teams</span>
+            </div>
+          </div>
+          <button
+            className="comms-btn comms-btn-primary comms-empty-btn"
+            onClick={() => { setShowConnections(true); setShowAIInsights(false); setShowVIPPanel(false); }}
+          >
+            <Link2 size={16} />
+            <span>Connect Your Accounts</span>
+          </button>
+        </div>
+      )}
+
       {/* ─── CHANNEL TABS ────────────────────────────── */}
+      {!isEmpty && (<>
       <div className="comms-channels-row">
         <div className="comms-channel-tabs">
           {channelTabs.map(tab => (
@@ -1233,6 +1282,7 @@ export function CommunicationsAgent() {
           )}
         </div>
       </div>
+      </>)}
 
       {/* ─── NOTIFICATION STACK (fixed bottom-right) ──── */}
       {(vipNotifications.length > 0 || approvalQueue.length > 0) && (

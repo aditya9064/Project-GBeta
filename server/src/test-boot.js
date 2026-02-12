@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+console.log("Step 1: Starting...");
+var express_1 = require("express");
+console.log("Step 2: Express imported:", typeof express_1.default);
+var cors_1 = require("cors");
+console.log("Step 3: cors imported");
+var config_js_1 = require("./config.js");
+console.log("Step 4: config loaded, port:", config_js_1.config.port);
+var app = (0, express_1.default)();
+app.use((0, cors_1.default)());
+app.get('/test', function (_req, res) { return res.json({ ok: true }); });
+app.listen(3099, function () { return console.log("Step 5: Server on 3099"); });

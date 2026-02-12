@@ -11,6 +11,7 @@
 import { ConfidentialClientApplication } from '@azure/msal-node';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { config } from '../config.js';
+import { TokenStore } from './tokenStore.js';
 import type { UnifiedMessage, ChannelConnection } from '../types.js';
 
 /* ─── State ────────────────────────────────────────────── */
@@ -86,6 +87,26 @@ function createGraphClient(token: string): Client {
 /* ─── Public API ───────────────────────────────────────── */
 
 export const TeamsService = {
+  /** Restore tokens from Firestore if not already connected in-memory */
+  async restoreFromStore(): Promise<void> {
+    if (connectionState.status === 'connected' && graphClient) return;
+
+    const stored = await TokenStore.load('teams');
+    if (!stored) return;
+
+    try {
+      const token = stored.tokens.accessToken as string;
+      if (!token) return;
+
+      accessToken = token;
+      graphClient = createGraphClient(token);
+      connectionState = stored.connection as unknown as ChannelConnection;
+      console.log('🔄 Teams: Restored tokens from Firestore');
+    } catch (err) {
+      console.error('❌ Teams: Failed to restore tokens:', err);
+    }
+  },
+
   /** Generate the OAuth2 authorization URL */
   getAuthUrl(): string {
     const msal = ensureMsalClient();
@@ -124,6 +145,12 @@ export const TeamsService = {
         lastSyncAt: new Date(),
         scopes: [...config.microsoft.scopes],
       };
+
+      // Persist tokens to Firestore
+      await TokenStore.save('teams',
+        { accessToken: tokenResponse.accessToken },
+        connectionState as unknown as Record<string, unknown>
+      );
 
       return connectionState;
     } catch (err) {
@@ -347,6 +374,7 @@ export const TeamsService = {
       channel: 'teams',
       status: 'disconnected',
     };
-  },
+    TokenStore.delete('teams').catch(() => {});
+  }
 };
 

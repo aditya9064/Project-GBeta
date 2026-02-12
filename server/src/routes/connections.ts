@@ -19,6 +19,20 @@ import type { ChannelConnection, APIResponse } from '../types.js';
 
 const router = Router();
 
+/* ─── Middleware: Restore tokens from Firestore ────────── */
+/* Cloud Functions are stateless — tokens stored in-memory
+   are lost across invocations. This middleware restores
+   them from Firestore before every connections request. */
+
+router.use(async (_req: Request, _res: Response, next: Function) => {
+  await Promise.all([
+    GmailService.restoreFromStore(),
+    SlackService.restoreFromStore(),
+    TeamsService.restoreFromStore(),
+  ]);
+  next();
+});
+
 /* ─── GET /api/connections ─────────────────────────────── */
 
 router.get('/', (_req: Request, res: Response) => {
@@ -59,21 +73,59 @@ router.get('/gmail/callback', async (req: Request, res: Response) => {
 
   try {
     const connection = await GmailService.handleCallback(code);
-    // Redirect back to the frontend with success
-    res.redirect(`${config.frontendUrl}?connected=gmail`);
+    // Redirect back to the frontend Communications page
+    res.redirect(`${config.frontendUrl}/comms?connected=gmail`);
   } catch (err) {
-    res.redirect(`${config.frontendUrl}?error=gmail_auth_failed`);
+    res.redirect(`${config.frontendUrl}/comms?error=gmail_auth_failed`);
   }
 });
 
 /* ═══ SLACK ════════════════════════════════════════════════ */
 
-/** Connect Slack using a bot token */
-router.post('/slack', async (req: Request, res: Response) => {
-  const { botToken } = req.body;
+/** Start the Slack OAuth2 flow — returns auth URL (or redirects) */
+router.get('/slack', (_req: Request, res: Response) => {
+  try {
+    const authUrl = SlackService.getAuthUrl();
+    res.json({ success: true, data: { authUrl } });
+  } catch (err) {
+    // If OAuth not configured, fall back to suggesting bot token
+    res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to generate Slack auth URL',
+    });
+  }
+});
+
+/** Slack OAuth callback */
+router.get('/slack/callback', async (req: Request, res: Response) => {
+  const code = req.query.code as string;
+  const error = req.query.error as string;
+
+  if (error) {
+    res.redirect(`${config.frontendUrl}/comms?error=slack_auth_denied`);
+    return;
+  }
+
+  if (!code) {
+    res.status(400).json({ success: false, error: 'Missing authorization code' });
+    return;
+  }
 
   try {
-    const connection = await SlackService.connect(botToken);
+    await SlackService.handleCallback(code);
+    res.redirect(`${config.frontendUrl}/comms?connected=slack`);
+  } catch (err) {
+    res.redirect(`${config.frontendUrl}/comms?error=slack_auth_failed`);
+  }
+});
+
+/** Connect Slack using a user token (fallback for direct token method) */
+router.post('/slack', async (req: Request, res: Response) => {
+  const { userToken, botToken } = req.body; // Support both names for backward compat
+  const token = userToken || botToken;
+
+  try {
+    const connection = await SlackService.connect(token);
     res.json({ success: true, data: connection });
   } catch (err) {
     res.status(500).json({
@@ -108,9 +160,9 @@ router.get('/teams/callback', async (req: Request, res: Response) => {
 
   try {
     const connection = await TeamsService.handleCallback(code);
-    res.redirect(`${config.frontendUrl}?connected=teams`);
+    res.redirect(`${config.frontendUrl}/comms?connected=teams`);
   } catch (err) {
-    res.redirect(`${config.frontendUrl}?error=teams_auth_failed`);
+    res.redirect(`${config.frontendUrl}/comms?error=teams_auth_failed`);
   }
 });
 
@@ -139,4 +191,3 @@ router.delete('/:channel', (req: Request, res: Response) => {
 });
 
 export { router as connectionsRouter };
-

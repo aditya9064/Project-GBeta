@@ -8,10 +8,21 @@
     ],
     "rewrites": [
       {
+        "source": "/api/**",
+        "function": "api"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
     ]
+  },
+  "functions": {
+    "source": "server",
+    "predeploy": [
+      "cd server && npm run build"
+    ],
+    "runtime": "nodejs22"
   },
   "firestore": {
     "rules": "firestore.rules"

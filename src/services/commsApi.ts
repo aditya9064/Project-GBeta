@@ -2,10 +2,17 @@
    Communications API Client
    
    Frontend service for the Communications AI Agent backend.
-   All calls are routed through Vite's dev proxy → /api/*
+   
+   In production: Uses Firebase Hosting rewrites — /api/*
+     requests are routed to the Cloud Function on the same
+     domain, so there are ZERO CORS issues.
+   
+   In dev: Uses Vite proxy → /api/* → localhost:5001
+     (Firebase emulator or direct Express server)
    ═══════════════════════════════════════════════════════════ */
 
-const API_BASE = '/api';
+// With Firebase Hosting rewrites, /api works in both dev (Vite proxy) and production
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 /* ─── Types (mirror of server types) ───────────────────── */
 
@@ -273,13 +280,10 @@ export const ConnectionsAPI = {
     return result.success && result.data ? result.data.authUrl : null;
   },
 
-  /** Connect Slack with a bot token */
-  async connectSlack(botToken: string): Promise<ChannelConnection | null> {
-    const result = await apiFetch<ChannelConnection>('/connections/slack', {
-      method: 'POST',
-      body: JSON.stringify({ botToken }),
-    });
-    return result.success ? result.data! : null;
+  /** Start Slack OAuth flow — returns auth URL */
+  async connectSlack(): Promise<string | null> {
+    const result = await apiFetch<{ authUrl: string }>('/connections/slack');
+    return result.success && result.data ? result.data.authUrl : null;
   },
 
   /** Start Teams OAuth flow — returns auth URL */
@@ -355,9 +359,10 @@ export async function checkBackendHealth(): Promise<{
   try {
     const res = await fetch(`${API_BASE}/health`);
     const data = await res.json();
-    return { ok: data.status === 'ok', services: data.services || {} };
-  } catch {
+    const ok = data.status === 'ok';
+    return { ok, services: data.services || {} };
+  } catch (err) {
+    console.error('❌ Health check failed:', err);
     return { ok: false, services: {} };
   }
 }
-

@@ -403,3 +403,5 @@ export function getPDFDataUrl(doc: GeneratedDocument): string {
   return pdf.output('datauristring');
 }
 
+
+
