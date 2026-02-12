@@ -50,6 +50,7 @@ import './CrewOSDashboard.css';
 import { DocumentIntelligence } from './DocumentIntelligence';
 import { CommunicationsAgent } from './CommunicationsAgent';
 import { SalesIntelligence } from './SalesIntelligence';
+import { WorkflowBuilder } from '../workflow';
 import { useAuth } from '../../contexts/AuthContext';
 
 /* ─── TYPES ────────────────────────────────────────────────── */
@@ -367,6 +368,7 @@ const pathToNav: Record<string, string> = {
   '/comms': 'comms',
   '/docai': 'docai',
   '/sales': 'sales',
+  '/workflow': 'workflow',
   '/overview': 'overview',
   '/activity': 'activity',
   '/escalations': 'escalations',
@@ -374,10 +376,11 @@ const pathToNav: Record<string, string> = {
 };
 
 const navToPath: Record<string, string> = {
-  agents: '/agents',
+  agents: '/',
   comms: '/comms',
   docai: '/docai',
   sales: '/sales',
+  workflow: '/workflow',
   overview: '/overview',
   activity: '/activity',
   escalations: '/escalations',
@@ -420,6 +423,7 @@ export function CrewOSDashboard() {
   const isDocAI = activeNav === 'docai';
   const isComms = activeNav === 'comms';
   const isSales = activeNav === 'sales';
+  const isWorkflow = activeNav === 'workflow';
 
   // Filter agents by column
   const activeAgents = agents.filter(a => a.column === 'active');
@@ -652,6 +656,14 @@ export function CrewOSDashboard() {
             <div className="crewos-sidebar-label">Menu</div>
 
             <button
+              className={`crewos-nav-item ${activeNav === 'agents' ? 'active' : ''}`}
+              onClick={() => setActiveNav('agents')}
+            >
+              <span className="crewos-nav-item-icon"><Bot size={18} /></span>
+              <span className="crewos-nav-item-text">Agents</span>
+            </button>
+
+            <button
               className={`crewos-nav-item ${activeNav === 'overview' ? 'active' : ''}`}
               onClick={() => setActiveNav('overview')}
             >
@@ -666,14 +678,6 @@ export function CrewOSDashboard() {
             >
               <span className="crewos-nav-item-icon"><Activity size={18} /></span>
               <span className="crewos-nav-item-text">Activity</span>
-            </button>
-
-            <button
-              className={`crewos-nav-item ${activeNav === 'agents' ? 'active' : ''}`}
-              onClick={() => setActiveNav('agents')}
-            >
-              <span className="crewos-nav-item-icon"><Bot size={18} /></span>
-              <span className="crewos-nav-item-text">Agents</span>
             </button>
 
             <button
@@ -701,6 +705,14 @@ export function CrewOSDashboard() {
               <span className="crewos-nav-item-icon"><TrendingUp size={18} /></span>
               <span className="crewos-nav-item-text">Sales Intelligence</span>
               <span className="crewos-badge">5</span>
+            </button>
+
+            <button
+              className={`crewos-nav-item ${activeNav === 'workflow' ? 'active' : ''}`}
+              onClick={() => setActiveNav('workflow')}
+            >
+              <span className="crewos-nav-item-icon"><GitBranch size={18} /></span>
+              <span className="crewos-nav-item-text">Automation Builder</span>
             </button>
 
             <button
@@ -790,6 +802,43 @@ export function CrewOSDashboard() {
         {/* ──────── MAIN CONTENT (floating panel) ──────── */}
         <div className="crewos-container">
 
+        {/* Dashboard Home View */}
+        {isHome && (
+          <DashboardHome
+            agents={agents.map(a => ({
+              id: a.id,
+              name: a.title,
+              description: a.description,
+              status: a.status,
+              category: agentCatalog.find(c => c.id === a.catalogId)?.category || 'AI Agent',
+              accuracy: a.accuracy,
+              latency: a.latency,
+              icon: (() => {
+                const cat = agentCatalog.find(c => c.id === a.catalogId);
+                if (cat?.category === 'Communications') return 'mail' as const;
+                if (cat?.category === 'Document Generation') return 'file' as const;
+                if (cat?.category === 'Sales Intelligence') return 'chart' as const;
+                return 'bot' as const;
+              })(),
+              createdAt: a.date,
+            }))}
+            onCreateAgent={() => setShowCatalog(true)}
+            onPromptSubmit={(prompt) => {
+              console.log('Creating agent from prompt:', prompt);
+              // Navigate to workflow builder with the prompt
+              setActiveNav('workflow');
+            }}
+            onNavigateToWorkflow={() => setActiveNav('workflow')}
+            onNavigateToAgents={() => setActiveNav('agents')}
+            onAgentClick={(agent) => {
+              const fullAgent = agents.find(a => a.id === agent.id);
+              if (fullAgent) {
+                handleCardClick(fullAgent);
+              }
+            }}
+          />
+        )}
+
         {/* Communications Agent View */}
         {isComms && <CommunicationsAgent />}
 
@@ -799,8 +848,21 @@ export function CrewOSDashboard() {
         {/* Sales Intelligence View */}
         {isSales && <SalesIntelligence />}
 
+        {/* Workflow Builder View */}
+        {isWorkflow && (
+          <WorkflowBuilder
+            onSave={(workflow) => {
+              console.log('Workflow saved:', workflow);
+              // You can save to your backend here
+            }}
+            onClose={() => {
+              setActiveNav('home');
+            }}
+          />
+        )}
+
         {/* Agent Workforce View */}
-        {!isDocAI && !isComms && !isSales && (
+        {!isHome && !isDocAI && !isComms && !isSales && !isWorkflow && (
         <div className="crewos-main">
           {/* Header */}
           <div className="crewos-header">
@@ -824,7 +886,7 @@ export function CrewOSDashboard() {
                 </button>
                 <button
                   className={`crewos-tab ${activeTab === 'workflow' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('workflow')}
+                  onClick={() => setActiveNav('workflow')}
                 >
                   <span className="crewos-tab-icon"><GitBranch size={15} /></span>
                   Workflow
@@ -837,7 +899,10 @@ export function CrewOSDashboard() {
                 <span className="crewos-btn-icon"><Plus size={16} /></span>
                 Agent
               </button>
-              <button className="crewos-btn crewos-btn-secondary">
+              <button 
+                className="crewos-btn crewos-btn-secondary"
+                onClick={() => setActiveNav('workflow')}
+              >
                 <span className="crewos-btn-icon"><Zap size={15} /></span>
                 Automate
               </button>
