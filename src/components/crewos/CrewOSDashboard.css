@@ -76,7 +76,115 @@
   overflow-x: hidden;
   border-radius: 20px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-  z-index: 10;
+  z-index: 100;
+  transition: width 0.3s ease, transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* Sidebar Toggle Button */
+.crewos-sidebar-toggle {
+  position: absolute;
+  top: 24px;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #1a1a2e;
+  border: 2px solid #2a2a40;
+  color: #8a8aa0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 101;
+  transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.crewos-sidebar:hover .crewos-sidebar-toggle,
+.crewos-sidebar-toggle:focus {
+  opacity: 1;
+}
+
+.crewos-sidebar-toggle:hover {
+  background: #e07a3a;
+  border-color: #e07a3a;
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+/* Collapsed sidebar state */
+.crewos-sidebar.collapsed {
+  width: 80px;
+}
+
+.crewos-sidebar.collapsed .crewos-logo-text,
+.crewos-sidebar.collapsed .crewos-nav-item-text,
+.crewos-sidebar.collapsed .crewos-badge,
+.crewos-sidebar.collapsed .crewos-sidebar-label span,
+.crewos-sidebar.collapsed .crewos-sidebar-label-action,
+.crewos-sidebar.collapsed .crewos-project-item .crewos-project-info,
+.crewos-sidebar.collapsed .crewos-member-name,
+.crewos-sidebar.collapsed .crewos-member-status {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.crewos-sidebar.collapsed .crewos-sidebar-toggle {
+  opacity: 1;
+  right: 50%;
+  transform: translateX(50%);
+}
+
+.crewos-sidebar.collapsed .crewos-logo {
+  justify-content: center;
+  padding: 30px 10px 28px;
+}
+
+.crewos-sidebar.collapsed .crewos-nav-item {
+  justify-content: center;
+  padding: 12px;
+}
+
+.crewos-sidebar.collapsed .crewos-sidebar-section {
+  padding: 0 8px;
+}
+
+.crewos-sidebar.collapsed .crewos-sidebar-label {
+  justify-content: center;
+  padding: 20px 8px 10px;
+}
+
+.crewos-sidebar.collapsed .crewos-project-item,
+.crewos-sidebar.collapsed .crewos-member-item {
+  justify-content: center;
+  padding: 8px;
+}
+
+/* Workflow active state - hide sidebar by default */
+.crewos-app.workflow-active .crewos-sidebar {
+  transform: translateX(-320px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Show sidebar in workflow mode when sidebar-visible class is present */
+.crewos-app.workflow-active.sidebar-visible .crewos-sidebar {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Full width container when workflow is active */
+.crewos-app.workflow-active .crewos-container {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+/* Container adjusts based on sidebar visibility in workflow mode */
+.crewos-app.workflow-active.sidebar-visible .crewos-container {
+  margin-left: 294px !important;
 }
 
 .crewos-sidebar::-webkit-scrollbar {
@@ -1681,9 +1789,362 @@
   font-size: 13px;
 }
 
+/* ─── AI PROMPT SECTION ────────────────────────────────────── */
+
+.crewos-prompt-section {
+  padding: 24px 32px 0;
+  margin-bottom: 8px;
+}
+
+.crewos-prompt-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.crewos-prompt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(224, 122, 58, 0.12);
+  border: 1px solid rgba(224, 122, 58, 0.25);
+  border-radius: 100px;
+  color: #e07a3a;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  width: fit-content;
+}
+
+.crewos-prompt-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.crewos-gradient-text {
+  background: linear-gradient(135deg, #e07a3a 0%, #f5a623 50%, #e07a3a 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.crewos-prompt-form {
+  width: 100%;
+}
+
+.crewos-prompt-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fff;
+  border: 1.5px solid rgba(26, 26, 46, 0.12);
+  border-radius: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.crewos-prompt-input-wrapper:focus-within {
+  border-color: rgba(224, 122, 58, 0.5);
+  box-shadow: 0 0 0 4px rgba(224, 122, 58, 0.08);
+}
+
+.crewos-prompt-input-icon {
+  color: rgba(26, 26, 46, 0.4);
+  flex-shrink: 0;
+}
+
+.crewos-prompt-input {
+  flex: 1;
+  padding: 0;
+  font-size: 15px;
+  color: #1a1a2e;
+  background: transparent;
+}
+
+.crewos-prompt-input::placeholder {
+  color: rgba(26, 26, 46, 0.4);
+}
+
+.crewos-prompt-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #e07a3a 0%, #d46b2c 100%);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.crewos-prompt-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.crewos-prompt-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.crewos-prompt-submit.loading {
+  padding: 10px 24px;
+}
+
+/* ─── AUTOMATION AGENTS SECTION ─────────────────────────── */
+
+.crewos-automation-agents-section {
+  padding: 24px 32px;
+  background: rgba(139, 92, 246, 0.03);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.crewos-automation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.crewos-automation-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.crewos-automation-icon {
+  color: #8b5cf6;
+}
+
+.crewos-automation-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.crewos-automation-count {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+}
+
+.crewos-automation-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  color: white;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.crewos-automation-new-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+.crewos-automation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+.crewos-automation-card {
+  background: #111111;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 18px;
+  transition: all 0.2s;
+}
+
+.crewos-automation-card:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.crewos-automation-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.crewos-automation-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.crewos-automation-card-icon.active {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.crewos-automation-card-icon.paused {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.crewos-automation-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.crewos-automation-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crewos-automation-card-desc {
+  font-size: 13px;
+  color: #9ca3af;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.crewos-automation-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.crewos-automation-status-active {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.crewos-automation-status-paused {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.crewos-automation-status-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.crewos-automation-status-draft {
+  background: rgba(107, 114, 128, 0.15);
+  color: #9ca3af;
+}
+
+.crewos-automation-card-stats {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+}
+
+.crewos-automation-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.crewos-automation-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.crewos-automation-stat-label {
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.crewos-automation-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.crewos-automation-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e5e5e5;
+  background: rgba(255, 255, 255, 0.06);
+  transition: all 0.2s;
+}
+
+.crewos-automation-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.crewos-automation-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.crewos-automation-run-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.crewos-automation-run-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669, #047857);
+}
+
+.crewos-automation-delete-btn {
+  margin-left: auto;
+  padding: 8px;
+}
+
+.crewos-automation-delete-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
 /* ─── RESPONSIVE ─────────────────────────────────────────── */
 
 @media (max-width: 1200px) {
+  .crewos-prompt-section {
+    padding: 20px 28px 0;
+  }
   .crewos-column {
     width: 290px;
     min-width: 290px;

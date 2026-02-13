@@ -9,6 +9,7 @@ import { AuthPage } from './components/auth';
 import { LandingPage } from './components/landing';
 import { WhiteboardPage } from './components/whiteboard';
 import { CrewOSDashboard } from './components/crewos/CrewOSDashboard';
+import { WorkflowBuilder } from './components/workflow';
 import { useAuth } from './contexts/AuthContext';
 import { initialCalendarEvents } from './data/calendarData';
 
@@ -476,6 +477,17 @@ function App() {
 
   // If not logged in, show landing/auth page
   if (!user) {
+    // Allow direct access to workflow builder for testing
+    if (location.pathname === '/test-workflow') {
+      return (
+        <div style={{ width: '100vw', height: '100vh', background: '#0a0a0f' }}>
+          <WorkflowBuilder
+            onSave={(workflow) => console.log('Workflow saved:', workflow)}
+            onClose={() => navigate('/')}
+          />
+        </div>
+      );
+    }
     if (showAuth) {
       return <AuthPage />;
     }

@@ -43,7 +43,12 @@ import {
   Filter,
   ArrowRight,
   CheckCircle2,
+  PanelLeft,
+  Rocket,
+  Loader2,
+  CheckCircle,
 } from 'lucide-react';
+import { WorkflowDefinition, WorkflowNodeData, WorkflowEdge } from '../../services/automation/types';
 import './WorkflowBuilder.css';
 import { CustomNode } from './CustomNode';
 import { PromptModal } from './PromptModal';
@@ -113,22 +118,39 @@ interface WorkflowBuilderProps {
   onSave?: (workflow: { nodes: Node[]; edges: Edge[] }) => void;
   onClose?: () => void;
   initialWorkflow?: { nodes: Node[]; edges: Edge[] };
+  onToggleSidebar?: () => void;
+  onDeploy?: (name: string, description: string, workflow: WorkflowDefinition) => Promise<void>;
+  isDeploying?: boolean;
 }
 
-export function WorkflowBuilder({ onSave, onClose, initialWorkflow }: WorkflowBuilderProps) {
+export function WorkflowBuilder({ onSave, onClose, initialWorkflow, onToggleSidebar, onDeploy, isDeploying }: WorkflowBuilderProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialWorkflow?.nodes || []);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialWorkflow?.edges || []);
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null);
   const [showNodeConfig, setShowNodeConfig] = useState(false);
   const [workflowName, setWorkflowName] = useState('New Automation');
+  const [workflowDescription, setWorkflowDescription] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const [showDeployModal, setShowDeployModal] = useState(false);
+  const [deploySuccess, setDeploySuccess] = useState(false);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
 
   const onConnect = useCallback(
     (params: Connection) => {
-      setEdges((eds) => addEdge({ ...params, type: 'smoothstep', animated: true, markerEnd: { type: MarkerType.ArrowClosed } }, eds));
+      setEdges((eds) => addEdge({ 
+        ...params, 
+        type: 'smoothstep', 
+        animated: true, 
+        markerEnd: { 
+          type: MarkerType.ArrowClosed,
+          width: 20,
+          height: 20,
+          color: '#8b5cf6',
+        },
+        style: { stroke: '#8b5cf6', strokeWidth: 2 },
+      }, eds));
     },
     [setEdges]
   );
@@ -277,7 +299,13 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow }: WorkflowBu
         target: newNodes[i + 1].id,
         type: 'smoothstep',
         animated: true,
-        markerEnd: { type: MarkerType.ArrowClosed },
+        markerEnd: { 
+          type: MarkerType.ArrowClosed,
+          width: 20,
+          height: 20,
+          color: '#8b5cf6',
+        },
+        style: { stroke: '#8b5cf6', strokeWidth: 2 },
       });
     }
 
@@ -409,11 +437,64 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow }: WorkflowBu
     }, 2000);
   }, []);
 
+  // Convert React Flow nodes/edges to WorkflowDefinition format
+  const convertToWorkflowDefinition = useCallback((): WorkflowDefinition => {
+    const workflowNodes: WorkflowNodeData[] = nodes.map(node => ({
+      id: node.id,
+      type: (node.data as any).type as WorkflowNodeData['type'],
+      label: (node.data as any).label as string,
+      description: (node.data as any).description as string | undefined,
+      config: (node.data as any).config || {},
+      position: node.position
+    }));
+
+    const workflowEdges: WorkflowEdge[] = edges.map(edge => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: edge.sourceHandle || undefined,
+      targetHandle: edge.targetHandle || undefined
+    }));
+
+    return {
+      nodes: workflowNodes,
+      edges: workflowEdges
+    };
+  }, [nodes, edges]);
+
+  // Handle deploy
+  const handleDeploy = useCallback(async () => {
+    if (!onDeploy || nodes.length === 0) return;
+    
+    const workflow = convertToWorkflowDefinition();
+    
+    try {
+      await onDeploy(workflowName, workflowDescription, workflow);
+      setDeploySuccess(true);
+      setTimeout(() => {
+        setShowDeployModal(false);
+        setDeploySuccess(false);
+        if (onClose) onClose();
+      }, 2000);
+    } catch (error) {
+      console.error('Deploy error:', error);
+    }
+  }, [onDeploy, nodes, workflowName, workflowDescription, convertToWorkflowDefinition, onClose]);
+
   return (
     <div className="workflow-builder">
       {/* Header */}
       <div className="workflow-header">
         <div className="workflow-header-left">
+          {onToggleSidebar && (
+            <button
+              className="workflow-btn workflow-btn-sidebar"
+              onClick={onToggleSidebar}
+              title="Toggle Sidebar"
+            >
+              <PanelLeft size={18} />
+            </button>
+          )}
           <input
             type="text"
             value={workflowName}
@@ -443,8 +524,18 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow }: WorkflowBu
             disabled={isRunning || nodes.length === 0}
           >
             <Play size={16} />
-            {isRunning ? 'Running...' : 'Run'}
+            {isRunning ? 'Running...' : 'Test'}
           </button>
+          {onDeploy && (
+            <button
+              className="workflow-btn workflow-btn-deploy"
+              onClick={() => setShowDeployModal(true)}
+              disabled={nodes.length === 0}
+            >
+              <Rocket size={16} />
+              Deploy Agent
+            </button>
+          )}
           {onClose && (
             <button
               className="workflow-btn workflow-btn-close"
@@ -546,6 +637,113 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow }: WorkflowBu
           }}
           onDelete={() => deleteNode(selectedNode.id)}
         />
+      )}
+
+      {/* Deploy Modal */}
+      {showDeployModal && (
+        <div className="deploy-modal-overlay" onClick={() => !isDeploying && setShowDeployModal(false)}>
+          <div className="deploy-modal" onClick={(e) => e.stopPropagation()}>
+            {deploySuccess ? (
+              <div className="deploy-success">
+                <div className="deploy-success-icon">
+                  <CheckCircle size={48} />
+                </div>
+                <h2>Agent Deployed Successfully!</h2>
+                <p>Your automation agent is now active and ready to run.</p>
+              </div>
+            ) : (
+              <>
+                <div className="deploy-modal-header">
+                  <div className="deploy-modal-icon">
+                    <Rocket size={24} />
+                  </div>
+                  <div>
+                    <h2>Deploy Your Agent</h2>
+                    <p>Give your automation agent a name and description</p>
+                  </div>
+                  <button 
+                    className="deploy-modal-close" 
+                    onClick={() => setShowDeployModal(false)}
+                    disabled={isDeploying}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="deploy-modal-content">
+                  <div className="deploy-form-group">
+                    <label>Agent Name</label>
+                    <input
+                      type="text"
+                      value={workflowName}
+                      onChange={(e) => setWorkflowName(e.target.value)}
+                      placeholder="e.g., Email to Notion Task Creator"
+                      disabled={isDeploying}
+                    />
+                  </div>
+
+                  <div className="deploy-form-group">
+                    <label>Description</label>
+                    <textarea
+                      value={workflowDescription}
+                      onChange={(e) => setWorkflowDescription(e.target.value)}
+                      placeholder="Describe what this agent does..."
+                      rows={3}
+                      disabled={isDeploying}
+                    />
+                  </div>
+
+                  <div className="deploy-summary">
+                    <h4>Workflow Summary</h4>
+                    <div className="deploy-summary-stats">
+                      <div className="deploy-stat">
+                        <span className="deploy-stat-value">{nodes.length}</span>
+                        <span className="deploy-stat-label">Nodes</span>
+                      </div>
+                      <div className="deploy-stat">
+                        <span className="deploy-stat-value">{edges.length}</span>
+                        <span className="deploy-stat-label">Connections</span>
+                      </div>
+                      <div className="deploy-stat">
+                        <span className="deploy-stat-value">
+                          {nodes.find(n => (n.data as any).type === 'trigger')?.data && (nodes.find(n => (n.data as any).type === 'trigger')?.data as any).label || 'Manual'}
+                        </span>
+                        <span className="deploy-stat-label">Trigger</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="deploy-modal-footer">
+                  <button 
+                    className="deploy-btn deploy-btn-cancel" 
+                    onClick={() => setShowDeployModal(false)}
+                    disabled={isDeploying}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="deploy-btn deploy-btn-confirm"
+                    onClick={handleDeploy}
+                    disabled={isDeploying || !workflowName.trim()}
+                  >
+                    {isDeploying ? (
+                      <>
+                        <Loader2 size={16} className="spin" />
+                        Deploying...
+                      </>
+                    ) : (
+                      <>
+                        <Rocket size={16} />
+                        Deploy Agent
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

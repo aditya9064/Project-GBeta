@@ -33,6 +33,7 @@ import {
   Settings2,
   X,
   ChevronRight,
+  ChevronLeft,
   Rocket,
   CheckCircle2,
   Circle,
@@ -45,6 +46,11 @@ import {
   Tag,
   TrendingUp,
   LogOut,
+  Send,
+  Wand2,
+  PanelLeftClose,
+  PanelLeft,
+  Play,
 } from 'lucide-react';
 import './CrewOSDashboard.css';
 import { DocumentIntelligence } from './DocumentIntelligence';
@@ -52,6 +58,8 @@ import { CommunicationsAgent } from './CommunicationsAgent';
 import { SalesIntelligence } from './SalesIntelligence';
 import { WorkflowBuilder } from '../workflow';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAgents } from '../../contexts/AgentContext';
+import { WorkflowDefinition, DeployedAgent as AutomationAgent } from '../../services/automation';
 
 /* ─── TYPES ────────────────────────────────────────────────── */
 
@@ -389,8 +397,10 @@ const navToPath: Record<string, string> = {
 
 export function CrewOSDashboard() {
   const { signOut } = useAuth();
+  const { agents: automationAgents, deployNewAgent, loading: agentsLoading, runAgent, pauseAgent, resumeAgent, deleteAgent: deleteAutomationAgent } = useAgents();
   const location = useLocation();
   const navigate = useNavigate();
+  const [isDeploying, setIsDeploying] = useState(false);
 
   // Derive activeNav from URL path (persists on refresh)
   const activeNav = pathToNav[location.pathname] || 'agents';
@@ -407,6 +417,10 @@ export function CrewOSDashboard() {
   const [expandedCatalog, setExpandedCatalog] = useState<string | null>(null);
   const [deployingVersion, setDeployingVersion] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<DeployedAgent | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarVisibleInWorkflow, setSidebarVisibleInWorkflow] = useState(false);
+  const [agentPrompt, setAgentPrompt] = useState('');
+  const [isCreatingFromPrompt, setIsCreatingFromPrompt] = useState(false);
 
   // Handle OAuth callback redirect — auto-switch to Communications page
   useEffect(() => {
@@ -486,6 +500,36 @@ export function CrewOSDashboard() {
       setSelectedAgent(agent);
     }
   }, [setActiveNav]);
+
+  /* Handle deploying from Workflow Builder */
+  const handleWorkflowDeploy = useCallback(async (name: string, description: string, workflow: WorkflowDefinition) => {
+    setIsDeploying(true);
+    try {
+      await deployNewAgent(name, description, workflow, 'Zap', '#8b5cf6');
+      // Navigate back to agents page after successful deploy
+      setActiveNav('agents');
+    } catch (error) {
+      console.error('Deploy error:', error);
+    } finally {
+      setIsDeploying(false);
+    }
+  }, [deployNewAgent, setActiveNav]);
+
+  /* Handle prompt submission for creating agents */
+  const handlePromptSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (!agentPrompt.trim() || isCreatingFromPrompt) return;
+    
+    setIsCreatingFromPrompt(true);
+    console.log('Creating agent from prompt:', agentPrompt);
+    
+    // Navigate to workflow builder with the prompt
+    setTimeout(() => {
+      setIsCreatingFromPrompt(false);
+      setAgentPrompt('');
+      setActiveNav('workflow');
+    }, 800);
+  }, [agentPrompt, isCreatingFromPrompt, setActiveNav]);
 
   /* Card renderer */
   const renderCard = (agent: DeployedAgent) => {
@@ -630,9 +674,18 @@ export function CrewOSDashboard() {
   };
 
   return (
-    <div className="crewos-app">
+    <div className={`crewos-app ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${isWorkflow ? 'workflow-active' : ''} ${isWorkflow && sidebarVisibleInWorkflow ? 'sidebar-visible' : ''}`}>
         {/* ──────── SIDEBAR (floating panel) ──────── */}
-        <aside className="crewos-sidebar">
+        <aside className={`crewos-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+          {/* Collapse/Expand Toggle */}
+          <button 
+            className="crewos-sidebar-toggle"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+          
           {/* Logo */}
           <div className="crewos-logo">
             <div className="crewos-logo-icon">
@@ -802,43 +855,6 @@ export function CrewOSDashboard() {
         {/* ──────── MAIN CONTENT (floating panel) ──────── */}
         <div className="crewos-container">
 
-        {/* Dashboard Home View */}
-        {isHome && (
-          <DashboardHome
-            agents={agents.map(a => ({
-              id: a.id,
-              name: a.title,
-              description: a.description,
-              status: a.status,
-              category: agentCatalog.find(c => c.id === a.catalogId)?.category || 'AI Agent',
-              accuracy: a.accuracy,
-              latency: a.latency,
-              icon: (() => {
-                const cat = agentCatalog.find(c => c.id === a.catalogId);
-                if (cat?.category === 'Communications') return 'mail' as const;
-                if (cat?.category === 'Document Generation') return 'file' as const;
-                if (cat?.category === 'Sales Intelligence') return 'chart' as const;
-                return 'bot' as const;
-              })(),
-              createdAt: a.date,
-            }))}
-            onCreateAgent={() => setShowCatalog(true)}
-            onPromptSubmit={(prompt) => {
-              console.log('Creating agent from prompt:', prompt);
-              // Navigate to workflow builder with the prompt
-              setActiveNav('workflow');
-            }}
-            onNavigateToWorkflow={() => setActiveNav('workflow')}
-            onNavigateToAgents={() => setActiveNav('agents')}
-            onAgentClick={(agent) => {
-              const fullAgent = agents.find(a => a.id === agent.id);
-              if (fullAgent) {
-                handleCardClick(fullAgent);
-              }
-            }}
-          />
-        )}
-
         {/* Communications Agent View */}
         {isComms && <CommunicationsAgent />}
 
@@ -856,18 +872,165 @@ export function CrewOSDashboard() {
               // You can save to your backend here
             }}
             onClose={() => {
-              setActiveNav('home');
+              setActiveNav('agents');
+              setSidebarVisibleInWorkflow(false);
             }}
+            onToggleSidebar={() => setSidebarVisibleInWorkflow(!sidebarVisibleInWorkflow)}
+            onDeploy={handleWorkflowDeploy}
+            isDeploying={isDeploying}
           />
         )}
 
-        {/* Agent Workforce View */}
-        {!isHome && !isDocAI && !isComms && !isSales && !isWorkflow && (
+        {/* Agent Workforce View (Home) */}
+        {!isDocAI && !isComms && !isSales && !isWorkflow && (
         <div className="crewos-main">
+          {/* AI Prompt Section */}
+          <div className="crewos-prompt-section">
+            <div className="crewos-prompt-header">
+              <div className="crewos-prompt-badge">
+                <Sparkles size={14} />
+                <span>AI-Powered Automation</span>
+              </div>
+              <h2 className="crewos-prompt-title">
+                What would you like to <span className="crewos-gradient-text">automate</span>?
+              </h2>
+            </div>
+            <form className="crewos-prompt-form" onSubmit={handlePromptSubmit}>
+              <div className="crewos-prompt-input-wrapper">
+                <Wand2 size={18} className="crewos-prompt-input-icon" />
+                <input
+                  type="text"
+                  className="crewos-prompt-input"
+                  placeholder="Describe your automation in plain English..."
+                  value={agentPrompt}
+                  onChange={(e) => setAgentPrompt(e.target.value)}
+                  disabled={isCreatingFromPrompt}
+                />
+                <button
+                  type="submit"
+                  className={`crewos-prompt-submit ${isCreatingFromPrompt ? 'loading' : ''}`}
+                  disabled={!agentPrompt.trim() || isCreatingFromPrompt}
+                >
+                  {isCreatingFromPrompt ? (
+                    <Loader2 size={18} className="crewos-spin" />
+                  ) : (
+                    <>
+                      <span>Create</span>
+                      <Send size={16} />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Deployed Automation Agents Section */}
+          {automationAgents.length > 0 && (
+            <div className="crewos-automation-agents-section">
+              <div className="crewos-automation-header">
+                <div className="crewos-automation-title-row">
+                  <Zap size={20} className="crewos-automation-icon" />
+                  <h3 className="crewos-automation-title">My Automation Agents</h3>
+                  <span className="crewos-automation-count">{automationAgents.length}</span>
+                </div>
+                <button 
+                  className="crewos-automation-new-btn"
+                  onClick={() => setActiveNav('workflow')}
+                >
+                  <Plus size={16} />
+                  New Workflow
+                </button>
+              </div>
+              <div className="crewos-automation-grid">
+                {automationAgents.map((agent: AutomationAgent) => (
+                  <div key={agent.id} className="crewos-automation-card">
+                    <div className="crewos-automation-card-header">
+                      <div className={`crewos-automation-card-icon ${agent.status === 'active' ? 'active' : agent.status === 'paused' ? 'paused' : ''}`}>
+                        <Zap size={18} />
+                      </div>
+                      <div className="crewos-automation-card-info">
+                        <h4 className="crewos-automation-card-name">{agent.name}</h4>
+                        <p className="crewos-automation-card-desc">{agent.description || 'No description'}</p>
+                      </div>
+                      <div className={`crewos-automation-status crewos-automation-status-${agent.status}`}>
+                        {agent.status === 'active' ? (
+                          <><CheckCircle2 size={12} /> Active</>
+                        ) : agent.status === 'paused' ? (
+                          <><Circle size={12} /> Paused</>
+                        ) : agent.status === 'error' ? (
+                          <><AlertCircle size={12} /> Error</>
+                        ) : (
+                          <><Clock size={12} /> Draft</>
+                        )}
+                      </div>
+                    </div>
+                    <div className="crewos-automation-card-stats">
+                      <div className="crewos-automation-stat">
+                        <span className="crewos-automation-stat-value">{agent.workflow.nodes.length}</span>
+                        <span className="crewos-automation-stat-label">Nodes</span>
+                      </div>
+                      <div className="crewos-automation-stat">
+                        <span className="crewos-automation-stat-value">{agent.totalExecutions}</span>
+                        <span className="crewos-automation-stat-label">Runs</span>
+                      </div>
+                      <div className="crewos-automation-stat">
+                        <span className="crewos-automation-stat-value">
+                          {agent.lastExecutedAt ? new Date(agent.lastExecutedAt).toLocaleDateString() : '—'}
+                        </span>
+                        <span className="crewos-automation-stat-label">Last Run</span>
+                      </div>
+                    </div>
+                    <div className="crewos-automation-card-actions">
+                      <button 
+                        className="crewos-automation-action-btn crewos-automation-run-btn"
+                        onClick={() => runAgent(agent.id)}
+                        disabled={agent.status !== 'active'}
+                        title="Run now"
+                      >
+                        <Play size={14} />
+                        Run
+                      </button>
+                      {agent.status === 'active' ? (
+                        <button 
+                          className="crewos-automation-action-btn"
+                          onClick={() => pauseAgent(agent.id)}
+                          title="Pause agent"
+                        >
+                          <Circle size={14} />
+                          Pause
+                        </button>
+                      ) : agent.status === 'paused' ? (
+                        <button 
+                          className="crewos-automation-action-btn"
+                          onClick={() => resumeAgent(agent.id)}
+                          title="Resume agent"
+                        >
+                          <Play size={14} />
+                          Resume
+                        </button>
+                      ) : null}
+                      <button 
+                        className="crewos-automation-action-btn crewos-automation-delete-btn"
+                        onClick={() => {
+                          if (confirm('Are you sure you want to delete this agent?')) {
+                            deleteAutomationAgent(agent.id);
+                          }
+                        }}
+                        title="Delete agent"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="crewos-header">
             <div className="crewos-header-left">
-              <h1 className="crewos-header-title">Agent Workforce</h1>
+              <h1 className="crewos-header-title">Agent Catalog</h1>
 
               <div className="crewos-tabs">
                 <button
@@ -897,18 +1060,14 @@ export function CrewOSDashboard() {
             <div className="crewos-header-right">
               <button className="crewos-btn crewos-btn-primary" onClick={() => setShowCatalog(true)}>
                 <span className="crewos-btn-icon"><Plus size={16} /></span>
-                Agent
+                Deploy Agent
               </button>
               <button 
                 className="crewos-btn crewos-btn-secondary"
                 onClick={() => setActiveNav('workflow')}
               >
                 <span className="crewos-btn-icon"><Zap size={15} /></span>
-                Automate
-              </button>
-              <button className="crewos-btn crewos-btn-secondary">
-                <span className="crewos-btn-icon"><Share2 size={15} /></span>
-                Share
+                Build Workflow
               </button>
             </div>
           </div>
@@ -932,10 +1091,6 @@ export function CrewOSDashboard() {
               <button className="crewos-filter-item">
                 <span className="crewos-filter-icon"><User size={14} /></span>
                 Me
-              </button>
-              <button className="crewos-filter-item">
-                <span className="crewos-filter-icon"><BarChart3 size={14} /></span>
-                Show
               </button>
             </div>
           </div>
