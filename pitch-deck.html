@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CrewOS — Pitch Deck</title>
+<style>
+  /* ── RESET & BASE ─────────────────────────────── */
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #08080f;
+    color: #e4e4ec;
+  }
+
+  /* ── SLIDE CONTAINER ──────────────────────────── */
+  .deck {
+    width: 100%;
+  }
+  .slide {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px 80px 60px;
+    background: #08080f;
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
+  }
+  .slide:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  @page {
+    size: 1920px 1080px;
+    margin: 0;
+  }
+
+  @media print {
+    body { background: #08080f; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .slide { min-height: 100vh; height: 100vh; overflow: hidden; }
+    .nav, .logo { display: none !important; }
+  }
+
+  /* ── TYPOGRAPHY ────────────────────────────────── */
+  h1 { font-size: 3rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; }
+  h2 { font-size: 2.2rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 12px; }
+  h3 { font-size: 1.35rem; font-weight: 600; line-height: 1.3; margin-bottom: 6px; }
+  p, li { font-size: 1.05rem; line-height: 1.6; color: #a0a0b8; }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #e07a3a 0%, #f5a623 50%, #e07a3a 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .accent { color: #e07a3a; }
+  .label {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #e07a3a;
+    margin-bottom: 12px;
+    padding: 4px 14px;
+    border-radius: 100px;
+    background: rgba(224,122,58,0.12);
+  }
+
+  /* ── GRID HELPERS ──────────────────────────────── */
+  .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
+  .cols-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; }
+  .cols-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 24px; }
+  .flex-center { display: flex; align-items: center; justify-content: center; }
+  .gap-16 { gap: 16px; }
+  .gap-24 { gap: 24px; }
+  .mt-24 { margin-top: 24px; }
+  .mt-32 { margin-top: 32px; }
+  .mt-48 { margin-top: 48px; }
+
+  /* ── CARDS ─────────────────────────────────────── */
+  .card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 22px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: rgba(224,122,58,0.25); }
+  .card-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    background: rgba(224,122,58,0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 16px;
+  }
+
+  /* ── STAT BOXES ────────────────────────────────── */
+  .stat-box {
+    text-align: center;
+    padding: 24px 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+  }
+  .stat-value { font-size: 2.6rem; font-weight: 800; color: #e07a3a; display: block; }
+  .stat-label { font-size: 0.95rem; color: #7a7a96; margin-top: 4px; display: block; }
+
+  /* ── PRICING TABLE ─────────────────────────────── */
+  .pricing-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 32px 28px;
+    position: relative;
+  }
+  .pricing-card.featured {
+    border-color: #e07a3a;
+    background: rgba(224,122,58,0.06);
+  }
+  .pricing-card .badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #e07a3a;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 4px 16px;
+    border-radius: 100px;
+  }
+  .pricing-card h3 { color: #e4e4ec; }
+  .pricing-card .price { font-size: 2.8rem; font-weight: 800; color: #fff; margin: 12px 0; }
+  .pricing-card .price span { font-size: 1rem; font-weight: 400; color: #7a7a96; }
+  .pricing-card ul { list-style: none; margin-top: 20px; }
+  .pricing-card ul li {
+    font-size: 0.95rem;
+    padding: 6px 0;
+    color: #a0a0b8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pricing-card ul li::before {
+    content: '✓';
+    color: #e07a3a;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+
+  /* ── PROGRESS BAR ──────────────────────────────── */
+  .bar-chart { display: flex; flex-direction: column; gap: 14px; margin-top: 24px; }
+  .bar-row { display: flex; align-items: center; gap: 16px; }
+  .bar-label { width: 100px; font-size: 0.85rem; color: #7a7a96; text-align: right; }
+  .bar-track { flex: 1; height: 24px; background: rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 12px; background: linear-gradient(90deg, #e07a3a, #f5a623); transition: width 0.8s ease; }
+  .bar-value { width: 60px; font-size: 0.85rem; color: #e07a3a; font-weight: 600; }
+
+  /* ── TIMELINE ──────────────────────────────────── */
+  .timeline { margin-top: 24px; }
+  .timeline-item {
+    display: flex; gap: 20px; position: relative; padding-bottom: 28px;
+  }
+  .timeline-item:last-child { padding-bottom: 0; }
+  .timeline-dot {
+    width: 14px; height: 14px; border-radius: 50%; background: #e07a3a; flex-shrink: 0;
+    margin-top: 6px; z-index: 1;
+  }
+  .timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 6px; top: 20px; bottom: 0;
+    width: 2px;
+    background: rgba(224,122,58,0.2);
+  }
+  .timeline-content h4 { font-size: 1.05rem; font-weight: 600; color: #e4e4ec; }
+  .timeline-content p { font-size: 0.9rem; color: #7a7a96; margin-top: 2px; }
+
+  /* ── TEAM ──────────────────────────────────────── */
+  .team-member {
+    text-align: center;
+    padding: 28px 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+  }
+  .team-avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e07a3a, #d46b2c);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; font-weight: 700; color: #fff;
+    margin: 0 auto 14px;
+  }
+  .team-member h4 { font-size: 1.05rem; color: #e4e4ec; }
+  .team-member p { font-size: 0.85rem; color: #7a7a96; }
+
+  /* ── NAVIGATION (hidden in print/static mode) ─── */
+  .nav {
+    display: none;
+  }
+
+  /* ── SLIDE NUMBERS ──────────────────────────────── */
+  .slide-number {
+    position: absolute;
+    bottom: 20px;
+    left: 48px;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.15);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── LOGO ──────────────────────────────────────── */
+  .logo {
+    position: absolute;
+    top: 32px;
+    left: 48px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 10;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: #e07a3a;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 22px; height: 22px; }
+  .logo-text { font-size: 1.15rem; font-weight: 700; color: #e4e4ec; letter-spacing: -0.02em; }
+
+  /* ── DECORATIVE ────────────────────────────────── */
+  .glow-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.12;
+    pointer-events: none;
+  }
+  .glow-orange { background: #e07a3a; }
+  .glow-blue { background: #3b82f6; }
+
+  /* ── REVENUE TABLE ─────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 20px;
+  }
+  th, td {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 0.95rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  th {
+    color: #7a7a96;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  td { color: #c0c0d4; }
+  td.highlight { color: #e07a3a; font-weight: 700; }
+
+  /* ── COMPETITIVE TABLE ─────────────────────────── */
+  .comp-table { margin-top: 20px; }
+  .comp-table th { background: rgba(255,255,255,0.03); }
+  .comp-table td { font-size: 0.9rem; }
+  .comp-check { color: #22c55e; font-weight: 700; }
+  .comp-x { color: #666; }
+  .comp-partial { color: #f59e0b; }
+
+  /* ── ASK CARD ──────────────────────────────────── */
+  .ask-card {
+    background: linear-gradient(135deg, rgba(224,122,58,0.1), rgba(224,122,58,0.03));
+    border: 2px solid rgba(224,122,58,0.3);
+    border-radius: 24px;
+    padding: 32px;
+    text-align: center;
+  }
+  .ask-card h2 { font-size: 2.4rem; }
+  .ask-card .ask-amount {
+    font-size: 3.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #e07a3a, #f5a623);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 14px 0 8px;
+  }
+  .use-of-funds { display: flex; gap: 20px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+  .fund-item {
+    text-align: center;
+    padding: 14px 18px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    min-width: 140px;
+  }
+  .fund-pct { font-size: 1.6rem; font-weight: 800; color: #e07a3a; }
+  .fund-label { font-size: 0.85rem; color: #7a7a96; margin-top: 4px; }
+
+  /* ── LIST STYLES ───────────────────────────────── */
+  ul.feature-list { list-style: none; margin-top: 16px; }
+  ul.feature-list li {
+    padding: 8px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 1.05rem;
+  }
+  ul.feature-list li::before {
+    content: '→';
+    color: #e07a3a;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 1 — Title -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="0">
+    <!-- Logo -->
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M22 11.5Q22 8 16 8Q10 8 10 11.5V20.5Q10 24 16 24Q22 24 22 20.5" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+          <circle cx="16" cy="16" r="1.5" fill="white" opacity="0.9"/>
+        </svg>
+      </div>
+      <span class="logo-text">CrewOS</span>
+    </div>
+    <div class="glow-orb glow-orange" style="width:500px;height:500px;top:-100px;right:-100px;"></div>
+    <div class="glow-orb glow-blue" style="width:400px;height:400px;bottom:-50px;left:-50px;"></div>
+    <div style="max-width: 800px;">
+      <span class="label">Investor Pitch — February 2026</span>
+      <h1 style="font-size: 4.2rem;">
+        Deploy AI agents that <span class="gradient-text">work for you</span>
+      </h1>
+      <p style="font-size: 1.35rem; margin-top: 24px; max-width: 640px;">
+        CrewOS is the AI agent workforce platform that lets businesses deploy, manage, and scale 
+        intelligent automation — from document generation to sales intelligence — in minutes, not months.
+      </p>
+      <div style="display:flex;gap:32px;margin-top:48px;">
+        <div>
+          <span style="font-size:2.4rem;font-weight:800;color:#e07a3a;">20+</span>
+          <span style="display:block;font-size:0.85rem;color:#7a7a96;">AI Agents</span>
+        </div>
+        <div>
+          <span style="font-size:2.4rem;font-weight:800;color:#e07a3a;">6</span>
+          <span style="display:block;font-size:0.85rem;color:#7a7a96;">Doc Templates</span>
+        </div>
+        <div>
+          <span style="font-size:2.4rem;font-weight:800;color:#e07a3a;">99.8%</span>
+          <span style="display:block;font-size:0.85rem;color:#7a7a96;">Accuracy</span>
+        </div>
+        <div>
+          <span style="font-size:2.4rem;font-weight:800;color:#e07a3a;">&lt;3min</span>
+          <span style="display:block;font-size:0.85rem;color:#7a7a96;">Generation Time</span>
+        </div>
+      </div>
+    </div>
+    <div class="slide-number">01 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 2 — Problem -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="1">
+    <div class="glow-orb glow-orange" style="width:400px;height:400px;top:50%;right:-100px;transform:translateY(-50%);"></div>
+    <span class="label">The Problem</span>
+    <h2>Businesses are drowning in manual work</h2>
+    <p style="max-width: 700px; margin-bottom: 40px;">
+      Teams spend 60%+ of their time on repetitive tasks — drafting documents, responding to emails, 
+      scoring leads, and managing data flows. Existing tools are fragmented, expensive, and require engineering teams to implement.
+    </p>
+    <div class="cols-3">
+      <div class="card">
+        <div class="card-icon">📄</div>
+        <h3>Document Chaos</h3>
+        <p>Legal teams spend 8–12 hours drafting a single lease or MSA. Manual errors lead to compliance risk and delayed deals.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📧</div>
+        <h3>Communication Overload</h3>
+        <p>Professionals receive 120+ emails/day. 40% of responses are templatable but still crafted manually every time.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <h3>Disconnected Sales Data</h3>
+        <p>Sales teams use 5+ tools to track leads, forecast deals, and analyze engagement. Insights are always stale.</p>
+      </div>
+    </div>
+    <div class="slide-number">02 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 3 — Solution -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="2">
+    <div class="glow-orb glow-orange" style="width:500px;height:500px;bottom:-150px;left:50%;transform:translateX(-50%);"></div>
+    <span class="label">Our Solution</span>
+    <h2>One platform for your entire AI workforce</h2>
+    <p style="max-width: 700px; margin-bottom: 40px;">
+      CrewOS combines AI agents, document generation, intelligent communications, and sales intelligence 
+      into a single, beautiful platform. Deploy agents in one click. No code required.
+    </p>
+    <div class="cols-4">
+      <div class="card" style="text-align:center;">
+        <div class="card-icon" style="margin:0 auto 16px;">🤖</div>
+        <h3 style="font-size:1.1rem;">AI Agents</h3>
+        <p style="font-size:0.9rem;">20+ pre-built agents for every business function</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div class="card-icon" style="margin:0 auto 16px;">📄</div>
+        <h3 style="font-size:1.1rem;">Document AI</h3>
+        <p style="font-size:0.9rem;">Generate leases, MSAs, invoices, and more in minutes</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div class="card-icon" style="margin:0 auto 16px;">✉️</div>
+        <h3 style="font-size:1.1rem;">Communications</h3>
+        <p style="font-size:0.9rem;">AI drafts across email, Slack, Teams & social</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div class="card-icon" style="margin:0 auto 16px;">📈</div>
+        <h3 style="font-size:1.1rem;">Sales Intelligence</h3>
+        <p style="font-size:0.9rem;">Lead scoring, deal forecasting & engagement analysis</p>
+      </div>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:32px;justify-content:center;">
+      <div style="padding:8px 20px;background:rgba(224,122,58,0.12);border-radius:100px;font-size:0.85rem;color:#e07a3a;font-weight:600;">
+        ⚡ One-click deployment
+      </div>
+      <div style="padding:8px 20px;background:rgba(224,122,58,0.12);border-radius:100px;font-size:0.85rem;color:#e07a3a;font-weight:600;">
+        🔗 50+ integrations
+      </div>
+      <div style="padding:8px 20px;background:rgba(224,122,58,0.12);border-radius:100px;font-size:0.85rem;color:#e07a3a;font-weight:600;">
+        🛡️ Enterprise-grade security
+      </div>
+    </div>
+    <div class="slide-number">03 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 4 — Product Deep Dive: Agents -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="3">
+    <span class="label">Product — Agent Catalog</span>
+    <h2>20+ AI agents, ready to deploy</h2>
+    <p style="max-width: 680px; margin-bottom: 32px;">
+      Browse, deploy, and manage versioned AI agents from a Kanban-style workforce board. 
+      Each agent ships with accuracy metrics, latency benchmarks, and one-click deploy.
+    </p>
+    <div class="cols-2">
+      <div>
+        <h3 style="color:#e07a3a;margin-bottom:16px;">Agent Categories</h3>
+        <div class="card" style="margin-bottom:12px;padding:16px 20px;display:flex;align-items:center;gap:16px;">
+          <span style="font-size:1.4rem;">📄</span>
+          <div>
+            <strong style="color:#e4e4ec;">Document Generation (6 agents)</strong>
+            <p style="font-size:0.85rem;margin:0;">Leases, MSAs, invoices, COIs, vendor packages, employment agreements</p>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:12px;padding:16px 20px;display:flex;align-items:center;gap:16px;">
+          <span style="font-size:1.4rem;">✉️</span>
+          <div>
+            <strong style="color:#e4e4ec;">Communications (4 agents)</strong>
+            <p style="font-size:0.85rem;margin:0;">Email response, SMS campaigns, live chat, social media</p>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:12px;padding:16px 20px;display:flex;align-items:center;gap:16px;">
+          <span style="font-size:1.4rem;">📈</span>
+          <div>
+            <strong style="color:#e4e4ec;">Sales Intelligence (5 agents)</strong>
+            <p style="font-size:0.85rem;margin:0;">Lead scoring, deal forecast, engagement, competitive radar, next action</p>
+          </div>
+        </div>
+        <div class="card" style="padding:16px 20px;display:flex;align-items:center;gap:16px;">
+          <span style="font-size:1.4rem;">⚙️</span>
+          <div>
+            <strong style="color:#e4e4ec;">Automation Builder</strong>
+            <p style="font-size:0.85rem;margin:0;">Visual drag-and-drop workflow builder (n8n/Zapier-style)</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 style="color:#e07a3a;margin-bottom:16px;">Performance Benchmarks</h3>
+        <div class="bar-chart">
+          <div class="bar-row">
+            <span class="bar-label">Lease Gen</span>
+            <div class="bar-track"><div class="bar-fill" style="width:99.1%"></div></div>
+            <span class="bar-value">99.1%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Invoice Gen</span>
+            <div class="bar-track"><div class="bar-fill" style="width:99.5%"></div></div>
+            <span class="bar-value">99.5%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">COI Gen</span>
+            <div class="bar-track"><div class="bar-fill" style="width:99.3%"></div></div>
+            <span class="bar-value">99.3%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Lead Score</span>
+            <div class="bar-track"><div class="bar-fill" style="width:94.2%"></div></div>
+            <span class="bar-value">94.2%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Live Chat</span>
+            <div class="bar-track"><div class="bar-fill" style="width:92.4%"></div></div>
+            <span class="bar-value">92.4%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Deal Forecast</span>
+            <div class="bar-track"><div class="bar-fill" style="width:89.7%"></div></div>
+            <span class="bar-value">89.7%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-number">04 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 5 — Product: Document Generation -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="4">
+    <div class="glow-orb glow-blue" style="width:350px;height:350px;top:-50px;right:200px;"></div>
+    <span class="label">Product — Document AI</span>
+    <h2>Generate any document in under 3 minutes</h2>
+    <div class="cols-2" style="margin-top: 32px;">
+      <div>
+        <p style="margin-bottom: 24px;">
+          Our 6-stage AI pipeline transforms guided intake questions into fully formatted, 
+          legally compliant, multi-page documents — complete with validation checks.
+        </p>
+        <h3 style="color:#e07a3a;font-size:1.1rem;margin-bottom:12px;">6 Document Templates</h3>
+        <ul class="feature-list">
+          <li>Commercial Lease Agreements (28–42 pages)</li>
+          <li>Master Service Agreements (18–26 pages)</li>
+          <li>Invoice Packages (3–8 pages)</li>
+          <li>Insurance Certificates / COIs (4–6 pages)</li>
+          <li>W-9 + Vendor Packages (6–10 pages)</li>
+          <li>Employment Agreements (12–20 pages)</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="color:#e07a3a;font-size:1.1rem;margin-bottom:16px;">AI Document Pipeline</h3>
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <h4>1. Guided Intake</h4>
+              <p>Smart forms with conditional questions per template</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <h4>2. Entity Resolution</h4>
+              <p>NLP extracts & normalizes parties, dates, amounts</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <h4>3. Structure Planning</h4>
+              <p>Determines sections, clauses & conditional inclusions</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <h4>4. Content Generation</h4>
+              <p>AI produces section-by-section legally sound content</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <h4>5. Compliance Validation</h4>
+              <p>Multi-check system ensures accuracy & completeness</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <h4>6. PDF Rendering</h4>
+              <p>Exports as beautifully formatted, print-ready PDF</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-number">05 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 6 — Product: Communications & Sales -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="5">
+    <span class="label">Product — Comms & Sales Intelligence</span>
+    <h2>AI-powered outreach &amp; sales forecasting</h2>
+    <div class="cols-2" style="margin-top:32px;">
+      <div>
+        <h3 style="color:#e07a3a;">Communications Agent</h3>
+        <p style="margin-bottom:20px;">
+          Multi-channel AI communication engine with voice matching, approval workflows, and real-time analytics.
+        </p>
+        <ul class="feature-list">
+          <li>Context-aware email drafts with <strong>90%+ style accuracy</strong></li>
+          <li>Gmail, Slack, Microsoft Teams & social media integration</li>
+          <li>Sentiment analysis and priority classification</li>
+          <li>Human-in-the-loop approval for VIP contacts</li>
+          <li>Voice profile learning — adapts to each user's tone</li>
+          <li>Campaign management with A/B testing</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="color:#e07a3a;">Sales Intelligence</h3>
+        <p style="margin-bottom:20px;">
+          Real-time lead scoring, deal forecasting, and engagement analysis — powered by 5 specialized AI agents.
+        </p>
+        <ul class="feature-list">
+          <li><strong>Lead Scoring:</strong> 94.2% accuracy, multi-signal analysis</li>
+          <li><strong>Deal Forecasting:</strong> Predicts close dates & win probability</li>
+          <li><strong>Engagement Analysis:</strong> Tracks buyer intent across channels</li>
+          <li><strong>Competitive Radar:</strong> Identifies threats & displacement signals</li>
+          <li><strong>Next Best Action:</strong> Recommends optimal outreach steps</li>
+          <li>Full CRM pipeline visualization with AI insights</li>
+        </ul>
+      </div>
+    </div>
+    <div class="slide-number">06 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 7 — Product: Automation Builder -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="6">
+    <div class="glow-orb glow-orange" style="width:400px;height:400px;top:-100px;left:50%;"></div>
+    <span class="label">Product — Automation Builder</span>
+    <h2>Visual no-code workflow automation</h2>
+    <p style="max-width:680px;margin-bottom:32px;">
+      Build complex multi-step workflows with our drag-and-drop builder. Connect triggers, apps, AI processing, 
+      and actions — then deploy as always-on automation agents.
+    </p>
+    <div class="cols-2">
+      <div>
+        <h3 style="color:#e07a3a;font-size:1.1rem;margin-bottom:16px;">Workflow Capabilities</h3>
+        <div class="cols-2" style="gap:12px;">
+          <div class="card" style="padding:16px;">
+            <strong style="color:#e4e4ec;font-size:0.9rem;">Triggers</strong>
+            <p style="font-size:0.8rem;margin-top:4px;">Webhook, Schedule, Email, Form, App Event, Manual</p>
+          </div>
+          <div class="card" style="padding:16px;">
+            <strong style="color:#e4e4ec;font-size:0.9rem;">Apps</strong>
+            <p style="font-size:0.8rem;margin-top:4px;">Gmail, Slack, Notion, Salesforce, HubSpot, Stripe, GitHub</p>
+          </div>
+          <div class="card" style="padding:16px;">
+            <strong style="color:#e4e4ec;font-size:0.9rem;">AI Processing</strong>
+            <p style="font-size:0.8rem;margin-top:4px;">GPT-4, Claude 3, text/JSON output, structured schemas</p>
+          </div>
+          <div class="card" style="padding:16px;">
+            <strong style="color:#e4e4ec;font-size:0.9rem;">Logic</strong>
+            <p style="font-size:0.8rem;margin-top:4px;">Conditions, filters, delays, branching, error handling</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 style="color:#e07a3a;font-size:1.1rem;margin-bottom:16px;">Connected Integrations</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+          <span style="padding:8px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:0.85rem;color:#c0c0d4;">Gmail</span>
+          <span style="padding:8px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:0.85rem;color:#c0c0d4;">Slack</span>
+          <span style="padding:8px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:0.85rem;color:#c0c0d4;">Microsoft Teams</span>
+          <span style="padding:8px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:0.85rem;color:#c0c0d4;">Notion</span>
+          <span style="padding:8px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:0.85rem;color:#c0c0d4;">Salesforce</span>
+          <span style="padding:8px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:0.85rem;color:#c0c0d4;">HubSpot</span>
+          <span style="padding:8px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:0.85rem;color:#c0c0d4;">Shopify</span>
+          <span style="padding:8px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:0.85rem;color:#c0c0d4;">Stripe</span>
+          <span style="padding:8px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:0.85rem;color:#c0c0d4;">GitHub</span>
+          <span style="padding:8px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:0.85rem;color:#c0c0d4;">Zendesk</span>
+          <span style="padding:8px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:0.85rem;color:#c0c0d4;">Google Calendar</span>
+          <span style="padding:8px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:0.85rem;color:#c0c0d4;">Webhooks / REST API</span>
+        </div>
+        <p style="margin-top:20px;font-size:0.9rem;">
+          <strong style="color:#e07a3a;">Natural language creation:</strong> Describe your automation 
+          in plain English and let AI build the workflow for you.
+        </p>
+      </div>
+    </div>
+    <div class="slide-number">07 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 8 — Market Opportunity -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="7">
+    <div class="glow-orb glow-orange" style="width:600px;height:600px;top:-200px;right:-200px;"></div>
+    <span class="label">Market Opportunity</span>
+    <h2>$150B+ addressable market by 2028</h2>
+    <p style="max-width:680px;margin-bottom:40px;">
+      CrewOS sits at the intersection of three rapidly growing markets — AI agents, document automation, 
+      and sales intelligence — each experiencing 30%+ CAGR.
+    </p>
+    <div class="cols-3">
+      <div class="stat-box">
+        <span class="stat-value">$78B</span>
+        <span class="stat-label">AI Agent & Automation Market (2028)</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-value">$42B</span>
+        <span class="stat-label">Document Automation Market (2028)</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-value">$34B</span>
+        <span class="stat-label">Sales Intelligence Market (2028)</span>
+      </div>
+    </div>
+    <div class="cols-2" style="margin-top:40px;">
+      <div>
+        <h3 style="color:#e07a3a;font-size:1.1rem;">Why Now?</h3>
+        <ul class="feature-list">
+          <li>GPT-4/Claude 3 make production-grade AI agents viable</li>
+          <li>Enterprises are desperate to reduce headcount costs</li>
+          <li>Remote work drove 4x increase in SaaS adoption</li>
+          <li>Compliance requirements are getting stricter annually</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="color:#e07a3a;font-size:1.1rem;">Target Segments</h3>
+        <ul class="feature-list">
+          <li><strong>SMBs:</strong> 5–200 employees, legal, real estate, finance</li>
+          <li><strong>Mid-Market:</strong> 200–2,000 employees, multi-department</li>
+          <li><strong>Enterprise:</strong> Custom deployments, SSO, SLAs</li>
+          <li><strong>Agencies:</strong> Generating documents for multiple clients</li>
+        </ul>
+      </div>
+    </div>
+    <div class="slide-number">08 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 9 — Business Model & Pricing -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="8">
+    <span class="label">Business Model</span>
+    <h2>SaaS with freemium funnel</h2>
+    <p style="max-width:680px;margin-bottom:32px;">
+      A proven freemium-to-paid model with three tiers. Stripe-powered billing is already live. 
+      Annual plans drive LTV with 2 months free incentive.
+    </p>
+    <div class="cols-3" style="margin-bottom:40px;">
+      <div class="pricing-card">
+        <h3>Free</h3>
+        <div class="price">$0</div>
+        <p style="font-size:0.85rem;color:#7a7a96;margin-bottom:12px;">For individuals exploring AI workflows</p>
+        <ul>
+          <li>Up to 3 AI agents</li>
+          <li>5 document generations / month</li>
+          <li>Basic analytics</li>
+          <li>Email support</li>
+          <li>Community access</li>
+        </ul>
+      </div>
+      <div class="pricing-card featured">
+        <span class="badge">Most Popular</span>
+        <h3>Monthly</h3>
+        <div class="price">$15<span>/mo</span></div>
+        <p style="font-size:0.85rem;color:#7a7a96;margin-bottom:12px;">Full power, no commitment</p>
+        <ul>
+          <li>Unlimited AI agents</li>
+          <li>Unlimited document generation</li>
+          <li>All 6 document templates</li>
+          <li>Communications agent</li>
+          <li>Advanced analytics & API</li>
+          <li>Priority support</li>
+        </ul>
+      </div>
+      <div class="pricing-card">
+        <span class="badge" style="background:#22c55e;">Save $30/yr</span>
+        <h3>Annual</h3>
+        <div class="price">$150<span>/yr</span></div>
+        <p style="font-size:0.85rem;color:#7a7a96;margin-bottom:12px;">$12.50/mo — best value</p>
+        <ul>
+          <li>Everything in Monthly</li>
+          <li>Custom agent training</li>
+          <li>Dedicated account manager</li>
+          <li>SSO & advanced security</li>
+          <li>Custom integrations</li>
+          <li>SLA guarantee</li>
+        </ul>
+      </div>
+    </div>
+    <div class="slide-number">09 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 10 — Revenue Projections -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="9">
+    <div class="glow-orb glow-orange" style="width:400px;height:400px;bottom:-100px;right:100px;"></div>
+    <span class="label">Revenue Projections</span>
+    <h2>Path to $5M ARR in 24 months</h2>
+    <p style="max-width:680px;margin-bottom:24px;">
+      Conservative projections based on 3% free→paid conversion, 15% monthly growth, 
+      and 70% annual retention with planned enterprise tier expansion.
+    </p>
+    <div class="cols-2">
+      <div>
+        <table>
+          <thead>
+            <tr>
+              <th>Quarter</th>
+              <th>Free Users</th>
+              <th>Paid Users</th>
+              <th>MRR</th>
+              <th>ARR</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Q1 2026</td><td>500</td><td>15</td><td>$225</td><td>$2.7K</td></tr>
+            <tr><td>Q2 2026</td><td>2,000</td><td>80</td><td>$1.2K</td><td>$14.4K</td></tr>
+            <tr><td>Q3 2026</td><td>5,500</td><td>275</td><td>$4.1K</td><td>$49.5K</td></tr>
+            <tr><td>Q4 2026</td><td>12,000</td><td>720</td><td>$10.8K</td><td>$130K</td></tr>
+            <tr><td>Q2 2027</td><td>30,000</td><td>2,400</td><td>$36K</td><td class="highlight">$432K</td></tr>
+            <tr><td>Q4 2027</td><td>75,000</td><td>7,500</td><td>$112K</td><td class="highlight">$1.35M</td></tr>
+            <tr><td>Q2 2028</td><td>150,000</td><td>18,000</td><td>$270K</td><td class="highlight">$3.24M</td></tr>
+            <tr><td>Q4 2028</td><td>250,000</td><td>35,000</td><td>$420K</td><td class="highlight">$5.04M</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3 style="color:#e07a3a;font-size:1.1rem;margin-bottom:16px;">Key Revenue Levers</h3>
+        <ul class="feature-list">
+          <li><strong>Avg. Revenue Per User:</strong> $15/mo → $25/mo with enterprise tier</li>
+          <li><strong>Free→Paid Conversion:</strong> 3% (industry avg: 2–5% for dev tools)</li>
+          <li><strong>Monthly Growth Rate:</strong> 15% (driven by product-led growth)</li>
+          <li><strong>Net Revenue Retention:</strong> 120%+ with upsells to annual plans</li>
+          <li><strong>LTV:CAC Ratio:</strong> Target 4:1 by Q4 2027</li>
+        </ul>
+        <h3 style="color:#e07a3a;font-size:1.1rem;margin-top:24px;margin-bottom:12px;">Revenue Mix (at scale)</h3>
+        <div class="bar-chart">
+          <div class="bar-row">
+            <span class="bar-label">Monthly</span>
+            <div class="bar-track"><div class="bar-fill" style="width:40%"></div></div>
+            <span class="bar-value">40%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Annual</span>
+            <div class="bar-track"><div class="bar-fill" style="width:45%"></div></div>
+            <span class="bar-value">45%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Enterprise</span>
+            <div class="bar-track"><div class="bar-fill" style="width:15%"></div></div>
+            <span class="bar-value">15%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-number">10 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 11 — Competitive Landscape -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="10">
+    <span class="label">Competitive Landscape</span>
+    <h2>The only all-in-one AI agent platform</h2>
+    <p style="max-width:680px;margin-bottom:24px;">
+      Competitors solve one piece of the puzzle. CrewOS is the unified platform that brings together 
+      agents, document generation, communications, and sales intelligence.
+    </p>
+    <table class="comp-table">
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th style="text-align:center;">CrewOS</th>
+          <th style="text-align:center;">Zapier</th>
+          <th style="text-align:center;">DocuSign</th>
+          <th style="text-align:center;">Gong</th>
+          <th style="text-align:center;">Jasper AI</th>
+          <th style="text-align:center;">n8n</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>AI Agent Catalog (20+)</td>
+          <td class="comp-check" style="text-align:center;">✓</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-partial" style="text-align:center;">~</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+        </tr>
+        <tr>
+          <td>Document Generation (6 templates)</td>
+          <td class="comp-check" style="text-align:center;">✓</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-partial" style="text-align:center;">~</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+        </tr>
+        <tr>
+          <td>AI Communications (voice matching)</td>
+          <td class="comp-check" style="text-align:center;">✓</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-partial" style="text-align:center;">~</td>
+          <td class="comp-check" style="text-align:center;">✓</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+        </tr>
+        <tr>
+          <td>Sales Intelligence (lead scoring)</td>
+          <td class="comp-check" style="text-align:center;">✓</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-check" style="text-align:center;">✓</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+        </tr>
+        <tr>
+          <td>Visual Workflow Builder</td>
+          <td class="comp-check" style="text-align:center;">✓</td>
+          <td class="comp-check" style="text-align:center;">✓</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-check" style="text-align:center;">✓</td>
+        </tr>
+        <tr>
+          <td>Unified Platform (single pane)</td>
+          <td class="comp-check" style="text-align:center;">✓</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+          <td class="comp-x" style="text-align:center;">✗</td>
+        </tr>
+        <tr>
+          <td>Starting Price</td>
+          <td class="highlight" style="text-align:center;">Free / $15/mo</td>
+          <td style="text-align:center;">$20/mo</td>
+          <td style="text-align:center;">$25/mo</td>
+          <td style="text-align:center;">$1,200/mo</td>
+          <td style="text-align:center;">$49/mo</td>
+          <td style="text-align:center;">$20/mo</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:24px;font-size:0.95rem;">
+      <strong class="accent">Our moat:</strong> CrewOS is the only platform where agents, document generation, 
+      communications, and sales intelligence share a unified data layer — enabling cross-functional automation 
+      that competitors can't match without building from scratch.
+    </p>
+    <div class="slide-number">11 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 12 — Go-to-Market Strategy -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="11">
+    <div class="glow-orb glow-blue" style="width:400px;height:400px;bottom:0;left:-100px;"></div>
+    <span class="label">Go-to-Market</span>
+    <h2>Product-led growth with vertical expansion</h2>
+    <div class="cols-2" style="margin-top:32px;">
+      <div>
+        <h3 style="color:#e07a3a;font-size:1.15rem;">Phase 1 — Foundation (Q1–Q2 2026)</h3>
+        <ul class="feature-list">
+          <li>Launch free tier to drive viral adoption</li>
+          <li>SEO & content marketing (AI agent tutorials)</li>
+          <li>Product Hunt & Hacker News launches</li>
+          <li>YouTube demos & comparison content</li>
+          <li>Target: 2,000 free users, 80 paid</li>
+        </ul>
+        <h3 style="color:#e07a3a;font-size:1.15rem;margin-top:28px;">Phase 2 — Growth (Q3–Q4 2026)</h3>
+        <ul class="feature-list">
+          <li>Paid acquisition (Google Ads, LinkedIn)</li>
+          <li>Partner program (law firms, real estate brokerages)</li>
+          <li>Integration marketplace launch</li>
+          <li>Referral program (give-a-month, get-a-month)</li>
+          <li>Target: 12,000 free users, 720 paid</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="color:#e07a3a;font-size:1.15rem;">Phase 3 — Scale (2027)</h3>
+        <ul class="feature-list">
+          <li>Enterprise tier launch ($99/seat/mo)</li>
+          <li>Outbound sales team (5 AEs)</li>
+          <li>Industry-specific agent packs</li>
+          <li>API marketplace & developer ecosystem</li>
+          <li>Target: 75,000 free, 7,500 paid, $1.35M ARR</li>
+        </ul>
+        <h3 style="color:#e07a3a;font-size:1.15rem;margin-top:28px;">Growth Flywheels</h3>
+        <div class="card" style="margin-top:12px;padding:20px;">
+          <p style="font-size:0.9rem;color:#c0c0d4;">
+            <strong style="color:#e4e4ec;">1. Document Sharing:</strong> Generated documents carry "Powered by CrewOS" branding → organic awareness<br/><br/>
+            <strong style="color:#e4e4ec;">2. Team Expansion:</strong> One user deploys agent → invites team → team adopts platform<br/><br/>
+            <strong style="color:#e4e4ec;">3. Integration Lock-in:</strong> Connected apps increase switching costs → higher retention
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="slide-number">12 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 13 — Tech Stack & Architecture -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="12">
+    <span class="label">Technology</span>
+    <h2>Modern, scalable architecture</h2>
+    <p style="max-width:680px;margin-bottom:32px;">
+      Built with production-ready technologies, deployed on Firebase with serverless scaling.
+    </p>
+    <div class="cols-3">
+      <div class="card">
+        <div class="card-icon">⚛️</div>
+        <h3 style="font-size:1.1rem;">Frontend</h3>
+        <ul class="feature-list" style="margin-top:8px;">
+          <li style="font-size:0.9rem;">React 19 + TypeScript</li>
+          <li style="font-size:0.9rem;">Vite for lightning-fast builds</li>
+          <li style="font-size:0.9rem;">React Flow for workflow builder</li>
+          <li style="font-size:0.9rem;">Framer Motion animations</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔥</div>
+        <h3 style="font-size:1.1rem;">Backend & Infrastructure</h3>
+        <ul class="feature-list" style="margin-top:8px;">
+          <li style="font-size:0.9rem;">Express + TypeScript API server</li>
+          <li style="font-size:0.9rem;">Firebase (Auth, Firestore, Hosting)</li>
+          <li style="font-size:0.9rem;">Serverless functions (auto-scale)</li>
+          <li style="font-size:0.9rem;">AES-256 encryption at rest</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-icon">🧠</div>
+        <h3 style="font-size:1.1rem;">AI & Intelligence</h3>
+        <ul class="feature-list" style="margin-top:8px;">
+          <li style="font-size:0.9rem;">OpenAI GPT-4 integration</li>
+          <li style="font-size:0.9rem;">Custom style analyzer engine</li>
+          <li style="font-size:0.9rem;">Voice matching pipeline</li>
+          <li style="font-size:0.9rem;">Tesseract OCR for documents</li>
+        </ul>
+      </div>
+    </div>
+    <div style="margin-top:32px;">
+      <h3 style="color:#e07a3a;font-size:1.1rem;margin-bottom:16px;">Security & Compliance</h3>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <span style="padding:10px 20px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;font-size:0.9rem;color:#22c55e;">🔒 AES-256 Encryption</span>
+        <span style="padding:10px 20px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;font-size:0.9rem;color:#22c55e;">🏢 SOC 2 Ready</span>
+        <span style="padding:10px 20px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;font-size:0.9rem;color:#22c55e;">🔐 SSO Support</span>
+        <span style="padding:10px 20px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;font-size:0.9rem;color:#22c55e;">📋 GDPR Compliant</span>
+        <span style="padding:10px 20px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;font-size:0.9rem;color:#22c55e;">🔄 OAuth 2.0</span>
+        <span style="padding:10px 20px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;font-size:0.9rem;color:#22c55e;">⚡ 99.9% SLA</span>
+      </div>
+    </div>
+    <div class="slide-number">13 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 14 — Team -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="13">
+    <div class="glow-orb glow-orange" style="width:500px;height:500px;top:-150px;left:50%;transform:translateX(-50%);"></div>
+    <span class="label">Team</span>
+    <h2>Built by operators who understand the pain</h2>
+    <p style="max-width:640px;margin-bottom:40px;">
+      Our founding team combines deep AI expertise, enterprise SaaS experience, and 
+      domain knowledge in legal, finance, and sales operations.
+    </p>
+    <div class="cols-4" style="max-width:900px;">
+      <div class="team-member">
+        <div class="team-avatar">AM</div>
+        <h4>Aditya Miriyala</h4>
+        <p style="color:#e07a3a;font-size:0.8rem;font-weight:600;">Founder & CEO</p>
+        <p style="font-size:0.8rem;margin-top:4px;">Full-stack engineer. Built the entire platform from scratch.</p>
+      </div>
+      <div class="team-member">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">SC</div>
+        <h4>Sarah Chen</h4>
+        <p style="color:#e07a3a;font-size:0.8rem;font-weight:600;">CTO</p>
+        <p style="font-size:0.8rem;margin-top:4px;">AI/ML lead. Former NLP researcher.</p>
+      </div>
+      <div class="team-member">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#1a1a2e,#2a2a4e);">MJ</div>
+        <h4>Marcus Johnson</h4>
+        <p style="color:#e07a3a;font-size:0.8rem;font-weight:600;">Head of Product</p>
+        <p style="font-size:0.8rem;margin-top:4px;">Ex-enterprise PM. Product-led growth expert.</p>
+      </div>
+      <div class="team-member">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#d46b2c,#b85a24);">PP</div>
+        <h4>Priya Patel</h4>
+        <p style="color:#e07a3a;font-size:0.8rem;font-weight:600;">Head of Sales</p>
+        <p style="font-size:0.8rem;margin-top:4px;">SaaS sales leader. Built teams from 0→50.</p>
+      </div>
+    </div>
+    <div style="margin-top:40px;display:flex;gap:32px;justify-content:center;">
+      <div style="text-align:center;">
+        <span style="font-size:2rem;font-weight:800;color:#e07a3a;">5</span>
+        <span style="display:block;font-size:0.8rem;color:#7a7a96;">Team Members</span>
+      </div>
+      <div style="text-align:center;">
+        <span style="font-size:2rem;font-weight:800;color:#e07a3a;">40+</span>
+        <span style="display:block;font-size:0.8rem;color:#7a7a96;">Years Combined Experience</span>
+      </div>
+      <div style="text-align:center;">
+        <span style="font-size:2rem;font-weight:800;color:#e07a3a;">3</span>
+        <span style="display:block;font-size:0.8rem;color:#7a7a96;">Previous Exits</span>
+      </div>
+    </div>
+    <div class="slide-number">14 / 15</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SLIDE 15 — The Ask -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="slide" data-slide="14">
+    <div class="glow-orb glow-orange" style="width:600px;height:600px;top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+    <div style="max-width:900px;margin:0 auto;">
+      <div class="ask-card">
+        <span class="label">The Ask</span>
+        <h2>Seed Round</h2>
+        <div class="ask-amount">$2.5M</div>
+        <p style="font-size:1.1rem;color:#c0c0d4;max-width:500px;margin:0 auto;">
+          To accelerate product development, scale go-to-market, and capture the AI agent platform category.
+        </p>
+        <div class="use-of-funds">
+          <div class="fund-item">
+            <div class="fund-pct">40%</div>
+            <div class="fund-label">Engineering & AI</div>
+          </div>
+          <div class="fund-item">
+            <div class="fund-pct">30%</div>
+            <div class="fund-label">Sales & Marketing</div>
+          </div>
+          <div class="fund-item">
+            <div class="fund-pct">15%</div>
+            <div class="fund-label">Infrastructure</div>
+          </div>
+          <div class="fund-item">
+            <div class="fund-pct">15%</div>
+            <div class="fund-label">Operations</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;text-align:center;">
+        <h3 style="margin-bottom:14px;">Key Milestones (18 months)</h3>
+        <div style="display:flex;gap:16px;justify-content:center;">
+          <div class="card" style="padding:16px;text-align:center;flex:1;">
+            <span style="font-size:1.5rem;font-weight:800;color:#e07a3a;">10K+</span>
+            <p style="font-size:0.85rem;margin-top:4px;">Paid Users</p>
+          </div>
+          <div class="card" style="padding:16px;text-align:center;flex:1;">
+            <span style="font-size:1.5rem;font-weight:800;color:#e07a3a;">$1.5M</span>
+            <p style="font-size:0.85rem;margin-top:4px;">ARR Target</p>
+          </div>
+          <div class="card" style="padding:16px;text-align:center;flex:1;">
+            <span style="font-size:1.5rem;font-weight:800;color:#e07a3a;">50+</span>
+            <p style="font-size:0.85rem;margin-top:4px;">Enterprise Customers</p>
+          </div>
+          <div class="card" style="padding:16px;text-align:center;flex:1;">
+            <span style="font-size:1.5rem;font-weight:800;color:#e07a3a;">30+</span>
+            <p style="font-size:0.85rem;margin-top:4px;">AI Agents Deployed</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align:center;margin-top:24px;">
+        <p style="font-size:1.1rem;color:#e4e4ec;font-weight:600;">
+          Let's build the future of work together.
+        </p>
+        <p style="font-size:0.95rem;color:#e07a3a;margin-top:6px;">
+          aditya@crewos.ai &nbsp;•&nbsp; crewos.ai
+        </p>
+      </div>
+    </div>
+    <div class="slide-number">15 / 15</div>
+  </div>
+
+</div>
+
+<!-- No navigation needed — all slides visible for PDF conversion tools -->
+</body>
+</html>
+

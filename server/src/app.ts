@@ -8,6 +8,7 @@ import { config } from './config.js';
 import { messagesRouter } from './routes/messages.js';
 import { connectionsRouter } from './routes/connections.js';
 import { aiRouter } from './routes/ai.js';
+import { automationRouter } from './routes/automation.js';
 
 export const app = express();
 
@@ -44,6 +45,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use('/api/messages', messagesRouter);
 app.use('/api/connections', connectionsRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/automation', automationRouter);
 
 /* ─── Health check ─────────────────────────────────────── */
 

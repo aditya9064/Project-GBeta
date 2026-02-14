@@ -852,4 +852,54 @@ export const AIEngine = {
   quickAnalyze(message: UnifiedMessage): MessageAnalysis {
     return inferAnalysisFromContent(message);
   },
+
+  /**
+   * Process an arbitrary AI prompt for the automation workflow engine.
+   * This is used by deployed agents when they have an "AI" node in their workflow.
+   */
+  async processAutomation(
+    prompt: string,
+    systemPrompt?: string,
+    input?: any,
+    options?: { model?: string; temperature?: number; maxTokens?: number }
+  ): Promise<{ response: string; model: string; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
+    const openai = getOpenAI();
+    const model = options?.model || 'gpt-4';
+    const temperature = options?.temperature ?? 0.7;
+    const maxTokens = options?.maxTokens ?? 1024;
+
+    // Build the user prompt with input data if provided
+    let fullPrompt = prompt;
+    if (input) {
+      fullPrompt += `\n\nInput data:\n${JSON.stringify(input, null, 2)}`;
+    }
+
+    const messages: { role: 'system' | 'user'; content: string }[] = [];
+    if (systemPrompt) {
+      messages.push({ role: 'system', content: systemPrompt });
+    } else {
+      messages.push({ role: 'system', content: 'You are an intelligent automation assistant. Process the given input according to the user instructions and return the result.' });
+    }
+    messages.push({ role: 'user', content: fullPrompt });
+
+    const completion = await openai.chat.completions.create({
+      model,
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+    });
+
+    const responseText = completion.choices[0]?.message?.content || '';
+    const usage = completion.usage;
+
+    return {
+      response: responseText,
+      model,
+      usage: {
+        promptTokens: usage?.prompt_tokens || 0,
+        completionTokens: usage?.completion_tokens || 0,
+        totalTokens: usage?.total_tokens || 0,
+      },
+    };
+  },
 };

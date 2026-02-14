@@ -475,7 +475,31 @@ function App() {
     );
   }
 
-  // If not logged in, show landing/auth page
+  // DEMO MODE: Skip authentication and go directly to dashboard
+  // To re-enable auth, remove this block and uncomment the auth check below
+  const isDemoMode = true;
+  
+  if (isDemoMode) {
+    // Allow direct access to workflow builder for testing
+    if (location.pathname === '/test-workflow') {
+      return (
+        <div style={{ width: '100vw', height: '100vh', background: '#0a0a0f' }}>
+          <WorkflowBuilder
+            onSave={(workflow) => console.log('Workflow saved:', workflow)}
+            onClose={() => navigate('/')}
+          />
+        </div>
+      );
+    }
+    // Show landing page only at root with no auth required
+    if (location.pathname === '/' && !showAuth) {
+      return <LandingPage onGetStarted={() => navigate('/dashboard')} />;
+    }
+    // All other routes go directly to dashboard
+    return <CrewOSDashboard />;
+  }
+
+  // If not logged in, show landing/auth page (disabled in demo mode)
   if (!user) {
     // Allow direct access to workflow builder for testing
     if (location.pathname === '/test-workflow') {

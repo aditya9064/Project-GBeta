@@ -548,14 +548,16 @@
   transition: all 150ms ease;
 }
 
-.crewos-btn-primary {
-  background: #e07a3a;
-  color: #ffffff;
+.crewos-btn-primary,
+button.crewos-btn-primary {
+  background: linear-gradient(135deg, #e07a3a, #d46b2c) !important;
+  color: #ffffff !important;
   box-shadow: 0 2px 8px rgba(224, 122, 58, 0.3);
 }
 
-.crewos-btn-primary:hover {
-  background: #d46b2c;
+.crewos-btn-primary:hover,
+button.crewos-btn-primary:hover {
+  background: linear-gradient(135deg, #d46b2c, #c05d1e) !important;
   box-shadow: 0 4px 14px rgba(224, 122, 58, 0.4);
 }
 
@@ -1535,14 +1537,15 @@
   z-index: 1;
 }
 
-.crewos-empty-cta {
+.crewos-empty-cta,
+button.crewos-empty-cta {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   padding: 14px 32px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #e07a3a, #d46b2c);
-  color: #ffffff;
+  background: linear-gradient(135deg, #e07a3a, #d46b2c) !important;
+  color: #ffffff !important;
   font-size: 16px;
   font-weight: 650;
   cursor: pointer;
@@ -1554,8 +1557,9 @@
   margin-bottom: 48px;
 }
 
-.crewos-empty-cta:hover {
-  background: linear-gradient(135deg, #d46b2c, #c05d1e);
+.crewos-empty-cta:hover,
+button.crewos-empty-cta:hover {
+  background: linear-gradient(135deg, #d46b2c, #c05d1e) !important;
   box-shadow: 0 8px 30px rgba(224, 122, 58, 0.45), 0 0 0 4px rgba(224, 122, 58, 0.1);
   transform: translateY(-1px);
 }
@@ -2137,6 +2141,131 @@
 .crewos-automation-delete-btn:hover:not(:disabled) {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
+}
+
+/* ─── AUTOMATION HEADER RIGHT ────────────────────────────── */
+
+.crewos-automation-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ─── BACKEND STATUS BADGE ───────────────────────────────── */
+
+.crewos-backend-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.crewos-backend-badge.connected {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.crewos-backend-badge.offline {
+  background: rgba(234, 179, 8, 0.12);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+.crewos-backend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.crewos-backend-dot.connected {
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+  animation: crewos-pulse-green 2s infinite;
+}
+
+.crewos-backend-dot.offline {
+  background: #eab308;
+  box-shadow: 0 0 6px rgba(234, 179, 8, 0.5);
+}
+
+@keyframes crewos-pulse-green {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ─── EXECUTION RESULT TOAST ─────────────────────────────── */
+
+.crewos-execution-toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  animation: crewos-toast-in 0.3s ease-out;
+}
+
+@keyframes crewos-toast-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.crewos-execution-toast.success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.crewos-execution-toast.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.crewos-execution-toast-icon {
+  flex-shrink: 0;
+}
+
+.crewos-execution-toast-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.crewos-execution-toast-message {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.crewos-execution-toast-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  width: fit-content;
+}
+
+.crewos-execution-toast-close {
+  flex-shrink: 0;
+  padding: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  background: transparent !important;
+  color: inherit;
+  border: none;
+}
+
+.crewos-execution-toast-close:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
 }
 
 /* ─── RESPONSIVE ─────────────────────────────────────────── */

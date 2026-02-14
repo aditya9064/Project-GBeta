@@ -373,6 +373,7 @@ const statusConfig: Record<DeployStatus, { label: string; color: string; bg: str
 const pathToNav: Record<string, string> = {
   '/': 'agents',
   '/agents': 'agents',
+  '/dashboard': 'agents',
   '/comms': 'comms',
   '/docai': 'docai',
   '/sales': 'sales',
@@ -384,7 +385,7 @@ const pathToNav: Record<string, string> = {
 };
 
 const navToPath: Record<string, string> = {
-  agents: '/',
+  agents: '/agents',
   comms: '/comms',
   docai: '/docai',
   sales: '/sales',
@@ -397,7 +398,7 @@ const navToPath: Record<string, string> = {
 
 export function CrewOSDashboard() {
   const { signOut } = useAuth();
-  const { agents: automationAgents, deployNewAgent, loading: agentsLoading, runAgent, pauseAgent, resumeAgent, deleteAgent: deleteAutomationAgent } = useAgents();
+  const { agents: automationAgents, deployNewAgent, loading: agentsLoading, runAgent, pauseAgent, resumeAgent, deleteAgent: deleteAutomationAgent, backendStatus, lastExecutionLogs } = useAgents();
   const location = useLocation();
   const navigate = useNavigate();
   const [isDeploying, setIsDeploying] = useState(false);
@@ -421,6 +422,8 @@ export function CrewOSDashboard() {
   const [sidebarVisibleInWorkflow, setSidebarVisibleInWorkflow] = useState(false);
   const [agentPrompt, setAgentPrompt] = useState('');
   const [isCreatingFromPrompt, setIsCreatingFromPrompt] = useState(false);
+  const [runningAgentId, setRunningAgentId] = useState<string | null>(null);
+  const [executionResult, setExecutionResult] = useState<{ agentName: string; success: boolean; message: string; isReal: boolean } | null>(null);
 
   // Handle OAuth callback redirect — auto-switch to Communications page
   useEffect(() => {
@@ -530,6 +533,41 @@ export function CrewOSDashboard() {
       setActiveNav('workflow');
     }, 800);
   }, [agentPrompt, isCreatingFromPrompt, setActiveNav]);
+
+  /* Handle running an automation agent with feedback */
+  const handleRunAgent = useCallback(async (agentId: string) => {
+    const agent = automationAgents.find(a => a.id === agentId);
+    if (!agent) return;
+    
+    setRunningAgentId(agentId);
+    setExecutionResult(null);
+    
+    try {
+      const result = await runAgent(agentId);
+      const hasRealExecution = result.logs?.some(l => l.isReal) || false;
+      setExecutionResult({
+        agentName: agent.name,
+        success: result.success,
+        message: result.success 
+          ? `Agent "${agent.name}" executed successfully! ${hasRealExecution ? '(Real APIs)' : '(Simulated)'}`
+          : `Agent "${agent.name}" failed: ${result.error}`,
+        isReal: hasRealExecution,
+      });
+      
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => setExecutionResult(null), 5000);
+    } catch (err: any) {
+      setExecutionResult({
+        agentName: agent.name,
+        success: false,
+        message: `Error: ${err.message}`,
+        isReal: false,
+      });
+      setTimeout(() => setExecutionResult(null), 5000);
+    } finally {
+      setRunningAgentId(null);
+    }
+  }, [automationAgents, runAgent]);
 
   /* Card renderer */
   const renderCard = (agent: DeployedAgent) => {
@@ -933,14 +971,37 @@ export function CrewOSDashboard() {
                   <h3 className="crewos-automation-title">My Automation Agents</h3>
                   <span className="crewos-automation-count">{automationAgents.length}</span>
                 </div>
-                <button 
-                  className="crewos-automation-new-btn"
-                  onClick={() => setActiveNav('workflow')}
-                >
-                  <Plus size={16} />
-                  New Workflow
-                </button>
+                <div className="crewos-automation-header-right">
+                  <div className={`crewos-backend-badge ${backendStatus ? 'connected' : 'offline'}`}>
+                    <div className={`crewos-backend-dot ${backendStatus ? 'connected' : 'offline'}`} />
+                    {backendStatus ? 'Live APIs' : 'Demo Mode'}
+                  </div>
+                  <button 
+                    className="crewos-automation-new-btn"
+                    onClick={() => setActiveNav('workflow')}
+                  >
+                    <Plus size={16} />
+                    New Workflow
+                  </button>
+                </div>
               </div>
+              {/* Execution result toast */}
+              {executionResult && (
+                <div className={`crewos-execution-toast ${executionResult.success ? 'success' : 'error'}`}>
+                  <div className="crewos-execution-toast-icon">
+                    {executionResult.success ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                  </div>
+                  <div className="crewos-execution-toast-content">
+                    <span className="crewos-execution-toast-message">{executionResult.message}</span>
+                    {executionResult.isReal && (
+                      <span className="crewos-execution-toast-badge">Real API Execution</span>
+                    )}
+                  </div>
+                  <button className="crewos-execution-toast-close" onClick={() => setExecutionResult(null)}>
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
               <div className="crewos-automation-grid">
                 {automationAgents.map((agent: AutomationAgent) => (
                   <div key={agent.id} className="crewos-automation-card">
@@ -983,12 +1044,15 @@ export function CrewOSDashboard() {
                     <div className="crewos-automation-card-actions">
                       <button 
                         className="crewos-automation-action-btn crewos-automation-run-btn"
-                        onClick={() => runAgent(agent.id)}
-                        disabled={agent.status !== 'active'}
-                        title="Run now"
+                        onClick={() => handleRunAgent(agent.id)}
+                        disabled={agent.status !== 'active' || runningAgentId === agent.id}
+                        title={runningAgentId === agent.id ? 'Running...' : 'Run now'}
                       >
-                        <Play size={14} />
-                        Run
+                        {runningAgentId === agent.id ? (
+                          <><Loader2 size={14} className="crewos-spin" /> Running...</>
+                        ) : (
+                          <><Play size={14} /> Run</>
+                        )}
                       </button>
                       {agent.status === 'active' ? (
                         <button 

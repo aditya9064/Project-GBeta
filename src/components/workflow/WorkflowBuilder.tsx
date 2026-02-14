@@ -1,15 +1,18 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   ReactFlow,
   Node,
   Edge,
   addEdge,
   Background,
+  BackgroundVariant,
   Controls,
   MiniMap,
   Connection,
   useNodesState,
   useEdgesState,
+  useReactFlow,
+  ReactFlowProvider,
   MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -49,6 +52,8 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { WorkflowDefinition, WorkflowNodeData, WorkflowEdge } from '../../services/automation/types';
+import { checkAutomationBackend } from '../../services/automation/automationApi';
+import type { AutomationStatus } from '../../services/automation/automationApi';
 import './WorkflowBuilder.css';
 import { CustomNode } from './CustomNode';
 import { PromptModal } from './PromptModal';
@@ -123,8 +128,31 @@ interface WorkflowBuilderProps {
   isDeploying?: boolean;
 }
 
-export function WorkflowBuilder({ onSave, onClose, initialWorkflow, onToggleSidebar, onDeploy, isDeploying }: WorkflowBuilderProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialWorkflow?.nodes || []);
+export function WorkflowBuilder(props: WorkflowBuilderProps) {
+  return (
+    <ReactFlowProvider>
+      <WorkflowBuilderInner {...props} />
+    </ReactFlowProvider>
+  );
+}
+
+const defaultInitialNodes: Node[] = [
+  {
+    id: 'start-node',
+    type: 'custom',
+    position: { x: 250, y: 50 },
+    data: {
+      label: 'Start Here',
+      type: 'trigger' as NodeType,
+      icon: null, // Icon rendered in CustomNode via getNodeColor
+      description: 'Click "Create from Prompt" or add nodes from the toolbar',
+      config: {},
+    },
+  },
+];
+
+function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, onToggleSidebar, onDeploy, isDeploying }: WorkflowBuilderProps) {
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialWorkflow?.nodes || defaultInitialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialWorkflow?.edges || []);
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null);
@@ -134,8 +162,46 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow, onToggleSide
   const [isRunning, setIsRunning] = useState(false);
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [deploySuccess, setDeploySuccess] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<AutomationStatus | null>(null);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
+  const reactFlowInstance = useReactFlow();
+  const prevNodeCountRef = useRef(0);
+  const [isReady, setIsReady] = useState(false);
+
+  // Check backend connection status on mount
+  useEffect(() => {
+    checkAutomationBackend().then(status => setBackendStatus(status));
+  }, []);
+
+  // Watch for node count changes and auto-fit
+  useEffect(() => {
+    if (!isReady) return;
+    if (nodes.length > 0 && nodes.length !== prevNodeCountRef.current) {
+      prevNodeCountRef.current = nodes.length;
+      // Use a longer timeout to ensure React Flow has fully measured node dimensions
+      const timer = setTimeout(() => {
+        try {
+          reactFlowInstance.fitView({ padding: 0.2, duration: 400 });
+        } catch (e) {
+          // Ignore fitView errors during transitions
+        }
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [nodes.length, reactFlowInstance, isReady]);
+
+  // Handle React Flow init
+  const onInit = useCallback(() => {
+    setIsReady(true);
+    // Delay initial fitView to let React Flow compute node dimensions
+    setTimeout(() => {
+      try {
+        reactFlowInstance.fitView({ padding: 0.3, duration: 300 });
+      } catch (e) {
+        // Ignore
+      }
+    }, 100);
+  }, [reactFlowInstance]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -157,45 +223,81 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow, onToggleSide
 
   // Generate nodes from prompt
   const generateNodesFromPrompt = useCallback((prompt: string) => {
-    // Simple AI-like parsing (in production, this would call an AI service)
+    // Smart prompt parsing — builds a logical workflow: Trigger → AI → Apps → Knowledge → Action
     const lowerPrompt = prompt.toLowerCase();
     
-    const newNodes: WorkflowNode[] = [];
-    let nodeId = 1;
+    // We'll collect nodes in ordered phases, then combine
+    const triggerNodes: Omit<WorkflowNode, 'position'>[] = [];
+    const aiNodes: Omit<WorkflowNode, 'position'>[] = [];
+    const appNodes: Omit<WorkflowNode, 'position'>[] = [];
+    const knowledgeNodes: Omit<WorkflowNode, 'position'>[] = [];
+    const actionNodes: Omit<WorkflowNode, 'position'>[] = [];
 
-    // Detect triggers
-    if (lowerPrompt.includes('when') || lowerPrompt.includes('trigger') || lowerPrompt.includes('receive')) {
-      if (lowerPrompt.includes('email')) {
-        newNodes.push({
+    let nodeId = 1;
+    const NODE_CENTER_X = 400;
+    const NODE_START_Y = 60;
+    const NODE_GAP_Y = 140;
+    const addedApps = new Set<string>();
+
+    // Track if the trigger is email-based (to avoid duplicate Gmail node)
+    let triggerIsEmail = false;
+
+    // ── Phase 1: Detect triggers ──
+    if (lowerPrompt.includes('when') || lowerPrompt.includes('trigger') || lowerPrompt.includes('receive') || lowerPrompt.includes('every') || lowerPrompt.includes('monitor')) {
+      if (lowerPrompt.includes('email') || lowerPrompt.includes('gmail')) {
+        triggerIsEmail = true;
+        addedApps.add('gmail'); // Don't add Gmail again as an app node
+        triggerNodes.push({
           id: `node-${nodeId++}`,
           type: 'custom',
-          position: { x: 100, y: 100 },
           data: {
-            label: 'New Email',
+            label: 'New Email Received',
             type: 'trigger',
             icon: <Mail size={16} />,
-            description: 'Triggers when a new email is received',
+            description: 'Triggers when a new email arrives in your inbox',
             config: { triggerType: 'email' },
           },
-        });
-      } else if (lowerPrompt.includes('schedule') || lowerPrompt.includes('daily') || lowerPrompt.includes('weekly')) {
-        newNodes.push({
+        } as any);
+      } else if (lowerPrompt.includes('schedule') || lowerPrompt.includes('daily') || lowerPrompt.includes('weekly') || lowerPrompt.includes('morning') || lowerPrompt.includes('every')) {
+        triggerNodes.push({
           id: `node-${nodeId++}`,
           type: 'custom',
-          position: { x: 100, y: 100 },
           data: {
             label: 'Schedule',
             type: 'trigger',
             icon: <Clock size={16} />,
-            description: 'Runs on a schedule',
-            config: { triggerType: 'schedule', frequency: 'daily' },
+            description: lowerPrompt.includes('morning') ? 'Runs every morning at 9 AM' : 'Runs on a schedule',
+            config: { triggerType: 'schedule', frequency: lowerPrompt.includes('daily') || lowerPrompt.includes('morning') ? 'daily' : 'weekly' },
           },
-        });
-      } else {
-        newNodes.push({
+        } as any);
+      } else if (lowerPrompt.includes('form')) {
+        triggerNodes.push({
           id: `node-${nodeId++}`,
           type: 'custom',
-          position: { x: 100, y: 100 },
+          data: {
+            label: 'Form Submission',
+            type: 'trigger',
+            icon: <FileText size={16} />,
+            description: 'Triggers when a form is submitted',
+            config: { triggerType: 'form' },
+          },
+        } as any);
+      } else if (lowerPrompt.includes('lead')) {
+        triggerNodes.push({
+          id: `node-${nodeId++}`,
+          type: 'custom',
+          data: {
+            label: 'New Lead Added',
+            type: 'trigger',
+            icon: <Users size={16} />,
+            description: 'Triggers when a new lead is created',
+            config: { triggerType: 'event' },
+          },
+        } as any);
+      } else {
+        triggerNodes.push({
+          id: `node-${nodeId++}`,
+          type: 'custom',
           data: {
             label: 'Webhook',
             type: 'trigger',
@@ -203,92 +305,155 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow, onToggleSide
             description: 'Triggers via webhook',
             config: { triggerType: 'webhook' },
           },
-        });
+        } as any);
       }
     }
 
-    // Detect apps
-    const appKeywords: Record<string, string> = {
-      gmail: 'gmail',
-      email: 'gmail',
-      calendar: 'calendar',
-      slack: 'slack',
-      notion: 'notion',
-      salesforce: 'salesforce',
-      hubspot: 'hubspot',
-      shopify: 'shopify',
-      stripe: 'stripe',
-    };
+    // ── Phase 2: Detect AI processing (comes before output apps) ──
+    if (lowerPrompt.includes('analyze') || lowerPrompt.includes('process') || lowerPrompt.includes('ai') || lowerPrompt.includes('intelligent') || lowerPrompt.includes('enrich') || lowerPrompt.includes('summary') || lowerPrompt.includes('summarize')) {
+      let aiDesc = 'AI-powered processing';
+      if (lowerPrompt.includes('analyze')) aiDesc = 'Analyze content with AI';
+      else if (lowerPrompt.includes('enrich')) aiDesc = 'Enrich data with AI';
+      else if (lowerPrompt.includes('summary') || lowerPrompt.includes('summarize')) aiDesc = 'Generate AI summary';
+      
+      aiNodes.push({
+        id: `node-${nodeId++}`,
+        type: 'custom',
+        data: {
+          label: 'AI Processing',
+          type: 'ai',
+          icon: <Brain size={16} />,
+          description: aiDesc,
+          config: { prompt },
+        },
+      } as any);
+    }
 
-    for (const [keyword, appId] of Object.entries(appKeywords)) {
-      if (lowerPrompt.includes(keyword)) {
+    // ── Phase 3: Detect apps (output actions) ──
+    const appKeywords: [string, string][] = [
+      ['notion', 'notion'],
+      ['slack', 'slack'],
+      ['salesforce', 'salesforce'],
+      ['hubspot', 'hubspot'],
+      ['calendar', 'calendar'],
+      ['shopify', 'shopify'],
+      ['stripe', 'stripe'],
+    ];
+
+    for (const [keyword, appId] of appKeywords) {
+      if (lowerPrompt.includes(keyword) && !addedApps.has(appId)) {
+        addedApps.add(appId);
         const app = availableApps.find(a => a.id === appId);
         if (app) {
-          newNodes.push({
+          let action = `Connect to ${app.name}`;
+          let appConfig: Record<string, any> = { appType: appId };
+
+          if (appId === 'slack') {
+            action = lowerPrompt.includes('notification') ? 'Send Slack Notification' : 'Post to Slack Channel';
+            appConfig.slack = { action: 'send_message', channel: '', message: '' };
+          }
+          if (appId === 'notion') {
+            action = lowerPrompt.includes('task') ? 'Create Notion Task' : 'Save to Notion';
+            appConfig.notion = { action: lowerPrompt.includes('task') ? 'create_page' : 'update_page' };
+          }
+          if (appId === 'calendar') {
+            action = lowerPrompt.includes('check') ? 'Check Calendar Events' : 'Calendar Integration';
+          }
+          if (appId === 'salesforce') action = 'Salesforce Integration';
+          if (appId === 'hubspot') action = 'HubSpot Integration';
+
+          appNodes.push({
             id: `node-${nodeId++}`,
             type: 'custom',
-            position: { x: 300, y: 100 + (nodeId - 2) * 150 },
             data: {
               label: app.name,
               type: 'app',
               icon: <app.icon size={16} />,
-              description: `Connect to ${app.name}`,
+              description: action,
               appType: app.id,
-              config: {},
+              config: appConfig,
             },
-          });
+          } as any);
         }
       }
     }
 
-    // Detect knowledge bases
-    if (lowerPrompt.includes('document') || lowerPrompt.includes('knowledge') || lowerPrompt.includes('data')) {
-      newNodes.push({
+    // Gmail as an output app (only if trigger is NOT email-based, or prompt explicitly says "send email")
+    const mentionsSendEmail = lowerPrompt.includes('send') && (lowerPrompt.includes('email') || lowerPrompt.includes('gmail'));
+    const mentionsConfirmation = lowerPrompt.includes('confirmation') && lowerPrompt.includes('email');
+    const mentionsSummaryEmail = lowerPrompt.includes('summary') && lowerPrompt.includes('email');
+    if (!addedApps.has('gmail') && (mentionsSendEmail || mentionsConfirmation || mentionsSummaryEmail)) {
+      const gmailApp = availableApps.find(a => a.id === 'gmail');
+      if (gmailApp) {
+        addedApps.add('gmail');
+        let action = 'Send Email';
+        if (mentionsSummaryEmail) action = 'Send Summary Email';
+        else if (mentionsConfirmation) action = 'Send Confirmation Email';
+
+        appNodes.push({
+          id: `node-${nodeId++}`,
+          type: 'custom',
+          data: {
+            label: 'Gmail',
+            type: 'app',
+            icon: <gmailApp.icon size={16} />,
+            description: action,
+            appType: 'gmail',
+            config: {
+              appType: 'gmail',
+              gmail: { action: 'send', to: '', subject: '', body: '' },
+            },
+          },
+        } as any);
+      }
+    }
+
+    // ── Phase 4: Detect knowledge bases ──
+    if (lowerPrompt.includes('document') || lowerPrompt.includes('knowledge') || lowerPrompt.includes('insight') || lowerPrompt.includes('database') || lowerPrompt.includes('data')) {
+      knowledgeNodes.push({
         id: `node-${nodeId++}`,
         type: 'custom',
-        position: { x: 500, y: 100 },
         data: {
           label: 'Knowledge Base',
           type: 'knowledge',
           icon: <Database size={16} />,
-          description: 'Access knowledge base',
+          description: lowerPrompt.includes('insight') ? 'Save insights to knowledge base' : lowerPrompt.includes('database') ? 'Update database' : 'Access knowledge base',
           knowledgeBaseId: 'documents',
           config: {},
         },
-      });
+      } as any);
     }
 
-    // Detect AI actions
-    if (lowerPrompt.includes('analyze') || lowerPrompt.includes('process') || lowerPrompt.includes('ai') || lowerPrompt.includes('intelligent')) {
+    // ── Combine all nodes in logical order ──
+    // Trigger → AI Processing → Apps (output) → Knowledge → Final Action
+    const newNodes: WorkflowNode[] = [];
+    const allPhaseNodes = [...triggerNodes, ...aiNodes, ...appNodes, ...knowledgeNodes, ...actionNodes];
+    
+    for (const node of allPhaseNodes) {
       newNodes.push({
-        id: `node-${nodeId++}`,
-        type: 'custom',
-        position: { x: 700, y: 100 },
-        data: {
-          label: 'AI Process',
-          type: 'ai',
-          icon: <Brain size={16} />,
-          description: 'AI-powered processing',
-          config: { prompt },
-        },
-      });
+        ...node,
+        position: { x: NODE_CENTER_X, y: NODE_START_Y + newNodes.length * NODE_GAP_Y },
+      } as WorkflowNode);
     }
 
-    // Default action if no specific actions detected
-    if (newNodes.length === 0 || !newNodes.some(n => n.data.type === 'action')) {
-      newNodes.push({
-        id: `node-${nodeId++}`,
-        type: 'custom',
-        position: { x: 900, y: 100 },
-        data: {
-          label: 'Action',
-          type: 'action',
-          icon: <Zap size={16} />,
-          description: 'Perform action',
-          config: {},
-        },
-      });
-    }
+    // Always add a final action node as completion step
+    newNodes.push({
+      id: `node-${nodeId++}`,
+      type: 'custom',
+      position: { x: NODE_CENTER_X, y: NODE_START_Y + newNodes.length * NODE_GAP_Y },
+      data: {
+        label: 'Complete Action',
+        type: 'action',
+        icon: <Zap size={16} />,
+        description: 'Execute final action',
+        config: {},
+      },
+    } as WorkflowNode);
+
+    // Reposition all nodes cleanly
+    newNodes.forEach((node, index) => {
+      node.position = { x: NODE_CENTER_X, y: NODE_START_Y + index * NODE_GAP_Y };
+    });
 
     // Add connections between nodes
     const newEdges: Edge[] = [];
@@ -317,12 +482,8 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow, onToggleSide
   // Add node manually
   const addNode = useCallback((nodeType: NodeType, config?: any) => {
     const id = `node-${Date.now()}`;
-    const position = reactFlowInstance
-      ? reactFlowInstance.screenToFlowPosition({
-          x: window.innerWidth / 2,
-          y: window.innerHeight / 2,
-        })
-      : { x: Math.random() * 500, y: Math.random() * 500 };
+    // Place new nodes at a reasonable position in the flow coordinate system
+    const position = { x: 250 + Math.random() * 100, y: 100 + nodes.length * 150 };
 
     let newNode: WorkflowNode;
 
@@ -408,7 +569,7 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow, onToggleSide
     }
 
     setNodes((nds) => [...nds, newNode]);
-  }, [reactFlowInstance, setNodes]);
+  }, [nodes.length, setNodes]);
 
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node as WorkflowNode);
@@ -439,14 +600,22 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow, onToggleSide
 
   // Convert React Flow nodes/edges to WorkflowDefinition format
   const convertToWorkflowDefinition = useCallback((): WorkflowDefinition => {
-    const workflowNodes: WorkflowNodeData[] = nodes.map(node => ({
-      id: node.id,
-      type: (node.data as any).type as WorkflowNodeData['type'],
-      label: (node.data as any).label as string,
-      description: (node.data as any).description as string | undefined,
-      config: (node.data as any).config || {},
-      position: node.position
-    }));
+    const workflowNodes: WorkflowNodeData[] = nodes.map(node => {
+      const data = node.data as any;
+      // Ensure app nodes carry appType in config for the execution engine
+      let nodeConfig = { ...(data.config || {}) };
+      if (data.type === 'app' && data.appType && !nodeConfig.appType) {
+        nodeConfig.appType = data.appType;
+      }
+      return {
+        id: node.id,
+        type: data.type as WorkflowNodeData['type'],
+        label: data.label as string,
+        description: data.description as string | undefined,
+        config: nodeConfig,
+        position: node.position,
+      };
+    });
 
     const workflowEdges: WorkflowEdge[] = edges.map(edge => ({
       id: edge.id,
@@ -464,7 +633,11 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow, onToggleSide
 
   // Handle deploy
   const handleDeploy = useCallback(async () => {
-    if (!onDeploy || nodes.length === 0) return;
+    console.log('handleDeploy called', { hasOnDeploy: !!onDeploy, nodesLength: nodes.length, workflowName, workflowDescription });
+    if (!onDeploy || nodes.length === 0) {
+      console.log('handleDeploy early return', { onDeploy: !!onDeploy, nodesLength: nodes.length });
+      return;
+    }
     
     const workflow = convertToWorkflowDefinition();
     
@@ -594,6 +767,30 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow, onToggleSide
         </div>
       </div>
 
+      {/* Connection Status Bar */}
+      <div className="workflow-status-bar">
+        <div className="workflow-status-item">
+          <span className={`status-dot ${backendStatus ? 'online' : 'offline'}`} />
+          <span>Backend: {backendStatus ? 'Connected' : 'Offline (demo mode)'}</span>
+        </div>
+        {backendStatus && (
+          <>
+            <div className="workflow-status-item">
+              <span className={`status-dot ${backendStatus.gmail.connected ? 'online' : 'offline'}`} />
+              <span>Gmail{backendStatus.gmail.connected && backendStatus.gmail.email ? `: ${backendStatus.gmail.email}` : ''}</span>
+            </div>
+            <div className="workflow-status-item">
+              <span className={`status-dot ${backendStatus.slack.connected ? 'online' : 'offline'}`} />
+              <span>Slack{backendStatus.slack.connected && backendStatus.slack.workspace ? `: ${backendStatus.slack.workspace}` : ''}</span>
+            </div>
+            <div className="workflow-status-item">
+              <span className={`status-dot ${backendStatus.ai.configured ? 'online' : 'offline'}`} />
+              <span>AI (OpenAI)</span>
+            </div>
+          </>
+        )}
+      </div>
+
       {/* React Flow Canvas */}
       <div className="workflow-canvas" ref={reactFlowWrapper}>
         <ReactFlow
@@ -603,14 +800,30 @@ export function WorkflowBuilder({ onSave, onClose, initialWorkflow, onToggleSide
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onNodeClick={onNodeClick}
+          onInit={onInit}
           nodeTypes={nodeTypes}
-          onInit={setReactFlowInstance}
           fitView
+          fitViewOptions={{ padding: 0.3 }}
           attributionPosition="bottom-left"
+          style={{ background: '#0a0a0f' }}
+          className="dark-flow"
         >
-          <Background />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(255,255,255,0.08)" />
           <Controls />
-          <MiniMap />
+          <MiniMap
+            style={{ background: '#1a1a2e' }}
+            nodeColor={(node) => {
+              switch ((node.data as any)?.type) {
+                case 'trigger': return '#3B82F6';
+                case 'app': return '#10B981';
+                case 'knowledge': return '#8B5CF6';
+                case 'action': return '#F59E0B';
+                case 'ai': return '#EC4899';
+                default: return '#6B7280';
+              }
+            }}
+            maskColor="rgba(0,0,0,0.7)"
+          />
         </ReactFlow>
       </div>
 

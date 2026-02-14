@@ -1,4 +1,21 @@
-// Execution Engine - Runs workflows step by step
+/* ═══════════════════════════════════════════════════════════
+   Execution Engine — Runs workflows step by step
+   
+   This engine executes workflow nodes by calling the REAL
+   backend API when available, falling back to simulated
+   execution in demo mode.
+   
+   Real integrations (when backend is connected):
+   - Gmail: send/read/reply via Google OAuth + Gmail API
+   - Slack: send messages via Slack OAuth + Web API
+   - AI: process prompts via OpenAI API
+   - HTTP: proxied requests through backend
+   
+   Demo mode (when backend is offline):
+   - Returns simulated results for all node types
+   - Logs execution details to console
+   ═══════════════════════════════════════════════════════════ */
+
 import { 
   WorkflowDefinition, 
   WorkflowNodeData, 
@@ -6,15 +23,17 @@ import {
   NodeExecution,
   TriggerConfig,
   AppConfig,
-  AIConfig,
+  AIConfig as AINodeConfig,
   FilterConfig,
   DelayConfig
 } from './types';
-import { 
-  startExecution, 
-  updateExecutionNode, 
-  completeExecution 
-} from './agentService';
+import {
+  isBackendAvailable,
+  AutomationGmailAPI,
+  AutomationSlackAPI,
+  AutomationAIAPI,
+  AutomationHttpAPI,
+} from './automationApi';
 
 // Node executor functions
 type NodeExecutor = (
@@ -22,12 +41,27 @@ type NodeExecutor = (
   context: ExecutionContext
 ) => Promise<any>;
 
-// Registry of node executors
+// Registry of custom node executors
 const nodeExecutors: Record<string, NodeExecutor> = {};
 
-// Register a node executor
+// Register a custom node executor
 export function registerExecutor(nodeType: string, executor: NodeExecutor): void {
   nodeExecutors[nodeType] = executor;
+}
+
+// Execution log for UI display
+export interface ExecutionLog {
+  nodeId: string;
+  nodeName: string;
+  nodeType: string;
+  status: 'running' | 'completed' | 'failed' | 'skipped';
+  startedAt: Date;
+  completedAt?: Date;
+  duration?: number;
+  input?: any;
+  output?: any;
+  error?: string;
+  isReal: boolean; // true if executed via real backend API
 }
 
 // Get input data for a node based on connections
@@ -36,15 +70,12 @@ function getNodeInput(
   workflow: WorkflowDefinition,
   context: ExecutionContext
 ): any {
-  // Find edges that connect to this node
   const incomingEdges = workflow.edges.filter(e => e.target === node.id);
   
   if (incomingEdges.length === 0) {
-    // No incoming edges - use trigger data
     return context.trigger.data;
   }
   
-  // Merge outputs from all source nodes
   const input: any = {};
   for (const edge of incomingEdges) {
     const sourceOutput = context.nodeOutputs[edge.source];
@@ -53,7 +84,6 @@ function getNodeInput(
     }
   }
   
-  // Apply input mapping if defined
   if (node.inputMapping) {
     const mappedInput: any = {};
     for (const [targetKey, sourceKey] of Object.entries(node.inputMapping)) {
@@ -65,15 +95,12 @@ function getNodeInput(
   return input;
 }
 
-// Helper to get nested values like "data.email.subject"
 function getNestedValue(obj: any, path: string): any {
   return path.split('.').reduce((current, key) => current?.[key], obj);
 }
 
-// Apply output mapping
 function applyOutputMapping(output: any, mapping?: Record<string, string>): any {
   if (!mapping) return output;
-  
   const mappedOutput: any = {};
   for (const [targetKey, sourceKey] of Object.entries(mapping)) {
     mappedOutput[targetKey] = getNestedValue(output, sourceKey);
@@ -81,118 +108,116 @@ function applyOutputMapping(output: any, mapping?: Record<string, string>): any 
   return mappedOutput;
 }
 
-// Main execution function
+/* ═══ MAIN EXECUTION ═════════════════════════════════════ */
+
 export async function executeWorkflow(
   agentId: string,
   userId: string,
   workflow: WorkflowDefinition,
   triggeredBy: 'manual' | 'webhook' | 'schedule' | 'event',
-  triggerData: any = {}
-): Promise<{ success: boolean; output?: any; error?: string }> {
-  // Start execution record
-  const execution = await startExecution(agentId, userId, triggeredBy, triggerData);
+  triggerData: any = {},
+  onNodeUpdate?: (log: ExecutionLog) => void
+): Promise<{ success: boolean; output?: any; error?: string; logs: ExecutionLog[] }> {
+  const executionId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const logs: ExecutionLog[] = [];
+  const backendUp = isBackendAvailable();
   
-  // Initialize context
+  console.log(`\n🚀 Executing workflow for agent ${agentId}`);
+  console.log(`   Backend: ${backendUp ? '✅ Connected (REAL execution)' : '⚠️ Offline (SIMULATED execution)'}`);
+  console.log(`   Triggered by: ${triggeredBy}`);
+  console.log(`   Nodes: ${workflow.nodes.length}, Edges: ${workflow.edges.length}\n`);
+
   const context: ExecutionContext = {
-    executionId: execution.id,
+    executionId,
     agentId,
     userId,
-    trigger: {
-      type: triggeredBy as any,
-      data: triggerData
-    },
+    trigger: { type: triggeredBy as any, data: triggerData },
     variables: { ...workflow.variables },
     nodeOutputs: {}
   };
 
   try {
-    // Build execution order (topological sort)
     const executionOrder = buildExecutionOrder(workflow);
     
-    // Execute nodes in order
     for (const nodeId of executionOrder) {
       const node = workflow.nodes.find(n => n.id === nodeId);
       if (!node) continue;
       
       context.currentNodeId = nodeId;
       
-      // Check if this is a conditional edge
-      const shouldExecute = await checkConditions(node, workflow, context);
+      // Check conditions
+      const shouldExecute = checkConditions(node, workflow, context);
       if (!shouldExecute) {
+        const skipLog: ExecutionLog = {
+          nodeId: node.id,
+          nodeName: node.label,
+          nodeType: node.type,
+          status: 'skipped',
+          startedAt: new Date(),
+          completedAt: new Date(),
+          duration: 0,
+          isReal: false,
+        };
+        logs.push(skipLog);
+        onNodeUpdate?.(skipLog);
         continue;
       }
       
-      // Get input for this node
       const input = getNodeInput(node, workflow, context);
       
-      // Create node execution record
-      const nodeExec: NodeExecution = {
+      const nodeLog: ExecutionLog = {
         nodeId: node.id,
         nodeName: node.label,
         nodeType: node.type,
         status: 'running',
         startedAt: new Date(),
-        input
+        input,
+        isReal: backendUp,
       };
+      logs.push(nodeLog);
+      onNodeUpdate?.(nodeLog);
 
       try {
-        // Execute the node
-        const output = await executeNode(node, input, context);
-        
-        // Apply output mapping and store
+        const output = await executeNode(node, input, context, backendUp);
         const mappedOutput = applyOutputMapping(output, node.outputMapping);
         context.nodeOutputs[node.id] = mappedOutput;
         
-        // Update node execution
-        nodeExec.status = 'completed';
-        nodeExec.completedAt = new Date();
-        nodeExec.duration = nodeExec.completedAt.getTime() - nodeExec.startedAt.getTime();
-        nodeExec.output = mappedOutput;
+        nodeLog.status = 'completed';
+        nodeLog.completedAt = new Date();
+        nodeLog.duration = nodeLog.completedAt.getTime() - nodeLog.startedAt.getTime();
+        nodeLog.output = mappedOutput;
+        onNodeUpdate?.(nodeLog);
+        
+        console.log(`  ✅ ${node.label} (${node.type}) — ${nodeLog.duration}ms ${backendUp ? '[REAL]' : '[SIMULATED]'}`);
         
       } catch (error: any) {
-        nodeExec.status = 'failed';
-        nodeExec.completedAt = new Date();
-        nodeExec.duration = nodeExec.completedAt.getTime() - nodeExec.startedAt.getTime();
-        nodeExec.error = error.message;
+        nodeLog.status = 'failed';
+        nodeLog.completedAt = new Date();
+        nodeLog.duration = nodeLog.completedAt.getTime() - nodeLog.startedAt.getTime();
+        nodeLog.error = error.message;
+        onNodeUpdate?.(nodeLog);
         
-        // Record node execution
-        await updateExecutionNode(execution.id, nodeExec);
+        console.error(`  ❌ ${node.label} (${node.type}) — ${error.message}`);
         
-        // Complete with failure
-        await completeExecution(execution.id, 'failed', undefined, {
-          nodeId: node.id,
-          message: error.message,
-          stack: error.stack
-        });
-        
-        return { success: false, error: error.message };
+        return { success: false, error: error.message, logs };
       }
-      
-      // Record node execution
-      await updateExecutionNode(execution.id, nodeExec);
     }
     
-    // Get final output (from last node)
+    // Get final output
     const lastNodeId = executionOrder[executionOrder.length - 1];
     const finalOutput = context.nodeOutputs[lastNodeId];
     
-    // Complete successfully
-    await completeExecution(execution.id, 'completed', finalOutput);
-    
-    return { success: true, output: finalOutput };
+    console.log(`\n✅ Workflow execution completed successfully\n`);
+    return { success: true, output: finalOutput, logs };
     
   } catch (error: any) {
-    await completeExecution(execution.id, 'failed', undefined, {
-      nodeId: context.currentNodeId || 'unknown',
-      message: error.message,
-      stack: error.stack
-    });
-    
-    return { success: false, error: error.message };
+    console.error(`\n❌ Workflow execution failed: ${error.message}\n`);
+    return { success: false, error: error.message, logs };
   }
 }
 
-// Build topological execution order
+/* ═══ TOPOLOGICAL SORT ═══════════════════════════════════ */
+
 function buildExecutionOrder(workflow: WorkflowDefinition): string[] {
   const visited = new Set<string>();
   const order: string[] = [];
@@ -205,20 +230,15 @@ function buildExecutionOrder(workflow: WorkflowDefinition): string[] {
     }
     
     visiting.add(nodeId);
-    
-    // Visit all nodes that this node depends on
     const incomingEdges = workflow.edges.filter(e => e.target === nodeId);
     for (const edge of incomingEdges) {
       visit(edge.source);
     }
-    
     visiting.delete(nodeId);
     visited.add(nodeId);
     order.push(nodeId);
   }
   
-  // Start from nodes with no outgoing edges (leaf nodes) and work backwards
-  // Or simpler: just visit all nodes
   for (const node of workflow.nodes) {
     visit(node.id);
   }
@@ -226,12 +246,13 @@ function buildExecutionOrder(workflow: WorkflowDefinition): string[] {
   return order;
 }
 
-// Check if node should execute based on conditional edges
-async function checkConditions(
+/* ═══ CONDITION CHECKING ═════════════════════════════════ */
+
+function checkConditions(
   node: WorkflowNodeData,
   workflow: WorkflowDefinition,
   context: ExecutionContext
-): Promise<boolean> {
+): boolean {
   const incomingEdges = workflow.edges.filter(e => e.target === node.id);
   
   for (const edge of incomingEdges) {
@@ -246,11 +267,9 @@ async function checkConditions(
   return true;
 }
 
-// Evaluate filter condition
 function evaluateCondition(condition: FilterConfig, data: any): boolean {
   const results = condition.conditions.map(c => {
     const value = getNestedValue(data, c.field);
-    
     switch (c.operator) {
       case 'equals': return value === c.value;
       case 'not_equals': return value !== c.value;
@@ -266,34 +285,31 @@ function evaluateCondition(condition: FilterConfig, data: any): boolean {
     }
   });
   
-  if (condition.logic === 'and') {
-    return results.every(r => r);
-  } else {
-    return results.some(r => r);
-  }
+  return condition.logic === 'and' ? results.every(r => r) : results.some(r => r);
 }
 
-// Execute a single node
+/* ═══ NODE EXECUTION (Real + Simulated) ═════════════════ */
+
 async function executeNode(
   node: WorkflowNodeData,
   input: any,
-  context: ExecutionContext
+  context: ExecutionContext,
+  useRealBackend: boolean
 ): Promise<any> {
-  // Check for registered executor
+  // Check for registered custom executors first
   if (nodeExecutors[node.type]) {
     return nodeExecutors[node.type](node, { ...context, trigger: { ...context.trigger, data: input } });
   }
   
-  // Built-in executors
   switch (node.type) {
     case 'trigger':
       return executeTrigger(node, input);
       
     case 'app':
-      return executeApp(node, input, context);
+      return executeApp(node, input, useRealBackend);
       
     case 'ai':
-      return executeAI(node, input, context);
+      return executeAI(node, input, useRealBackend);
       
     case 'filter':
       return executeFilter(node, input);
@@ -302,20 +318,19 @@ async function executeNode(
       return executeDelay(node, input);
       
     case 'action':
-      return executeAction(node, input, context);
+      return executeAction(node, input, useRealBackend);
       
     case 'knowledge':
-      return executeKnowledge(node, input, context);
+      return executeKnowledge(node, input);
       
     default:
-      // Pass through
       return input;
   }
 }
 
-// Trigger node executor
+/* ═══ TRIGGER ════════════════════════════════════════════ */
+
 async function executeTrigger(node: WorkflowNodeData, input: any): Promise<any> {
-  // Triggers just pass through the trigger data
   return {
     ...input,
     _trigger: {
@@ -326,30 +341,26 @@ async function executeTrigger(node: WorkflowNodeData, input: any): Promise<any> 
   };
 }
 
-// App node executor
+/* ═══ APP NODE (Gmail, Slack, etc.) ══════════════════════ */
+
 async function executeApp(
   node: WorkflowNodeData, 
-  input: any, 
-  context: ExecutionContext
+  input: any,
+  useRealBackend: boolean
 ): Promise<any> {
   const config = node.config as AppConfig;
   
   switch (config.appType) {
     case 'gmail':
-      return executeGmail(config, input);
-      
+      return executeGmail(config, input, useRealBackend);
     case 'slack':
-      return executeSlack(config, input);
-      
+      return executeSlack(config, input, useRealBackend);
     case 'notion':
       return executeNotion(config, input);
-      
     case 'http':
     case 'webhook':
-      return executeHttp(config, input);
-      
+      return executeHttp(config, input, useRealBackend);
     default:
-      // Simulate app execution for demo
       return {
         ...input,
         _app: {
@@ -362,116 +373,175 @@ async function executeApp(
   }
 }
 
-// Gmail executor (simulated for demo)
-async function executeGmail(config: AppConfig, input: any): Promise<any> {
+/* ─── Gmail executor ─────────────────────────────────── */
+
+async function executeGmail(config: AppConfig, input: any, useRealBackend: boolean): Promise<any> {
   const gmail = config.gmail;
-  
   if (!gmail) {
     return { error: 'Gmail configuration missing' };
   }
+
+  // ── REAL BACKEND EXECUTION ──
+  if (useRealBackend) {
+    switch (gmail.action) {
+      case 'send': {
+        const to = gmail.to || input.to || input.email;
+        const subject = gmail.subject || input.subject || 'Automated Email';
+        const body = gmail.body || input.body || input.message || '';
+        
+        const result = await AutomationGmailAPI.send(to, subject, body);
+        if (result) {
+          return { ...result, success: true };
+        }
+        throw new Error('Failed to send email via Gmail API');
+      }
+      
+      case 'reply': {
+        const messageId = input.messageId || input.id;
+        const body = gmail.body || input.body || input.message || '';
+        
+        if (!messageId) throw new Error('No messageId provided for Gmail reply');
+        
+        const result = await AutomationGmailAPI.reply(messageId, body);
+        if (result) {
+          return { success: true, action: 'reply', messageId };
+        }
+        throw new Error('Failed to reply via Gmail API');
+      }
+      
+      case 'read': {
+        const result = await AutomationGmailAPI.read(10);
+        if (result) {
+          return { success: true, ...result };
+        }
+        throw new Error('Failed to read emails via Gmail API');
+      }
+      
+      default:
+        console.warn(`[Gmail] Unsupported action "${gmail.action}" — falling back to simulation`);
+    }
+  }
   
-  // In production, this would use the Gmail API
-  // For demo, we simulate the action
+  // ── SIMULATED EXECUTION (Demo mode) ──
   switch (gmail.action) {
     case 'send':
-      console.log(`[Gmail] Sending email to: ${gmail.to}`);
+      console.log(`[Gmail SIMULATED] Sending email to: ${gmail.to}`);
       return {
         success: true,
         action: 'send',
         to: gmail.to,
         subject: gmail.subject,
-        messageId: `msg-${Date.now()}`,
-        timestamp: new Date().toISOString()
+        messageId: `sim-msg-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        _simulated: true,
       };
       
     case 'read':
-      console.log(`[Gmail] Reading emails`);
+      console.log(`[Gmail SIMULATED] Reading emails`);
       return {
         success: true,
         action: 'read',
+        count: 3,
         emails: [
           {
-            id: 'email-1',
+            id: 'sim-email-1',
             from: 'sender@example.com',
             subject: 'Sample Email',
-            body: 'This is a sample email body.',
+            preview: 'This is a simulated email for demo purposes.',
             receivedAt: new Date().toISOString()
-          }
-        ]
+          },
+          {
+            id: 'sim-email-2',
+            from: 'another@example.com',
+            subject: 'Follow-up',
+            preview: 'Following up on our earlier conversation.',
+            receivedAt: new Date(Date.now() - 3600000).toISOString()
+          },
+        ],
+        _simulated: true,
       };
       
     default:
-      return { success: true, action: gmail.action };
+      return { success: true, action: gmail.action, _simulated: true };
   }
 }
 
-// Slack executor (simulated for demo)
-async function executeSlack(config: AppConfig, input: any): Promise<any> {
+/* ─── Slack executor ─────────────────────────────────── */
+
+async function executeSlack(config: AppConfig, input: any, useRealBackend: boolean): Promise<any> {
   const slack = config.slack;
-  
   if (!slack) {
     return { error: 'Slack configuration missing' };
   }
-  
-  switch (slack.action) {
-    case 'send_message':
-      console.log(`[Slack] Sending message to #${slack.channel}: ${slack.message}`);
-      return {
-        success: true,
-        action: 'send_message',
-        channel: slack.channel,
-        message: slack.message || input.message,
-        messageTs: `${Date.now()}.000000`,
-        timestamp: new Date().toISOString()
-      };
-      
-    default:
-      return { success: true, action: slack.action };
+
+  // ── REAL BACKEND EXECUTION ──
+  if (useRealBackend && slack.action === 'send_message') {
+    const channel = slack.channel || input.channel;
+    const message = slack.message || input.message || '';
+    
+    if (!channel) throw new Error('No Slack channel specified');
+    
+    const result = await AutomationSlackAPI.send(channel, message);
+    if (result) {
+      return { ...result, success: true };
+    }
+    throw new Error('Failed to send Slack message via API');
   }
+
+  // ── SIMULATED EXECUTION ──
+  console.log(`[Slack SIMULATED] Sending to #${slack.channel}: ${slack.message}`);
+  return {
+    success: true,
+    action: slack.action,
+    channel: slack.channel,
+    message: slack.message || input.message,
+    messageTs: `${Date.now()}.000000`,
+    timestamp: new Date().toISOString(),
+    _simulated: true,
+  };
 }
 
-// Notion executor (simulated for demo)
+/* ─── Notion executor (simulated — no backend yet) ──── */
+
 async function executeNotion(config: AppConfig, input: any): Promise<any> {
   const notion = config.notion;
-  
   if (!notion) {
     return { error: 'Notion configuration missing' };
   }
   
-  switch (notion.action) {
-    case 'create_page':
-      console.log(`[Notion] Creating page in database: ${notion.databaseId}`);
-      return {
-        success: true,
-        action: 'create_page',
-        pageId: `page-${Date.now()}`,
-        databaseId: notion.databaseId,
-        properties: notion.properties || input,
-        timestamp: new Date().toISOString()
-      };
-      
-    case 'query_database':
-      console.log(`[Notion] Querying database: ${notion.databaseId}`);
-      return {
-        success: true,
-        action: 'query_database',
-        databaseId: notion.databaseId,
-        results: []
-      };
-      
-    default:
-      return { success: true, action: notion.action };
-  }
+  console.log(`[Notion SIMULATED] ${notion.action} on ${notion.databaseId || 'default'}`);
+  return {
+    success: true,
+    action: notion.action,
+    pageId: `sim-page-${Date.now()}`,
+    databaseId: notion.databaseId,
+    timestamp: new Date().toISOString(),
+    _simulated: true,
+  };
 }
 
-// HTTP executor
-async function executeHttp(config: AppConfig, input: any): Promise<any> {
+/* ─── HTTP executor ──────────────────────────────────── */
+
+async function executeHttp(config: AppConfig, input: any, useRealBackend: boolean): Promise<any> {
   const http = config.http;
-  
   if (!http) {
     return { error: 'HTTP configuration missing' };
   }
-  
+
+  // ── REAL BACKEND EXECUTION (proxied) ──
+  if (useRealBackend) {
+    const result = await AutomationHttpAPI.request(
+      http.url,
+      http.method,
+      http.headers,
+      http.method !== 'GET' ? (http.body || input) : undefined
+    );
+    if (result) {
+      return { success: result.status >= 200 && result.status < 300, ...result };
+    }
+  }
+
+  // ── DIRECT FETCH (fallback — may have CORS issues) ──
   try {
     const response = await fetch(http.url, {
       method: http.method,
@@ -481,9 +551,7 @@ async function executeHttp(config: AppConfig, input: any): Promise<any> {
       },
       body: http.method !== 'GET' ? JSON.stringify(http.body || input) : undefined
     });
-    
     const data = await response.json().catch(() => response.text());
-    
     return {
       success: response.ok,
       status: response.status,
@@ -494,116 +562,96 @@ async function executeHttp(config: AppConfig, input: any): Promise<any> {
     return {
       success: false,
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      _simulated: true,
     };
   }
 }
 
-// AI executor (simulated for demo - in production would use OpenAI/Claude API)
+/* ═══ AI NODE ════════════════════════════════════════════ */
+
 async function executeAI(
   node: WorkflowNodeData, 
   input: any, 
-  context: ExecutionContext
+  useRealBackend: boolean
 ): Promise<any> {
-  const config = node.config as AIConfig;
+  const config = node.config as AINodeConfig;
   
-  console.log(`[AI] Processing with model: ${config.model || 'gpt-4'}`);
-  console.log(`[AI] Prompt: ${config.prompt}`);
-  console.log(`[AI] Input:`, input);
+  // ── REAL BACKEND EXECUTION ──
+  if (useRealBackend) {
+    const result = await AutomationAIAPI.process(config.prompt, {
+      systemPrompt: config.systemPrompt,
+      model: config.model,
+      temperature: config.temperature,
+      maxTokens: config.maxTokens,
+      input,
+    });
+    if (result) {
+      return {
+        success: true,
+        ...result,
+      };
+    }
+    console.warn('[AI] Backend processing failed — falling back to simulation');
+  }
   
-  // Simulate AI processing
-  // In production, this would call OpenAI or Claude API
-  const simulatedResponse = generateAIResponse(config, input);
+  // ── SIMULATED EXECUTION ──
+  console.log(`[AI SIMULATED] Processing with model: ${config.model || 'gpt-4'}`);
+  console.log(`[AI SIMULATED] Prompt: ${config.prompt}`);
+  
+  const simulatedResponse = generateSimulatedAIResponse(config, input);
   
   return {
     success: true,
     model: config.model || 'gpt-4',
     prompt: config.prompt,
     response: simulatedResponse,
-    usage: {
-      promptTokens: 100,
-      completionTokens: 50,
-      totalTokens: 150
-    },
-    timestamp: new Date().toISOString()
+    usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+    timestamp: new Date().toISOString(),
+    _simulated: true,
   };
 }
 
-// Generate simulated AI response
-function generateAIResponse(config: AIConfig, input: any): any {
+function generateSimulatedAIResponse(config: AINodeConfig, input: any): any {
   const prompt = config.prompt.toLowerCase();
   
-  // Analyze intent from prompt
   if (prompt.includes('summarize') || prompt.includes('summary')) {
     return {
       summary: `Summary of input data: ${JSON.stringify(input).substring(0, 200)}...`,
       keyPoints: ['Point 1', 'Point 2', 'Point 3']
     };
   }
-  
   if (prompt.includes('classify') || prompt.includes('categorize')) {
-    return {
-      category: 'General',
-      confidence: 0.85,
-      reasoning: 'Based on the input content analysis'
-    };
+    return { category: 'General', confidence: 0.85, reasoning: 'Based on input content analysis' };
   }
-  
   if (prompt.includes('extract') || prompt.includes('parse')) {
-    return {
-      extractedData: {
-        entities: ['Entity 1', 'Entity 2'],
-        dates: [new Date().toISOString()],
-        values: []
-      }
-    };
+    return { extractedData: { entities: ['Entity 1', 'Entity 2'], dates: [new Date().toISOString()] } };
   }
-  
   if (prompt.includes('analyze') || prompt.includes('sentiment')) {
-    return {
-      analysis: 'The content appears to be neutral with professional tone.',
-      sentiment: 'neutral',
-      score: 0.5
-    };
+    return { analysis: 'The content appears to be neutral with professional tone.', sentiment: 'neutral', score: 0.5 };
   }
-  
-  // Default response
-  return {
-    result: 'AI processing completed successfully',
-    processedInput: input,
-    recommendation: 'Continue with workflow'
-  };
+  return { result: 'AI processing completed successfully (simulated)', processedInput: input };
 }
 
-// Filter node executor
+/* ═══ FILTER NODE ════════════════════════════════════════ */
+
 async function executeFilter(node: WorkflowNodeData, input: any): Promise<any> {
   const config = node.config as FilterConfig;
-  
-  if (!config || !config.conditions) {
-    return input; // Pass through if no conditions
-  }
+  if (!config || !config.conditions) return input;
   
   const passes = evaluateCondition(config, input);
-  
   return {
     ...input,
-    _filter: {
-      passed: passes,
-      conditions: config.conditions.length,
-      logic: config.logic
-    }
+    _filter: { passed: passes, conditions: config.conditions.length, logic: config.logic }
   };
 }
 
-// Delay node executor
+/* ═══ DELAY NODE ═════════════════════════════════════════ */
+
 async function executeDelay(node: WorkflowNodeData, input: any): Promise<any> {
   const config = node.config as DelayConfig;
+  if (!config) return input;
   
-  if (!config) {
-    return input;
-  }
-  
-  // Convert to milliseconds
   const multipliers: Record<string, number> = {
     seconds: 1000,
     minutes: 60 * 1000,
@@ -612,9 +660,7 @@ async function executeDelay(node: WorkflowNodeData, input: any): Promise<any> {
   };
   
   const delayMs = config.duration * (multipliers[config.unit] || 1000);
-  
-  // For demo, cap at 5 seconds to prevent long waits
-  const actualDelay = Math.min(delayMs, 5000);
+  const actualDelay = Math.min(delayMs, 5000); // Cap at 5s for demo
   
   await new Promise(resolve => setTimeout(resolve, actualDelay));
   
@@ -628,16 +674,30 @@ async function executeDelay(node: WorkflowNodeData, input: any): Promise<any> {
   };
 }
 
-// Action node executor
+/* ═══ ACTION NODE ════════════════════════════════════════ */
+
 async function executeAction(
   node: WorkflowNodeData, 
-  input: any, 
-  context: ExecutionContext
+  input: any,
+  useRealBackend: boolean
 ): Promise<any> {
   const config = node.config as any;
   
-  console.log(`[Action] Executing action: ${config.actionType || 'generic'}`);
-  
+  // If the action is email/slack/ai, route to the specific executor
+  if (config.actionType === 'send_email') {
+    return executeGmail({ appType: 'gmail', gmail: { action: 'send', ...config } } as AppConfig, input, useRealBackend);
+  }
+  if (config.actionType === 'send_message') {
+    return executeSlack({ appType: 'slack', slack: { action: 'send_message', ...config } } as AppConfig, input, useRealBackend);
+  }
+  if (config.actionType === 'ai_process') {
+    return executeAI(node, input, useRealBackend);
+  }
+  if (config.actionType === 'http_request') {
+    return executeHttp({ appType: 'http', http: config } as AppConfig, input, useRealBackend);
+  }
+
+  console.log(`[Action] Executing: ${config.actionType || 'generic'}`);
   return {
     success: true,
     action: config.actionType || 'generic',
@@ -647,15 +707,14 @@ async function executeAction(
   };
 }
 
-// Knowledge node executor
+/* ═══ KNOWLEDGE NODE ═════════════════════════════════════ */
+
 async function executeKnowledge(
   node: WorkflowNodeData, 
-  input: any, 
-  context: ExecutionContext
+  input: any
 ): Promise<any> {
   const config = node.config as any;
-  
-  console.log(`[Knowledge] Accessing knowledge base: ${config.knowledgeBaseId || 'default'}`);
+  console.log(`[Knowledge] Accessing: ${config.knowledgeBaseId || 'default'}`);
   
   return {
     success: true,
@@ -666,9 +725,9 @@ async function executeKnowledge(
   };
 }
 
-// Export execution engine
+/* ═══ EXPORTS ════════════════════════════════════════════ */
+
 export const ExecutionEngine = {
   executeWorkflow,
   registerExecutor
 };
-

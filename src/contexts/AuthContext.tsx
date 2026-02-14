@@ -41,7 +41,22 @@ interface AuthContextType {
   getProfileExtras: () => ProfileExtras;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Default context value for demo/fallback mode (if AuthProvider fails to mount)
+const defaultAuthContext: AuthContextType = {
+  user: null,
+  userProfile: null,
+  loading: false,
+  signIn: async () => { throw new Error('Auth not available'); },
+  signUp: async () => { throw new Error('Auth not available'); },
+  signInWithGoogle: async () => { throw new Error('Auth not available'); },
+  demoSignIn: async () => { console.log('Demo sign-in (no-op)'); },
+  signOut: async () => { console.log('Sign-out (no-op)'); },
+  resetPassword: async () => { throw new Error('Auth not available'); },
+  updateProfile: async () => { throw new Error('Auth not available'); },
+  getProfileExtras: () => ({}),
+};
+
+const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
 const googleProvider = new GoogleAuthProvider();
 const PROFILE_EXTRAS_KEY = 'nova_profile_extras';
@@ -52,11 +67,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen to Firebase Auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+    try {
+      const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        setUser(firebaseUser);
+        setLoading(false);
+      });
+      return unsubscribe;
+    } catch (err) {
+      console.warn('Firebase auth listener failed — running in demo mode:', err);
       setLoading(false);
-    });
-    return unsubscribe;
+      return () => {};
+    }
   }, []);
 
   // Email/password sign in
@@ -181,11 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  return useContext(AuthContext);
 }
 
 // Map Firebase error codes to user-friendly messages

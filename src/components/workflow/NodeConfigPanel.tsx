@@ -1,7 +1,11 @@
-import { useState, useEffect } from 'react';
-import { X, Trash2, Settings, Save } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { X, Trash2, Settings, Save, ExternalLink, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { WorkflowNode, availableApps, knowledgeBaseTypes, triggerTypes, actionTypes } from './WorkflowBuilder';
+import { checkAutomationBackend } from '../../services/automation/automationApi';
+import type { AutomationStatus } from '../../services/automation/automationApi';
 import './NodeConfigPanel.css';
+
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 interface NodeConfigPanelProps {
   node: WorkflowNode;
@@ -13,13 +17,34 @@ interface NodeConfigPanelProps {
 export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfigPanelProps) {
   const [label, setLabel] = useState(node.data.label);
   const [description, setDescription] = useState(node.data.description || '');
-  const [config, setConfig] = useState(node.data.config || {});
+  const [config, setConfig] = useState<Record<string, any>>(node.data.config || {});
+  const [connectionStatus, setConnectionStatus] = useState<AutomationStatus | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
 
   useEffect(() => {
     setLabel(node.data.label);
     setDescription(node.data.description || '');
     setConfig(node.data.config || {});
   }, [node]);
+
+  // Check connection status when an app node is opened
+  useEffect(() => {
+    if (node.data.type === 'app') {
+      checkStatus();
+    }
+  }, [node.data.type]);
+
+  const checkStatus = useCallback(async () => {
+    setCheckingStatus(true);
+    try {
+      const status = await checkAutomationBackend();
+      setConnectionStatus(status);
+    } catch {
+      setConnectionStatus(null);
+    } finally {
+      setCheckingStatus(false);
+    }
+  }, []);
 
   const handleSave = () => {
     const updatedNode: WorkflowNode = {
@@ -38,7 +63,14 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
     const app = availableApps.find(a => a.id === appId);
     if (app) {
       setLabel(app.name);
-      setConfig({ ...config, appType: appId });
+      // Initialize app-specific config structure
+      const newConfig: Record<string, any> = { appType: appId };
+      if (appId === 'gmail') {
+        newConfig.gmail = { action: 'send', to: '', subject: '', body: '' };
+      } else if (appId === 'slack') {
+        newConfig.slack = { action: 'send_message', channel: '', message: '' };
+      }
+      setConfig(newConfig);
     }
   };
 
@@ -66,6 +98,41 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
     }
   };
 
+  const connectGmail = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/connections/gmail`);
+      const json = await res.json();
+      if (json.success && json.data?.authUrl) {
+        window.open(json.data.authUrl, '_blank', 'width=600,height=700');
+      } else {
+        alert('Failed to get Gmail auth URL. Make sure the backend is running and Google OAuth credentials are configured.');
+      }
+    } catch {
+      alert('Cannot reach backend. Please start the server (cd server && npm run dev) and ensure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set in server/.env');
+    }
+  };
+
+  const connectSlack = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/connections/slack`);
+      const json = await res.json();
+      if (json.success && json.data?.authUrl) {
+        window.open(json.data.authUrl, '_blank', 'width=600,height=700');
+      } else {
+        alert('Failed to get Slack auth URL. Make sure the backend is running and Slack OAuth credentials are configured.');
+      }
+    } catch {
+      alert('Cannot reach backend. Please start the server.');
+    }
+  };
+
+  // Get connection status for the current app
+  const appId = node.data.appType || config.appType;
+  const isGmail = appId === 'gmail';
+  const isSlack = appId === 'slack';
+  const gmailConnected = connectionStatus?.gmail?.connected;
+  const slackConnected = connectionStatus?.slack?.connected;
+
   return (
     <div className="node-config-panel">
       <div className="node-config-header">
@@ -79,6 +146,7 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
       </div>
 
       <div className="node-config-content">
+        {/* Basic Info */}
         <div className="node-config-section">
           <label className="node-config-label">Label</label>
           <input
@@ -99,23 +167,256 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
           />
         </div>
 
+        {/* ─── APP NODE CONFIG ─── */}
         {node.data.type === 'app' && (
-          <div className="node-config-section">
-            <label className="node-config-label">App</label>
-            <select
-              className="node-config-select"
-              value={node.data.appType || ''}
-              onChange={(e) => handleAppChange(e.target.value)}
-            >
-              {availableApps.map((app) => (
-                <option key={app.id} value={app.id}>
-                  {app.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <>
+            <div className="node-config-section">
+              <label className="node-config-label">App</label>
+              <select
+                className="node-config-select"
+                value={appId || ''}
+                onChange={(e) => handleAppChange(e.target.value)}
+              >
+                {availableApps.map((app) => (
+                  <option key={app.id} value={app.id}>
+                    {app.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* ─── Connection Status ─── */}
+            {(isGmail || isSlack) && (
+              <div className="node-config-section">
+                <label className="node-config-label">Connection</label>
+                <div className="node-config-connection-status">
+                  {checkingStatus ? (
+                    <div className="connection-badge checking">
+                      <Loader2 size={14} className="spin" />
+                      <span>Checking…</span>
+                    </div>
+                  ) : isGmail ? (
+                    gmailConnected ? (
+                      <div className="connection-badge connected">
+                        <CheckCircle size={14} />
+                        <span>Gmail connected{connectionStatus?.gmail?.email ? ` (${connectionStatus.gmail.email})` : ''}</span>
+                      </div>
+                    ) : (
+                      <div className="connection-badge disconnected">
+                        <AlertCircle size={14} />
+                        <span>Gmail not connected</span>
+                        <button className="connect-btn" onClick={connectGmail}>
+                          <ExternalLink size={12} />
+                          Connect
+                        </button>
+                      </div>
+                    )
+                  ) : isSlack ? (
+                    slackConnected ? (
+                      <div className="connection-badge connected">
+                        <CheckCircle size={14} />
+                        <span>Slack connected{connectionStatus?.slack?.workspace ? ` (${connectionStatus.slack.workspace})` : ''}</span>
+                      </div>
+                    ) : (
+                      <div className="connection-badge disconnected">
+                        <AlertCircle size={14} />
+                        <span>Slack not connected</span>
+                        <button className="connect-btn" onClick={connectSlack}>
+                          <ExternalLink size={12} />
+                          Connect
+                        </button>
+                      </div>
+                    )
+                  ) : null}
+                  {!checkingStatus && (
+                    <button className="refresh-status-btn" onClick={checkStatus} title="Refresh status">
+                      ↻
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ─── Gmail-Specific Config ─── */}
+            {isGmail && (
+              <>
+                <div className="node-config-section">
+                  <label className="node-config-label">Gmail Action</label>
+                  <select
+                    className="node-config-select"
+                    value={config.gmail?.action || 'send'}
+                    onChange={(e) => setConfig({
+                      ...config,
+                      appType: 'gmail',
+                      gmail: { ...(config.gmail || {}), action: e.target.value },
+                    })}
+                  >
+                    <option value="send">Send Email</option>
+                    <option value="read">Read Emails</option>
+                    <option value="reply">Reply to Email</option>
+                    <option value="label">Apply Label</option>
+                    <option value="archive">Archive Email</option>
+                  </select>
+                </div>
+
+                {config.gmail?.action === 'send' && (
+                  <>
+                    <div className="node-config-section">
+                      <label className="node-config-label">To</label>
+                      <input
+                        type="email"
+                        className="node-config-input"
+                        value={config.gmail?.to || ''}
+                        onChange={(e) => setConfig({
+                          ...config,
+                          appType: 'gmail',
+                          gmail: { ...(config.gmail || {}), action: 'send', to: e.target.value },
+                        })}
+                        placeholder="recipient@example.com (or use {{input.email}})"
+                      />
+                    </div>
+                    <div className="node-config-section">
+                      <label className="node-config-label">Subject</label>
+                      <input
+                        type="text"
+                        className="node-config-input"
+                        value={config.gmail?.subject || ''}
+                        onChange={(e) => setConfig({
+                          ...config,
+                          appType: 'gmail',
+                          gmail: { ...(config.gmail || {}), action: 'send', subject: e.target.value },
+                        })}
+                        placeholder="Email subject"
+                      />
+                    </div>
+                    <div className="node-config-section">
+                      <label className="node-config-label">Body</label>
+                      <textarea
+                        className="node-config-textarea"
+                        value={config.gmail?.body || ''}
+                        onChange={(e) => setConfig({
+                          ...config,
+                          appType: 'gmail',
+                          gmail: { ...(config.gmail || {}), action: 'send', body: e.target.value },
+                        })}
+                        rows={5}
+                        placeholder="Email body (you can use {{input.data}} for dynamic content)"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {config.gmail?.action === 'read' && (
+                  <div className="node-config-section">
+                    <label className="node-config-label">Search Query (optional)</label>
+                    <input
+                      type="text"
+                      className="node-config-input"
+                      value={config.gmail?.query || ''}
+                      onChange={(e) => setConfig({
+                        ...config,
+                        appType: 'gmail',
+                        gmail: { ...(config.gmail || {}), action: 'read', query: e.target.value },
+                      })}
+                      placeholder="e.g. is:unread from:example.com"
+                    />
+                  </div>
+                )}
+
+                {config.gmail?.action === 'reply' && (
+                  <div className="node-config-section">
+                    <label className="node-config-label">Reply Body</label>
+                    <textarea
+                      className="node-config-textarea"
+                      value={config.gmail?.body || ''}
+                      onChange={(e) => setConfig({
+                        ...config,
+                        appType: 'gmail',
+                        gmail: { ...(config.gmail || {}), action: 'reply', body: e.target.value },
+                      })}
+                      rows={5}
+                      placeholder="Reply message body (use {{input.messageId}} for the original message)"
+                    />
+                  </div>
+                )}
+
+                {!gmailConnected && !checkingStatus && connectionStatus !== null && (
+                  <div className="node-config-info-box warning">
+                    <AlertCircle size={14} />
+                    <span>
+                      Gmail is not connected. The agent will run in <strong>simulated mode</strong> until you connect Gmail via the button above.
+                    </span>
+                  </div>
+                )}
+
+                {connectionStatus === null && !checkingStatus && (
+                  <div className="node-config-info-box info">
+                    <AlertCircle size={14} />
+                    <span>
+                      Backend is offline. Gmail actions will be <strong>simulated</strong> in demo mode. Start the server to use real Gmail.
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ─── Slack-Specific Config ─── */}
+            {isSlack && (
+              <>
+                <div className="node-config-section">
+                  <label className="node-config-label">Slack Action</label>
+                  <select
+                    className="node-config-select"
+                    value={config.slack?.action || 'send_message'}
+                    onChange={(e) => setConfig({
+                      ...config,
+                      appType: 'slack',
+                      slack: { ...(config.slack || {}), action: e.target.value },
+                    })}
+                  >
+                    <option value="send_message">Send Message</option>
+                    <option value="read_messages">Read Messages</option>
+                  </select>
+                </div>
+
+                {config.slack?.action === 'send_message' && (
+                  <>
+                    <div className="node-config-section">
+                      <label className="node-config-label">Channel</label>
+                      <input
+                        type="text"
+                        className="node-config-input"
+                        value={config.slack?.channel || ''}
+                        onChange={(e) => setConfig({
+                          ...config,
+                          appType: 'slack',
+                          slack: { ...(config.slack || {}), action: 'send_message', channel: e.target.value },
+                        })}
+                        placeholder="#general or channel ID"
+                      />
+                    </div>
+                    <div className="node-config-section">
+                      <label className="node-config-label">Message</label>
+                      <textarea
+                        className="node-config-textarea"
+                        value={config.slack?.message || ''}
+                        onChange={(e) => setConfig({
+                          ...config,
+                          appType: 'slack',
+                          slack: { ...(config.slack || {}), action: 'send_message', message: e.target.value },
+                        })}
+                        rows={4}
+                        placeholder="Message text (use {{input.data}} for dynamic content)"
+                      />
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </>
         )}
 
+        {/* ─── KNOWLEDGE NODE ─── */}
         {node.data.type === 'knowledge' && (
           <div className="node-config-section">
             <label className="node-config-label">Knowledge Base</label>
@@ -133,23 +434,56 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
           </div>
         )}
 
+        {/* ─── TRIGGER NODE ─── */}
         {node.data.type === 'trigger' && (
-          <div className="node-config-section">
-            <label className="node-config-label">Trigger Type</label>
-            <select
-              className="node-config-select"
-              value={config.triggerType || ''}
-              onChange={(e) => handleTriggerChange(e.target.value)}
-            >
-              {triggerTypes.map((trigger) => (
-                <option key={trigger.id} value={trigger.id}>
-                  {trigger.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <>
+            <div className="node-config-section">
+              <label className="node-config-label">Trigger Type</label>
+              <select
+                className="node-config-select"
+                value={config.triggerType || ''}
+                onChange={(e) => handleTriggerChange(e.target.value)}
+              >
+                {triggerTypes.map((trigger) => (
+                  <option key={trigger.id} value={trigger.id}>
+                    {trigger.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {config.triggerType === 'schedule' && (
+              <div className="node-config-section">
+                <label className="node-config-label">Frequency</label>
+                <select
+                  className="node-config-select"
+                  value={config.frequency || 'daily'}
+                  onChange={(e) => setConfig({ ...config, frequency: e.target.value })}
+                >
+                  <option value="hourly">Hourly</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+            )}
+
+            {config.triggerType === 'webhook' && (
+              <div className="node-config-section">
+                <label className="node-config-label">Webhook URL</label>
+                <input
+                  type="text"
+                  className="node-config-input"
+                  value={config.webhookUrl || ''}
+                  readOnly
+                  placeholder="URL will be generated after deployment"
+                />
+              </div>
+            )}
+          </>
         )}
 
+        {/* ─── ACTION NODE ─── */}
         {node.data.type === 'action' && (
           <div className="node-config-section">
             <label className="node-config-label">Action Type</label>
@@ -167,17 +501,58 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
           </div>
         )}
 
+        {/* ─── AI NODE ─── */}
         {node.data.type === 'ai' && (
-          <div className="node-config-section">
-            <label className="node-config-label">AI Prompt</label>
-            <textarea
-              className="node-config-textarea"
-              value={config.prompt || ''}
-              onChange={(e) => setConfig({ ...config, prompt: e.target.value })}
-              placeholder="Describe what the AI should do..."
-              rows={4}
-            />
-          </div>
+          <>
+            <div className="node-config-section">
+              <label className="node-config-label">AI Prompt</label>
+              <textarea
+                className="node-config-textarea"
+                value={config.prompt || ''}
+                onChange={(e) => setConfig({ ...config, prompt: e.target.value })}
+                placeholder="Describe what the AI should do with the input data..."
+                rows={5}
+              />
+            </div>
+            <div className="node-config-section">
+              <label className="node-config-label">System Prompt (optional)</label>
+              <textarea
+                className="node-config-textarea"
+                value={config.systemPrompt || ''}
+                onChange={(e) => setConfig({ ...config, systemPrompt: e.target.value })}
+                placeholder="Set AI persona / instructions..."
+                rows={3}
+              />
+            </div>
+            <div className="node-config-section">
+              <label className="node-config-label">Model</label>
+              <select
+                className="node-config-select"
+                value={config.model || 'gpt-4'}
+                onChange={(e) => setConfig({ ...config, model: e.target.value })}
+              >
+                <option value="gpt-4">GPT-4</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              </select>
+            </div>
+            <div className="node-config-section">
+              <label className="node-config-label">Temperature ({config.temperature ?? 0.7})</label>
+              <input
+                type="range"
+                className="node-config-range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={config.temperature ?? 0.7}
+                onChange={(e) => setConfig({ ...config, temperature: parseFloat(e.target.value) })}
+              />
+              <div className="node-config-range-labels">
+                <span>Precise</span>
+                <span>Creative</span>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -194,4 +569,3 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
     </div>
   );
 }
-

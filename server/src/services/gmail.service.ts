@@ -381,6 +381,34 @@ export const GmailService = {
     return connectionState;
   },
 
+  /** Send a NEW email (not a reply to an existing thread) */
+  async sendNewEmail(to: string, subject: string, body: string): Promise<{ messageId: string; success: boolean }> {
+    if (!gmailClient) throw new Error('Gmail not connected');
+
+    const emailLines = [
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      body,
+    ];
+
+    const rawEmail = Buffer.from(emailLines.join('\r\n'))
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    const result = await gmailClient.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: rawEmail,
+      },
+    });
+
+    return { messageId: result.data.id || '', success: true };
+  },
+
   /** Disconnect Gmail */
   disconnect(): void {
     oauth2Client = new OAuth2(

@@ -1,23 +1,35 @@
+/* ═══════════════════════════════════════════════════════════
+   Node Config Panel — Sidebar panel for configuring workflow
+   nodes (Gmail, Slack, AI, triggers, etc.)
+
+   Uses hardcoded dark theme values to avoid being overridden
+   by the global light theme.
+   ═══════════════════════════════════════════════════════════ */
+
 .node-config-panel {
   position: fixed;
   right: 0;
   top: 0;
   bottom: 0;
-  width: 360px;
-  background: var(--bg-secondary, #1a1a2e);
-  border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  width: 380px;
+  background: #1a1a2e;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
   z-index: 100;
-  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.3);
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4);
+  color: #ffffff;
 }
+
+/* ─── Header ─────────────────────────────────────────── */
 
 .node-config-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0f0f1e;
 }
 
 .node-config-header-left {
@@ -26,13 +38,13 @@
   gap: 0.75rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--text-primary, #ffffff);
+  color: #ffffff;
 }
 
 .node-config-close {
-  background: transparent;
+  background: transparent !important;
   border: none;
-  color: var(--text-secondary, #9ca3af);
+  color: #9ca3af;
   cursor: pointer;
   padding: 0.5rem;
   border-radius: 6px;
@@ -40,9 +52,11 @@
 }
 
 .node-config-close:hover {
-  background: var(--bg-tertiary, #2a2a3e);
-  color: var(--text-primary, #ffffff);
+  background: #2a2a3e !important;
+  color: #ffffff;
 }
+
+/* ─── Content ────────────────────────────────────────── */
 
 .node-config-content {
   flex: 1;
@@ -51,14 +65,14 @@
 }
 
 .node-config-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .node-config-label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: var(--text-secondary, #9ca3af);
+  color: #9ca3af;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
@@ -68,22 +82,28 @@
 .node-config-textarea,
 .node-config-select {
   width: 100%;
-  background: var(--bg-tertiary, #2a2a3e);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: #2a2a3e !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-radius: 6px;
   padding: 0.625rem 0.75rem;
-  color: var(--text-primary, #ffffff);
+  color: #ffffff !important;
   font-size: 0.875rem;
   font-family: inherit;
   outline: none;
   transition: all 0.2s;
+  box-sizing: border-box;
 }
 
 .node-config-input:focus,
 .node-config-textarea:focus,
 .node-config-select:focus {
-  border-color: var(--accent-purple, #8b5cf6);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.node-config-input::placeholder,
+.node-config-textarea::placeholder {
+  color: #6b7280;
 }
 
 .node-config-textarea {
@@ -93,7 +113,156 @@
 
 .node-config-select {
   cursor: pointer;
+  appearance: auto;
 }
+
+.node-config-select option {
+  background: #2a2a3e;
+  color: #ffffff;
+}
+
+/* ─── Range (temperature slider) ─────────────────────── */
+
+.node-config-range {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: #2a2a3e;
+  border-radius: 4px;
+  outline: none;
+  margin-top: 0.25rem;
+}
+
+.node-config-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  cursor: pointer;
+  border: 2px solid #1a1a2e;
+}
+
+.node-config-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+/* ─── Connection Status ──────────────────────────────── */
+
+.node-config-connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.connection-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  flex: 1;
+}
+
+.connection-badge.connected {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.connection-badge.disconnected {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  flex-wrap: wrap;
+}
+
+.connection-badge.checking {
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  color: #8b5cf6;
+}
+
+.connect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #8b5cf6 !important;
+  color: white !important;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-left: auto;
+}
+
+.connect-btn:hover {
+  background: #7c3aed !important;
+}
+
+.refresh-status-btn {
+  background: #2a2a3e !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #9ca3af !important;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 1rem;
+  line-height: 1;
+  transition: all 0.2s;
+}
+
+.refresh-status-btn:hover {
+  background: #3a3a4e !important;
+  color: #ffffff !important;
+}
+
+/* ─── Info Boxes ─────────────────────────────────────── */
+
+.node-config-info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.node-config-info-box svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.node-config-info-box.warning {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: #f59e0b;
+}
+
+.node-config-info-box.info {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #93c5fd;
+}
+
+.node-config-info-box strong {
+  color: inherit;
+  font-weight: 600;
+}
+
+/* ─── Footer ─────────────────────────────────────────── */
 
 .node-config-footer {
   display: flex;
@@ -101,7 +270,8 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0f0f1e;
 }
 
 .node-config-btn {
@@ -119,23 +289,33 @@
 }
 
 .node-config-btn-primary {
-  background: var(--accent-purple, #8b5cf6);
-  color: white;
+  background: #8b5cf6 !important;
+  color: white !important;
   flex: 1;
 }
 
 .node-config-btn-primary:hover {
-  background: var(--accent-purple-dark, #7c3aed);
+  background: #7c3aed !important;
 }
 
 .node-config-btn-danger {
-  background: var(--bg-tertiary, #2a2a3e);
-  color: var(--text-danger, #ef4444);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: #2a2a3e !important;
+  color: #ef4444 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 .node-config-btn-danger:hover {
-  background: var(--bg-hover, #3a3a4e);
-  border-color: var(--text-danger, #ef4444);
+  background: #3a3a4e !important;
+  border-color: #ef4444 !important;
 }
 
+/* ─── Spinner ────────────────────────────────────────── */
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

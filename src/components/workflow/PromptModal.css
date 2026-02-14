@@ -13,7 +13,7 @@
 }
 
 .prompt-modal {
-  background: var(--bg-secondary, #1a1a2e);
+  background: #1a1a2e;
   border-radius: 12px;
   width: 90%;
   max-width: 700px;
@@ -21,7 +21,8 @@
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .prompt-modal-header {
@@ -29,7 +30,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.5rem;
-  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .prompt-modal-header-left {
@@ -46,26 +47,26 @@
   height: 40px;
   border-radius: 8px;
   background: rgba(139, 92, 246, 0.2);
-  color: var(--accent-purple, #8b5cf6);
+  color: #8b5cf6;
 }
 
 .prompt-modal-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--text-primary, #ffffff);
+  color: #ffffff;
   margin: 0 0 0.25rem 0;
 }
 
 .prompt-modal-subtitle {
   font-size: 0.875rem;
-  color: var(--text-secondary, #9ca3af);
+  color: #9ca3af;
   margin: 0;
 }
 
 .prompt-modal-close {
-  background: transparent;
+  background: transparent !important;
   border: none;
-  color: var(--text-secondary, #9ca3af);
+  color: #9ca3af;
   cursor: pointer;
   padding: 0.5rem;
   border-radius: 6px;
@@ -73,8 +74,8 @@
 }
 
 .prompt-modal-close:hover {
-  background: var(--bg-tertiary, #2a2a3e);
-  color: var(--text-primary, #ffffff);
+  background: #2a2a3e !important;
+  color: #ffffff;
 }
 
 .prompt-modal-content {
@@ -89,11 +90,11 @@
 
 .prompt-input {
   width: 100%;
-  background: var(--bg-tertiary, #2a2a3e);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: #2a2a3e !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 1rem;
-  color: var(--text-primary, #ffffff);
+  color: #ffffff !important;
   font-size: 0.875rem;
   font-family: inherit;
   resize: vertical;
@@ -102,12 +103,12 @@
 }
 
 .prompt-input:focus {
-  border-color: var(--accent-purple, #8b5cf6);
+  border-color: #8b5cf6;
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
 }
 
 .prompt-input::placeholder {
-  color: var(--text-tertiary, #6b7280);
+  color: #6b7280;
 }
 
 .prompt-input-footer {
@@ -119,7 +120,7 @@
 
 .prompt-hint {
   font-size: 0.75rem;
-  color: var(--text-tertiary, #6b7280);
+  color: #6b7280;
 }
 
 .prompt-examples {
@@ -129,7 +130,7 @@
 .prompt-examples-header {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-secondary, #9ca3af);
+  color: #9ca3af;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.75rem;
@@ -146,10 +147,10 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  background: var(--bg-tertiary, #2a2a3e);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: #2a2a3e !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  color: var(--text-primary, #ffffff);
+  color: #ffffff !important;
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -157,8 +158,8 @@
 }
 
 .prompt-example:hover {
-  background: var(--bg-hover, #3a3a4e);
-  border-color: var(--accent-purple, #8b5cf6);
+  background: #3a3a4e !important;
+  border-color: #8b5cf6;
   transform: translateX(4px);
 }
 
@@ -172,7 +173,7 @@
   justify-content: flex-end;
   gap: 0.75rem;
   padding: 1.5rem;
-  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .prompt-btn {
@@ -190,12 +191,12 @@
 }
 
 .prompt-btn-primary {
-  background: var(--accent-purple, #8b5cf6);
-  color: white;
+  background: #8b5cf6 !important;
+  color: white !important;
 }
 
 .prompt-btn-primary:hover:not(:disabled) {
-  background: var(--accent-purple-dark, #7c3aed);
+  background: #7c3aed !important;
   transform: translateY(-1px);
 }
 
@@ -205,13 +206,13 @@
 }
 
 .prompt-btn-secondary {
-  background: var(--bg-tertiary, #2a2a3e);
-  color: var(--text-primary, #ffffff);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: #2a2a3e !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .prompt-btn-secondary:hover {
-  background: var(--bg-hover, #3a3a4e);
+  background: #3a3a4e !important;
 }
 
 .prompt-spinner {
@@ -220,12 +221,11 @@
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: white;
   border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+  animation: prompt-spin 0.6s linear infinite;
 }
 
-@keyframes spin {
+@keyframes prompt-spin {
   to {
     transform: rotate(360deg);
   }
 }
-

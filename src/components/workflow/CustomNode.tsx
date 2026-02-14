@@ -1,11 +1,24 @@
 import { Handle, Position } from '@xyflow/react';
 import { memo } from 'react';
 import { WorkflowNode } from './WorkflowBuilder';
+import { Bell, Cloud, Database, Zap, Brain, HelpCircle } from 'lucide-react';
 
 interface CustomNodeProps {
   data: WorkflowNode['data'];
   selected?: boolean;
 }
+
+const DefaultIcon = ({ type }: { type: string }) => {
+  const size = 18;
+  switch (type) {
+    case 'trigger': return <Bell size={size} />;
+    case 'app': return <Cloud size={size} />;
+    case 'knowledge': return <Database size={size} />;
+    case 'action': return <Zap size={size} />;
+    case 'ai': return <Brain size={size} />;
+    default: return <HelpCircle size={size} />;
+  }
+};
 
 export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
   const getNodeColor = () => {
@@ -25,18 +38,26 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
     }
   };
 
+  const nodeColor = getNodeColor();
+
   return (
     <div
       className={`custom-node ${selected ? 'selected' : ''}`}
       style={{
-        borderColor: getNodeColor(),
+        borderColor: nodeColor,
       }}
     >
       <Handle type="target" position={Position.Top} className="node-handle" />
       
       <div className="custom-node-content">
-        <div className="custom-node-icon" style={{ color: getNodeColor() }}>
-          {data.icon}
+        <div
+          className="custom-node-icon"
+          style={{
+            color: nodeColor,
+            background: `${nodeColor}20`,
+          }}
+        >
+          {data.icon || <DefaultIcon type={data.type} />}
         </div>
         <div className="custom-node-info">
           <div className="custom-node-label">{data.label}</div>
@@ -52,4 +73,3 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
 });
 
 CustomNode.displayName = 'CustomNode';
-
