@@ -374,14 +374,14 @@ marker[id*="arrowclosed"] path {
 
 /* Deploy Button */
 .workflow-btn-deploy {
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
-  color: white;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+  color: #ffffff !important;
   font-weight: 600;
   box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 }
 
 .workflow-btn-deploy:hover:not(:disabled) {
-  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%) !important;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
 }
@@ -593,21 +593,21 @@ marker[id*="arrowclosed"] path {
 }
 
 .deploy-btn-cancel {
-  background: var(--wf-bg-tertiary, #2a2a3e);
-  color: var(--wf-text-primary, #ffffff);
+  background: var(--wf-bg-tertiary, #2a2a3e) !important;
+  color: var(--wf-text-primary, #ffffff) !important;
 }
 
 .deploy-btn-cancel:hover:not(:disabled) {
-  background: var(--wf-bg-hover, #3a3a4e);
+  background: var(--wf-bg-hover, #3a3a4e) !important;
 }
 
 .deploy-btn-confirm {
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
-  color: white;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+  color: #ffffff !important;
 }
 
 .deploy-btn-confirm:hover:not(:disabled) {
-  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%) !important;
   transform: translateY(-1px);
 }
 

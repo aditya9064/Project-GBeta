@@ -423,7 +423,13 @@ export function CrewOSDashboard() {
   const [agentPrompt, setAgentPrompt] = useState('');
   const [isCreatingFromPrompt, setIsCreatingFromPrompt] = useState(false);
   const [runningAgentId, setRunningAgentId] = useState<string | null>(null);
-  const [executionResult, setExecutionResult] = useState<{ agentName: string; success: boolean; message: string; isReal: boolean } | null>(null);
+  const [executionResult, setExecutionResult] = useState<{
+    agentName: string;
+    success: boolean;
+    message: string;
+    isReal: boolean;
+    nodeDetails?: { name: string; type: string; status: string; isReal: boolean }[];
+  } | null>(null);
 
   // Handle OAuth callback redirect — auto-switch to Communications page
   useEffect(() => {
@@ -545,17 +551,33 @@ export function CrewOSDashboard() {
     try {
       const result = await runAgent(agentId);
       const hasRealExecution = result.logs?.some(l => l.isReal) || false;
+      const allSimulated = result.logs?.every(l => !l.isReal) ?? true;
+      const nodeDetails = result.logs?.map(l => ({
+        name: l.nodeName,
+        type: l.nodeType,
+        status: l.status,
+        isReal: l.isReal,
+      })) || [];
+
+      let message: string;
+      if (!result.success) {
+        message = `Agent "${agent.name}" failed: ${result.error}`;
+      } else if (allSimulated) {
+        message = `Test run completed for "${agent.name}" — No real actions were taken. Connect a backend server with API keys to execute real automations.`;
+      } else {
+        message = `Agent "${agent.name}" executed successfully via live APIs!`;
+      }
+
       setExecutionResult({
         agentName: agent.name,
         success: result.success,
-        message: result.success 
-          ? `Agent "${agent.name}" executed successfully! ${hasRealExecution ? '(Real APIs)' : '(Simulated)'}`
-          : `Agent "${agent.name}" failed: ${result.error}`,
+        message,
         isReal: hasRealExecution,
+        nodeDetails,
       });
       
-      // Auto-dismiss after 5 seconds
-      setTimeout(() => setExecutionResult(null), 5000);
+      // Auto-dismiss after 8 seconds (longer for simulated to let users read)
+      setTimeout(() => setExecutionResult(null), allSimulated ? 8000 : 5000);
     } catch (err: any) {
       setExecutionResult({
         agentName: agent.name,
@@ -987,14 +1009,33 @@ export function CrewOSDashboard() {
               </div>
               {/* Execution result toast */}
               {executionResult && (
-                <div className={`crewos-execution-toast ${executionResult.success ? 'success' : 'error'}`}>
+                <div className={`crewos-execution-toast ${
+                  !executionResult.success ? 'error' : executionResult.isReal ? 'success' : 'simulated'
+                }`}>
                   <div className="crewos-execution-toast-icon">
-                    {executionResult.success ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                    {!executionResult.success ? (
+                      <AlertCircle size={18} />
+                    ) : executionResult.isReal ? (
+                      <CheckCircle2 size={18} />
+                    ) : (
+                      <AlertTriangle size={18} />
+                    )}
                   </div>
                   <div className="crewos-execution-toast-content">
                     <span className="crewos-execution-toast-message">{executionResult.message}</span>
-                    {executionResult.isReal && (
-                      <span className="crewos-execution-toast-badge">Real API Execution</span>
+                    {executionResult.isReal ? (
+                      <span className="crewos-execution-toast-badge real">✓ Real API Execution</span>
+                    ) : executionResult.success ? (
+                      <span className="crewos-execution-toast-badge demo">⚡ Demo Mode — Simulated Only</span>
+                    ) : null}
+                    {executionResult.nodeDetails && executionResult.nodeDetails.length > 0 && (
+                      <div className="crewos-execution-node-details">
+                        {executionResult.nodeDetails.map((node, i) => (
+                          <span key={i} className={`crewos-execution-node ${node.isReal ? 'real' : 'simulated'}`}>
+                            {node.isReal ? '●' : '○'} {node.name}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
                   <button className="crewos-execution-toast-close" onClick={() => setExecutionResult(null)}>
@@ -1002,8 +1043,32 @@ export function CrewOSDashboard() {
                   </button>
                 </div>
               )}
+              {/* Demo mode info banner */}
+              {!backendStatus && automationAgents.length > 0 && (
+                <div className="crewos-demo-banner">
+                  <div className="crewos-demo-banner-icon">
+                    <AlertTriangle size={16} />
+                  </div>
+                  <div className="crewos-demo-banner-content">
+                    <strong>Demo Mode</strong> — No backend server connected. Running agents will simulate execution with mock data. 
+                    To execute real automations (Gmail, Slack, AI), connect a backend server with API keys.
+                  </div>
+                </div>
+              )}
               <div className="crewos-automation-grid">
-                {automationAgents.map((agent: AutomationAgent) => (
+                {automationAgents.map((agent: AutomationAgent) => {
+                  // Detect which services this agent needs
+                  const requiredServices: string[] = [];
+                  agent.workflow.nodes.forEach(n => {
+                    const config = n.config as any;
+                    if (n.type === 'app' && config?.appType) {
+                      const appName = config.appType.charAt(0).toUpperCase() + config.appType.slice(1);
+                      if (!requiredServices.includes(appName)) requiredServices.push(appName);
+                    }
+                    if (n.type === 'ai') requiredServices.includes('AI') || requiredServices.push('AI');
+                  });
+
+                  return (
                   <div key={agent.id} className="crewos-automation-card">
                     <div className="crewos-automation-card-header">
                       <div className={`crewos-automation-card-icon ${agent.status === 'active' ? 'active' : agent.status === 'paused' ? 'paused' : ''}`}>
@@ -1025,6 +1090,24 @@ export function CrewOSDashboard() {
                         )}
                       </div>
                     </div>
+                    {/* Required services */}
+                    {requiredServices.length > 0 && (
+                      <div className="crewos-automation-services">
+                        {requiredServices.map(s => {
+                          const isConnected = backendStatus && (
+                            (s.toLowerCase() === 'gmail' && backendStatus.gmail.connected) ||
+                            (s.toLowerCase() === 'slack' && backendStatus.slack.connected) ||
+                            (s.toLowerCase() === 'ai' && backendStatus.ai.configured)
+                          );
+                          return (
+                            <span key={s} className={`crewos-service-badge ${isConnected ? 'connected' : 'disconnected'}`}>
+                              {isConnected ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
+                              {s}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                     <div className="crewos-automation-card-stats">
                       <div className="crewos-automation-stat">
                         <span className="crewos-automation-stat-value">{agent.workflow.nodes.length}</span>
@@ -1032,7 +1115,7 @@ export function CrewOSDashboard() {
                       </div>
                       <div className="crewos-automation-stat">
                         <span className="crewos-automation-stat-value">{agent.totalExecutions}</span>
-                        <span className="crewos-automation-stat-label">Runs</span>
+                        <span className="crewos-automation-stat-label">Test Runs</span>
                       </div>
                       <div className="crewos-automation-stat">
                         <span className="crewos-automation-stat-value">
@@ -1046,12 +1129,14 @@ export function CrewOSDashboard() {
                         className="crewos-automation-action-btn crewos-automation-run-btn"
                         onClick={() => handleRunAgent(agent.id)}
                         disabled={agent.status !== 'active' || runningAgentId === agent.id}
-                        title={runningAgentId === agent.id ? 'Running...' : 'Run now'}
+                        title={runningAgentId === agent.id ? 'Running...' : backendStatus ? 'Run now' : 'Test run (simulated)'}
                       >
                         {runningAgentId === agent.id ? (
                           <><Loader2 size={14} className="crewos-spin" /> Running...</>
-                        ) : (
+                        ) : backendStatus ? (
                           <><Play size={14} /> Run</>
+                        ) : (
+                          <><Play size={14} /> Test Run</>
                         )}
                       </button>
                       {agent.status === 'active' ? (
@@ -1086,7 +1171,8 @@ export function CrewOSDashboard() {
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
