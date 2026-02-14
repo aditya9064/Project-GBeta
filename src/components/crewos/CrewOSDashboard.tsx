@@ -1,11 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Activity,
   Layers,
   AlertTriangle,
-  Settings,
   Search,
   Calendar,
   Plus,
@@ -378,10 +375,6 @@ const pathToNav: Record<string, string> = {
   '/docai': 'docai',
   '/sales': 'sales',
   '/workflow': 'workflow',
-  '/overview': 'overview',
-  '/activity': 'activity',
-  '/escalations': 'escalations',
-  '/settings': 'settings',
 };
 
 const navToPath: Record<string, string> = {
@@ -390,10 +383,6 @@ const navToPath: Record<string, string> = {
   docai: '/docai',
   sales: '/sales',
   workflow: '/workflow',
-  overview: '/overview',
-  activity: '/activity',
-  escalations: '/escalations',
-  settings: '/settings',
 };
 
 export function CrewOSDashboard() {
@@ -777,23 +766,6 @@ export function CrewOSDashboard() {
             </button>
 
             <button
-              className={`crewos-nav-item ${activeNav === 'overview' ? 'active' : ''}`}
-              onClick={() => setActiveNav('overview')}
-            >
-              <span className="crewos-nav-item-icon"><LayoutDashboard size={18} /></span>
-              <span className="crewos-nav-item-text">Overview</span>
-              <span className="crewos-badge">12</span>
-            </button>
-
-            <button
-              className={`crewos-nav-item ${activeNav === 'activity' ? 'active' : ''}`}
-              onClick={() => setActiveNav('activity')}
-            >
-              <span className="crewos-nav-item-icon"><Activity size={18} /></span>
-              <span className="crewos-nav-item-text">Activity</span>
-            </button>
-
-            <button
               className={`crewos-nav-item ${activeNav === 'comms' ? 'active' : ''}`}
               onClick={() => setActiveNav('comms')}
             >
@@ -826,23 +798,6 @@ export function CrewOSDashboard() {
             >
               <span className="crewos-nav-item-icon"><GitBranch size={18} /></span>
               <span className="crewos-nav-item-text">Automation Builder</span>
-            </button>
-
-            <button
-              className={`crewos-nav-item ${activeNav === 'escalations' ? 'active' : ''}`}
-              onClick={() => setActiveNav('escalations')}
-            >
-              <span className="crewos-nav-item-icon"><AlertTriangle size={18} /></span>
-              <span className="crewos-nav-item-text">Escalations</span>
-              <span className="crewos-badge">3</span>
-            </button>
-
-            <button
-              className={`crewos-nav-item ${activeNav === 'settings' ? 'active' : ''}`}
-              onClick={() => setActiveNav('settings')}
-            >
-              <span className="crewos-nav-item-icon"><Settings size={18} /></span>
-              <span className="crewos-nav-item-text">Settings</span>
             </button>
 
             <button
