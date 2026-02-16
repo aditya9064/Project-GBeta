@@ -9,6 +9,7 @@ import { messagesRouter } from './routes/messages.js';
 import { connectionsRouter } from './routes/connections.js';
 import { aiRouter } from './routes/ai.js';
 import { automationRouter } from './routes/automation.js';
+import { documentsRouter } from './routes/documents.js';
 
 export const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/messages', messagesRouter);
 app.use('/api/connections', connectionsRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/automation', automationRouter);
+app.use('/api/documents', documentsRouter);
 
 /* ─── Health check ─────────────────────────────────────── */
 

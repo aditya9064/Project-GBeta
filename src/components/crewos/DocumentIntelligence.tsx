@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   FileText,
   Upload,
@@ -52,6 +52,8 @@ import {
   type GeneratedDocument,
   type DocumentTemplateDef,
 } from '../../services/documentGeneration';
+import { useAuth } from '../../contexts/AuthContext';
+import { DocumentReplicationAgent } from './documentReplication';
 
 /* ─── TYPES ──────────────────────────────────────────────── */
 
@@ -163,10 +165,19 @@ const templateColors: Record<string, string> = {
 
 /* ─── COMPONENT ──────────────────────────────────────────── */
 
-type ActiveView = 'models' | 'generate' | 'pipeline';
+type ActiveView = 'models' | 'generate' | 'pipeline' | 'replicate';
 
-export function DocumentIntelligence() {
-  const [activeView, setActiveView] = useState<ActiveView>('models');
+interface DocumentIntelligenceProps {
+  initialView?: ActiveView;
+}
+
+export function DocumentIntelligence(props: DocumentIntelligenceProps = {}) {
+  const { initialView } = props;
+  const { user } = useAuth();
+  const [activeView, setActiveView] = useState<ActiveView>(initialView ?? 'models');
+  useEffect(() => {
+    if (initialView) setActiveView(initialView);
+  }, [initialView]);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [wizardStep, setWizardStep] = useState(0); // 0 = template select, 1 = intake, 2 = generating, 3 = review
   const [expandedModel, setExpandedModel] = useState<string | null>(null);
@@ -963,6 +974,13 @@ export function DocumentIntelligence() {
               <GitBranch size={15} />
               How It Works
             </button>
+            <button
+              className={`docai-header-tab ${activeView === 'replicate' ? 'active' : ''}`}
+              onClick={() => setActiveView('replicate')}
+            >
+              <Upload size={15} />
+              Replicate
+            </button>
           </div>
         </div>
         <div className="docai-header-right">
@@ -970,9 +988,12 @@ export function DocumentIntelligence() {
             <Plus size={16} />
             New Document
           </button>
-          <button className="docai-btn-secondary">
+          <button
+            className="docai-btn-secondary"
+            onClick={() => setActiveView('replicate')}
+          >
             <Upload size={15} />
-            Upload
+            Replicate
           </button>
         </div>
       </div>
@@ -982,6 +1003,12 @@ export function DocumentIntelligence() {
         {activeView === 'models' && renderModelsView()}
         {activeView === 'generate' && renderGenerateView()}
         {activeView === 'pipeline' && renderPipelineView()}
+        {activeView === 'replicate' && (
+          <DocumentReplicationAgent
+            userId={user?.uid ?? 'anonymous'}
+            onBack={() => setActiveView('models')}
+          />
+        )}
       </div>
     </div>
   );

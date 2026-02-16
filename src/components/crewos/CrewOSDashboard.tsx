@@ -209,6 +209,20 @@ const agentCatalog: CatalogAgent[] = [
       { id: 'v1', version: 'v1.0', releaseDate: '18 Dec 2025', changes: 'Initial employment agreement generation with core terms', availability: 'stable', accuracy: '94.8%', latency: '2.0min' },
     ],
   },
+  {
+    id: 'cat-docgen-replicate',
+    name: 'Document Replication Agent',
+    description: 'Upload any document template (PDF, DOCX). AI detects variable fields; you map, fill data, and generate new documents with the same structure.',
+    category: 'Document Generation',
+    icon: 'docgen',
+    tags: [
+      { label: 'Doc Gen', className: 'crewos-tag-generation' },
+      { label: 'Template', className: 'crewos-tag-workflow' },
+    ],
+    versions: [
+      { id: 'v1', version: 'v1.0', releaseDate: '14 Feb 2026', changes: 'Upload PDF/DOCX, AI variable detection, field mapping, data entry, PDF generation', availability: 'stable', accuracy: '—', latency: '~10s' },
+    ],
+  },
   /* ─── COMMUNICATIONS AGENTS ─────────────────────────────── */
   {
     id: 'cat-email',
@@ -373,6 +387,7 @@ const pathToNav: Record<string, string> = {
   '/dashboard': 'agents',
   '/comms': 'comms',
   '/docai': 'docai',
+  '/docai/replicate': 'docai',
   '/sales': 'sales',
   '/workflow': 'workflow',
 };
@@ -490,6 +505,8 @@ export function CrewOSDashboard() {
     const catAgent = agentCatalog.find(c => c.id === agent.catalogId);
     if (catAgent?.category === 'Communications') {
       setActiveNav('comms');
+    } else if (catAgent?.id === 'cat-docgen-replicate') {
+      navigate('/docai/replicate');
     } else if (catAgent?.category === 'Document Generation') {
       setActiveNav('docai');
     } else if (catAgent?.category === 'Sales Intelligence') {
@@ -497,7 +514,7 @@ export function CrewOSDashboard() {
     } else {
       setSelectedAgent(agent);
     }
-  }, [setActiveNav]);
+  }, [setActiveNav, navigate]);
 
   /* Handle deploying from Workflow Builder */
   const handleWorkflowDeploy = useCallback(async (name: string, description: string, workflow: WorkflowDefinition) => {
@@ -874,7 +891,11 @@ export function CrewOSDashboard() {
         {isComms && <CommunicationsAgent />}
 
         {/* Document Intelligence View */}
-        {isDocAI && <DocumentIntelligence />}
+        {isDocAI && (
+          <DocumentIntelligence
+            initialView={location.pathname === '/docai/replicate' ? 'replicate' : undefined}
+          />
+        )}
 
         {/* Sales Intelligence View */}
         {isSales && <SalesIntelligence />}
