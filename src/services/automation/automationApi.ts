@@ -17,6 +17,7 @@ export interface AutomationStatus {
   gmail: { connected: boolean; email?: string };
   slack: { connected: boolean; workspace?: string };
   ai: { configured: boolean };
+  browser?: { available: boolean; engine?: string; activeSessions?: number };
 }
 
 export interface GmailSendResult {
@@ -214,4 +215,68 @@ export const AutomationHttpAPI = {
     return null;
   },
 };
+
+/* ═══ BROWSER (Puppeteer) ════════════════════════════════ */
+
+export interface BrowserActionResult {
+  success: boolean;
+  action: string;
+  data?: any;
+  screenshot?: string;
+  error?: string;
+  url?: string;
+  title?: string;
+  timestamp: string;
+}
+
+export const AutomationBrowserAPI = {
+  async createSession(sessionId: string, opts?: {
+    headless?: boolean;
+    width?: number;
+    height?: number;
+  }): Promise<{ sessionId: string; status: string } | null> {
+    const result = await autoFetch<{ sessionId: string; status: string }>('/browser/session', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, ...opts }),
+    });
+    if (result.success && result.data) return result.data;
+    console.error('[AutomationAPI] Browser session create failed:', result.error);
+    return null;
+  },
+
+  async closeSession(sessionId: string): Promise<boolean> {
+    const result = await autoFetch(`/browser/session/${sessionId}`, { method: 'DELETE' });
+    return result.success;
+  },
+
+  async listSessions(): Promise<any[]> {
+    const result = await autoFetch<any[]>('/browser/sessions');
+    if (result.success && result.data) return result.data;
+    return [];
+  },
+
+  async action(sessionId: string, action: string, params: Record<string, any> = {}): Promise<BrowserActionResult | null> {
+    const result = await autoFetch<BrowserActionResult>('/browser/action', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, action, ...params }),
+    });
+    if (result.success && result.data) return result.data;
+    console.error(`[AutomationAPI] Browser action "${action}" failed:`, result.error);
+    return null;
+  },
+
+  async screenshot(sessionId: string, fullPage = false): Promise<string | null> {
+    const result = await autoFetch<{ screenshot: string }>(`/browser/screenshot/${sessionId}?fullPage=${fullPage}`);
+    if (result.success && result.data) return result.data.screenshot;
+    return null;
+  },
+
+  async getStatus(): Promise<{ available: boolean; engine: string; activeSessions: number } | null> {
+    const result = await autoFetch<{ available: boolean; engine: string; activeSessions: number }>('/browser/status');
+    if (result.success && result.data) return result.data;
+    return null;
+  },
+};
+
+
 

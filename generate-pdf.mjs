@@ -99,7 +99,7 @@ async function generatePDF() {
   console.log('📐 Generating PDF...');
 
   await page.pdf({
-    path: path.resolve(__dirname, 'CrewOS-Pitch-Deck.pdf'),
+    path: path.resolve(__dirname, 'OperonAI-Pitch-Deck.pdf'),
     width: '1920px',
     height: '1080px',
     printBackground: true,
@@ -108,7 +108,7 @@ async function generatePDF() {
     scale: 1,
   });
 
-  console.log('✅ PDF saved: CrewOS-Pitch-Deck.pdf');
+  console.log('✅ PDF saved: OperonAI-Pitch-Deck.pdf');
   await browser.close();
   console.log('🎉 Done!');
 }

@@ -10,7 +10,6 @@
   background: #f5f5f9;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   overflow: hidden;
-  margin-left: 280px;
 }
 
 /* ─── Header ──────────────────────────────────────────────── */
@@ -1461,10 +1460,11 @@
 
 /* Architecture banner */
 .sales-arch-banner {
-  background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 50%, #3a3a52 100%);
+  background: linear-gradient(135deg, #f8f4f0 0%, #fef5ed 50%, #fff7f0 100%);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(26,26,46,0.15);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  border: 1px solid rgba(224, 122, 58, 0.12);
 }
 
 .sales-arch-banner-content {
@@ -1493,13 +1493,13 @@
 .sales-arch-banner-text h3 {
   font-size: 18px;
   font-weight: 700;
-  color: #fff;
+  color: #1a1a2e;
   margin: 0 0 6px;
 }
 
 .sales-arch-banner-text p {
   font-size: 13px;
-  color: rgba(255,255,255,0.65);
+  color: #6a6a80;
   margin: 0;
   line-height: 1.5;
 }
@@ -1518,12 +1518,12 @@
   display: block;
   font-size: 24px;
   font-weight: 800;
-  color: #fff;
+  color: #e07a3a;
 }
 
 .sales-arch-stat-label {
   font-size: 11px;
-  color: rgba(255,255,255,0.5);
+  color: #6a6a80;
   font-weight: 500;
 }
 

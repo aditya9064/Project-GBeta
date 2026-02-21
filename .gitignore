@@ -28,6 +28,12 @@ npm-debug.log*
 # TypeScript cache
 *.tsbuildinfo
 
+# Workflow source data (fetched at build time)
+workflow-sources/
+public/workflows/
+
+
+
 
 
 

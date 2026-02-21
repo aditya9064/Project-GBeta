@@ -112,7 +112,7 @@ export const UserVoiceService = {
       const gmailConnection = GmailService.getConnection();
       if (gmailConnection.status === 'connected') {
         console.log('   📧 Fetching sent emails...');
-        const sentEmails = await GmailService.fetchSentMessages(maxMessages);
+        const sentEmails = await GmailService.fetchSentMessages();
         allSentMessages.push(...sentEmails);
         messagesByChannel.email = sentEmails.length;
         console.log(`   ✓ Found ${sentEmails.length} sent emails`);

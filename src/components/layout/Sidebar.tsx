@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Users, Building2, CheckSquare, BarChart3, Inbox, Calendar, Settings, Search, Star, ChevronDown, Plus, Moon, Sun, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { Home, Users, Building2, CheckSquare, BarChart3, Inbox, Calendar, Settings, Search, Star, ChevronDown, Plus, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { Avatar, IconButton } from '../ui';
 import { currentUser, workspaces } from '../../data/mockData';
 
 interface SidebarProps {
   currentView: string;
   onViewChange: (view: string) => void;
-  theme: 'light' | 'dark';
-  onThemeToggle: () => void;
+  theme?: 'light';
+  onThemeToggle?: () => void;
 }
 
 const mainNavItems = [
@@ -171,9 +171,6 @@ export function Sidebar({ currentView, onViewChange, theme, onThemeToggle }: Sid
       {/* Footer */}
       <div style={{ padding: '1rem', borderTop: '1px solid var(--color-border-subtle)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <div style={{ display: 'flex', gap: '0.25rem' }}>
-          <IconButton aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'} onClick={onThemeToggle} size="sm">
-            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-          </IconButton>
           <IconButton aria-label="Settings" onClick={() => onViewChange('settings')} size="sm">
             <Settings size={16} />
           </IconButton>

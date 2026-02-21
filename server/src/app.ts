@@ -10,6 +10,8 @@ import { connectionsRouter } from './routes/connections.js';
 import { aiRouter } from './routes/ai.js';
 import { automationRouter } from './routes/automation.js';
 import { documentsRouter } from './routes/documents.js';
+import { n8nRouter } from './routes/n8n.js';
+import { browserRouter } from './routes/browser.js';
 
 export const app = express();
 
@@ -48,6 +50,8 @@ app.use('/api/connections', connectionsRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/automation', automationRouter);
 app.use('/api/documents', documentsRouter);
+app.use('/api/n8n', n8nRouter);
+app.use('/api/browser', browserRouter);
 
 /* ─── Health check ─────────────────────────────────────── */
 
@@ -61,6 +65,8 @@ app.get('/api/health', (_req, res) => {
       gmail: !!config.google.clientId ? 'configured' : 'needs_credentials',
       slack: !!config.slack.botToken ? 'configured' : 'needs_bot_token',
       teams: !!config.microsoft.clientId ? 'configured' : 'needs_credentials',
+      n8n: !!config.n8n.apiKey ? 'configured' : 'needs_api_key',
+      browser: 'available',
     },
   });
 });

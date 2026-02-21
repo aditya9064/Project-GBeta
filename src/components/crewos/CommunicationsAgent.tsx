@@ -47,10 +47,13 @@ import {
   Crown,
   AtSign,
   Layers,
+  Tag,
+  Bell,
+  ShieldOff,
 } from 'lucide-react';
 import { useCommsAgent } from '../../hooks/useCommsAgent';
 import { ApprovalPopup, VIPNotificationPopup } from './ApprovalPopup';
-import type { Channel, MessageStatus, Priority } from '../../services/commsApi';
+import type { Channel, MessageStatus, Priority, EmailCategory } from '../../services/commsApi';
 import './CommunicationsAgent.css';
 import './ApprovalPopup.css';
 
@@ -86,6 +89,7 @@ const statusLabels: Record<MessageStatus, string> = {
   approved: 'Approved',
   sent: 'Sent',
   escalated: 'Needs Your Input',
+  skipped: 'No Reply Needed',
 };
 
 const statusIcons: Record<MessageStatus, React.ReactNode> = {
@@ -94,6 +98,23 @@ const statusIcons: Record<MessageStatus, React.ReactNode> = {
   approved: <CheckCircle size={13} />,
   sent: <Send size={13} />,
   escalated: <AlertCircle size={13} />,
+  skipped: <Archive size={13} />,
+};
+
+const categoryLabels: Record<EmailCategory, string> = {
+  work: 'Work',
+  promotional: 'Promotional',
+  newsletter: 'Newsletter',
+  notification: 'Notification',
+  spam: 'Spam',
+};
+
+const categoryColors: Record<EmailCategory, string> = {
+  work: '#10B981',
+  promotional: '#F59E0B',
+  newsletter: '#8B5CF6',
+  notification: '#6B7280',
+  spam: '#EF4444',
 };
 
 /* ─── Component ────────────────────────────────────────── */
@@ -234,19 +255,9 @@ export function CommunicationsAgent() {
             <>
               <div className="comms-header-stats">
                 <div className="comms-stat">
-                  <span className="comms-stat-dot" style={{ background: '#EF4444' }} />
-                  <span className="comms-stat-count">{pendingCount}</span>
-                  <span className="comms-stat-label">Pending</span>
-                </div>
-                <div className="comms-stat">
-                  <span className="comms-stat-dot" style={{ background: '#8B5CF6' }} />
-                  <span className="comms-stat-count">{draftedCount}</span>
-                  <span className="comms-stat-label">AI Drafted</span>
-                </div>
-                <div className="comms-stat">
-                  <span className="comms-stat-dot" style={{ background: '#10B981' }} />
-                  <span className="comms-stat-count">{sentCount}</span>
-                  <span className="comms-stat-label">Sent</span>
+                  <span className="comms-stat-dot" style={{ background: '#3B82F6' }} />
+                  <span className="comms-stat-count">{totalMessages}</span>
+                  <span className="comms-stat-label">Total</span>
                 </div>
               </div>
 
@@ -303,7 +314,7 @@ export function CommunicationsAgent() {
                 disabled={isGenerating}
               >
                 <Bot size={15} />
-                <span>{isGenerating ? 'Drafting...' : 'Auto-Draft All'}</span>
+                <span>{isGenerating ? 'Drafting...' : 'Draft All Replies'}</span>
               </button>
             </>
           )}
@@ -474,7 +485,7 @@ export function CommunicationsAgent() {
             <div className="comms-style-complete">
               <div className="comms-style-complete-header">
                 <CheckCircle size={16} />
-                <span>Style learned for <strong>{styleProfiles.length}</strong> contacts — AI drafts will now match your writing style</span>
+                <span>Style learned for <strong>{styleProfiles.length}</strong> contacts — replies will now match your writing style</span>
               </div>
               <div className="comms-style-profiles-grid">
                 {styleProfiles.slice(0, 6).map(profile => (
@@ -643,6 +654,10 @@ export function CommunicationsAgent() {
             <h4>Common Sense Rules</h4>
             <div className="comms-ai-rules">
               <div className="comms-ai-rule">
+                <Tag size={13} />
+                <span>Detects promotional, newsletter, and notification emails — skips AI replies automatically</span>
+              </div>
+              <div className="comms-ai-rule">
                 <Shield size={13} />
                 <span>Never auto-approves budgets or large commitments</span>
               </div>
@@ -784,20 +799,6 @@ export function CommunicationsAgent() {
               ))}
             </div>
           </div>
-          <div className="comms-filter-group">
-            <label>Status:</label>
-            <div className="comms-filter-options">
-              {(['all', 'pending', 'ai_drafted', 'sent'] as const).map(s => (
-                <button
-                  key={s}
-                  className={`comms-filter-option ${filterStatus === s ? 'active' : ''}`}
-                  onClick={() => actions.setFilterStatus(s)}
-                >
-                  {s === 'all' ? 'All' : statusLabels[s]}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       )}
 
@@ -894,7 +895,7 @@ export function CommunicationsAgent() {
                               <span className="comms-importance-count">{group.medium.length}</span>
                               <span className="comms-importance-label">Medium importance</span>
                               <span className="comms-importance-tag ai-ready">
-                                <Sparkles size={10} /> AI drafts ready
+                                <Sparkles size={10} /> Drafts ready
                               </span>
                               <span className="comms-importance-view-btn">
                                 {isExpanded && expandedImportance === 'medium' ? <ChevronUp size={13} /> : <ChevronRight size={13} />}
@@ -911,7 +912,7 @@ export function CommunicationsAgent() {
                               <span className="comms-importance-count">{group.low.length}</span>
                               <span className="comms-importance-label">Low importance</span>
                               <span className="comms-importance-tag ai-ready">
-                                <Sparkles size={10} /> AI drafts ready
+                                <Sparkles size={10} /> Drafts ready
                               </span>
                               <span className="comms-importance-view-btn">
                                 {isExpanded && expandedImportance === 'low' ? <ChevronUp size={13} /> : <ChevronRight size={13} />}
@@ -940,18 +941,16 @@ export function CommunicationsAgent() {
                                   </div>
                                   <p className="comms-group-msg-preview">{msg.preview}</p>
                                   <div className="comms-group-msg-badges">
-                                    <span className={`comms-status-badge status-${msg.status}`}>
-                                      {statusIcons[msg.status]}
-                                      <span>{statusLabels[msg.status]}</span>
-                                    </span>
-                                    {msg.status === 'escalated' && (
-                                      <span className="comms-needs-input-badge">
-                                        <AlertCircle size={10} /> Respond manually
-                                      </span>
-                                    )}
-                                    {msg.aiDraft && (
-                                      <span className="comms-ai-ready-badge">
-                                        <Sparkles size={10} /> AI draft
+                                    {msg.emailCategory && msg.emailCategory !== 'work' && (
+                                      <span
+                                        className="comms-category-badge"
+                                        style={{
+                                          background: `${categoryColors[msg.emailCategory]}18`,
+                                          color: categoryColors[msg.emailCategory],
+                                          border: `1px solid ${categoryColors[msg.emailCategory]}30`,
+                                        }}
+                                      >
+                                        <span>{categoryLabels[msg.emailCategory]}</span>
                                       </span>
                                     )}
                                   </div>
@@ -1014,16 +1013,28 @@ export function CommunicationsAgent() {
                       )}
                       <div className="comms-list-preview">{msg.preview}</div>
                       <div className="comms-list-item-bottom">
+                        {msg.emailCategory && msg.emailCategory !== 'work' && (
+                          <span
+                            className="comms-category-badge"
+                            style={{
+                              background: `${categoryColors[msg.emailCategory]}18`,
+                              color: categoryColors[msg.emailCategory],
+                              border: `1px solid ${categoryColors[msg.emailCategory]}30`,
+                            }}
+                          >
+                            {msg.emailCategory === 'promotional' && <Tag size={10} />}
+                            {msg.emailCategory === 'newsletter' && <Mail size={10} />}
+                            {msg.emailCategory === 'notification' && <Bell size={10} />}
+                            {msg.emailCategory === 'spam' && <AlertCircle size={10} />}
+                            <span>{categoryLabels[msg.emailCategory]}</span>
+                          </span>
+                        )}
                         {actions.isVIP(msg.from) || (msg.fromEmail && actions.isVIP(msg.fromEmail)) ? (
                           <span className="comms-vip-badge">
                             <Crown size={10} />
                             <span>VIP</span>
                           </span>
                         ) : null}
-                        <span className={`comms-status-badge status-${msg.status}`}>
-                          {statusIcons[msg.status]}
-                          <span>{statusLabels[msg.status]}</span>
-                        </span>
                         <span
                           className="comms-priority-dot"
                           style={{ background: priorityColors[msg.priority] }}
@@ -1098,6 +1109,21 @@ export function CommunicationsAgent() {
                       {selectedMessage.teamsChannel && ` · ${selectedMessage.teamsChannel}`}
                     </span>
                   </span>
+                  {selectedMessage.emailCategory && selectedMessage.emailCategory !== 'work' && (
+                    <span
+                      className="comms-detail-category"
+                      style={{
+                        background: `${categoryColors[selectedMessage.emailCategory]}15`,
+                        color: categoryColors[selectedMessage.emailCategory],
+                      }}
+                    >
+                      {selectedMessage.emailCategory === 'promotional' && <Tag size={13} />}
+                      {selectedMessage.emailCategory === 'newsletter' && <Mail size={13} />}
+                      {selectedMessage.emailCategory === 'notification' && <Bell size={13} />}
+                      {selectedMessage.emailCategory === 'spam' && <ShieldOff size={13} />}
+                      <span>{categoryLabels[selectedMessage.emailCategory]}</span>
+                    </span>
+                  )}
                   <span
                     className="comms-detail-priority"
                     style={{
@@ -1107,10 +1133,6 @@ export function CommunicationsAgent() {
                   >
                     <AlertCircle size={13} />
                     <span>{selectedMessage.priority.charAt(0).toUpperCase() + selectedMessage.priority.slice(1)} Priority</span>
-                  </span>
-                  <span className={`comms-status-badge status-${selectedMessage.status}`}>
-                    {statusIcons[selectedMessage.status]}
-                    <span>{statusLabels[selectedMessage.status]}</span>
                   </span>
                 </div>
                 {selectedMessage.subject && (
@@ -1147,29 +1169,76 @@ export function CommunicationsAgent() {
                 <div className="comms-detail-section comms-ai-section">
                   <div className="comms-detail-section-header">
                     <Sparkles size={14} />
-                    <span>AI Draft Response</span>
-                    {selectedMessage.aiConfidence && (
-                      <span className="comms-ai-confidence">
-                        {selectedMessage.aiConfidence}% confidence
-                      </span>
-                    )}
+                    <span>Suggested Response</span>
                     {backendConnected && (
                       <span className="comms-ai-live-badge">
-                        <Wifi size={10} /> Live AI
+                        <Wifi size={10} /> Live
                       </span>
                     )}
                   </div>
 
-                  {selectedMessage.status === 'pending' && !isGenerating ? (
+                  {/* ── Promotional/Newsletter: No Reply Needed ── */}
+                  {selectedMessage.emailCategory && selectedMessage.emailCategory !== 'work' ? (
+                    <div className="comms-ai-skipped">
+                      <div className="comms-ai-skipped-icon" style={{ color: categoryColors[selectedMessage.emailCategory] }}>
+                        {selectedMessage.emailCategory === 'promotional' && <Tag size={32} />}
+                        {selectedMessage.emailCategory === 'newsletter' && <Mail size={32} />}
+                        {selectedMessage.emailCategory === 'notification' && <Bell size={32} />}
+                        {selectedMessage.emailCategory === 'spam' && <ShieldOff size={32} />}
+                      </div>
+                      <h4 className="comms-ai-skipped-title">No Reply Needed</h4>
+                      <p className="comms-ai-skipped-desc">
+                        {selectedMessage.emailCategory === 'promotional' &&
+                          'This is a promotional email. AI has identified it as marketing content — no response will be generated.'
+                        }
+                        {selectedMessage.emailCategory === 'newsletter' &&
+                          'This is a newsletter. AI has identified it as a digest/newsletter — no response will be generated.'
+                        }
+                        {selectedMessage.emailCategory === 'notification' &&
+                          'This is an automated notification. AI has identified it as a system alert — no response will be generated.'
+                        }
+                        {selectedMessage.emailCategory === 'spam' &&
+                          'This looks like spam. AI has flagged this as potential spam — no response will be generated.'
+                        }
+                      </p>
+                      <div className="comms-ai-skipped-signals">
+                        <span className="comms-ai-skipped-signal-label">Detection signals:</span>
+                        <div className="comms-ai-skipped-signal-tags">
+                          {selectedMessage.fromEmail && /noreply|no-reply|notifications?@|newsletter|updates?@/i.test(selectedMessage.fromEmail) && (
+                            <span className="comms-ai-signal-tag">Automated sender</span>
+                          )}
+                          {selectedMessage.fullMessage && /unsubscribe/i.test(selectedMessage.fullMessage) && (
+                            <span className="comms-ai-signal-tag">Contains "unsubscribe"</span>
+                          )}
+                          {selectedMessage.fullMessage && /©\s*\d{4}|all rights reserved/i.test(selectedMessage.fullMessage) && (
+                            <span className="comms-ai-signal-tag">Marketing footer</span>
+                          )}
+                          {selectedMessage.fullMessage && /view in browser|email preferences/i.test(selectedMessage.fullMessage) && (
+                            <span className="comms-ai-signal-tag">Bulk email headers</span>
+                          )}
+                          {selectedMessage.subject && /sale|discount|offer|promo|free|newsletter|digest/i.test(selectedMessage.subject) && (
+                            <span className="comms-ai-signal-tag">Promotional subject line</span>
+                          )}
+                          {selectedMessage.fromEmail && /@(linkedin|twitter|facebook|instagram|github|stripe|aws|vercel)/i.test(selectedMessage.fromEmail) && (
+                            <span className="comms-ai-signal-tag">Known platform sender</span>
+                          )}
+                          {selectedMessage.fullMessage && /receipt|billing|payment|invoice/i.test(selectedMessage.fullMessage) && (
+                            <span className="comms-ai-signal-tag">Automated receipt/billing</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                  ) : selectedMessage.status === 'pending' && !isGenerating ? (
                     <div className="comms-ai-empty">
                       <Bot size={32} />
-                      <p>No AI draft generated yet</p>
+                      <p>No suggested reply yet</p>
                       <button
                         className="comms-btn comms-btn-primary"
                         onClick={() => handleGenerateAIDraft(selectedMessage.id)}
                       >
                         <Sparkles size={15} />
-                        <span>Generate AI Draft</span>
+                        <span>Generate Reply</span>
                       </button>
                     </div>
                   ) : isGenerating ? (

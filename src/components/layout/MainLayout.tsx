@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Sidebar } from './Sidebar';
 import { DetailPanel } from './DetailPanel';
 import { AIInputBar } from '../ai/AIInputBar';
-import { useTheme } from '../../hooks/useTheme';
 import { Contact, Company, Task } from '../../types';
 
 interface MainLayoutProps {
@@ -15,7 +14,6 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children, currentView, onViewChange, selectedItem, onCloseDetail }: MainLayoutProps) {
-  const { theme, toggleTheme } = useTheme();
   const [aiExpanded, setAiExpanded] = useState(false);
 
   return (
@@ -23,8 +21,6 @@ export function MainLayout({ children, currentView, onViewChange, selectedItem, 
       <Sidebar 
         currentView={currentView} 
         onViewChange={onViewChange}
-        theme={theme}
-        onThemeToggle={toggleTheme}
       />
       
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>

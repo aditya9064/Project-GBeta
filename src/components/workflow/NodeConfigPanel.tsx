@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, Trash2, Settings, Save, ExternalLink, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { WorkflowNode, availableApps, knowledgeBaseTypes, triggerTypes, actionTypes } from './WorkflowBuilder';
 import { checkAutomationBackend } from '../../services/automation/automationApi';
+import { AgentBus } from '../../services/automation/agentBus';
 import type { AutomationStatus } from '../../services/automation/automationApi';
 import './NodeConfigPanel.css';
 
@@ -501,6 +502,105 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
           </div>
         )}
 
+        {/* ─── BROWSER TASK NODE ─── */}
+        {node.data.type === 'browser_task' && (
+          <>
+            <div className="node-config-section">
+              <label className="node-config-label">Browser Action</label>
+              <select
+                className="node-config-select"
+                value={config.action || 'navigate'}
+                onChange={(e) => setConfig({ ...config, action: e.target.value })}
+              >
+                <option value="navigate">Navigate to URL</option>
+                <option value="click">Click Element</option>
+                <option value="type">Type Text</option>
+                <option value="search">Search</option>
+                <option value="login">Login</option>
+                <option value="add_to_cart">Add to Cart</option>
+                <option value="checkout">Checkout</option>
+                <option value="submit">Submit Form</option>
+                <option value="extract">Extract Data</option>
+                <option value="screenshot">Take Screenshot</option>
+                <option value="scroll">Scroll</option>
+                <option value="wait">Wait</option>
+                <option value="select">Select Option</option>
+                <option value="custom">Custom Action</option>
+              </select>
+            </div>
+
+            {(config.action === 'navigate' || config.action === 'login') && (
+              <div className="node-config-section">
+                <label className="node-config-label">URL</label>
+                <input
+                  type="url"
+                  className="node-config-input"
+                  value={config.url || ''}
+                  onChange={(e) => setConfig({ ...config, url: e.target.value })}
+                  placeholder="https://www.example.com"
+                />
+              </div>
+            )}
+
+            {(config.action === 'click' || config.action === 'type' || config.action === 'extract' || config.action === 'select') && (
+              <div className="node-config-section">
+                <label className="node-config-label">CSS Selector</label>
+                <input
+                  type="text"
+                  className="node-config-input"
+                  value={config.selector || ''}
+                  onChange={(e) => setConfig({ ...config, selector: e.target.value })}
+                  placeholder="#element-id or .class-name"
+                />
+              </div>
+            )}
+
+            {(config.action === 'type' || config.action === 'search' || config.action === 'select') && (
+              <div className="node-config-section">
+                <label className="node-config-label">Value</label>
+                <input
+                  type="text"
+                  className="node-config-input"
+                  value={config.value || ''}
+                  onChange={(e) => setConfig({ ...config, value: e.target.value })}
+                  placeholder="Text to type or value to select"
+                />
+              </div>
+            )}
+
+            <div className="node-config-section">
+              <label className="node-config-label">Description</label>
+              <textarea
+                className="node-config-textarea"
+                value={config.description || ''}
+                onChange={(e) => setConfig({ ...config, description: e.target.value })}
+                placeholder="Describe what this browser step does..."
+                rows={2}
+              />
+            </div>
+
+            <div className="node-config-section">
+              <label className="node-config-label">
+                <input
+                  type="checkbox"
+                  checked={config.requiresConfirmation || false}
+                  onChange={(e) => setConfig({ ...config, requiresConfirmation: e.target.checked })}
+                  style={{ marginRight: 8 }}
+                />
+                Pause for user confirmation before executing
+              </label>
+            </div>
+
+            <div className="node-config-info-box info">
+              <AlertCircle size={14} />
+              <span>
+                Browser tasks run in a <strong>separate window</strong> so they don't disturb your work.
+                They require the CrewOS companion service for real execution.
+              </span>
+            </div>
+          </>
+        )}
+
         {/* ─── AI NODE ─── */}
         {node.data.type === 'ai' && (
           <>
@@ -554,6 +654,190 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
             </div>
           </>
         )}
+
+        {/* ─── MEMORY NODE ─── */}
+        {node.data.type === 'memory' && (
+          <>
+            <div className="node-config-section">
+              <label className="node-config-label">Action</label>
+              <select
+                className="node-config-select"
+                value={config.action || 'write'}
+                onChange={(e) => setConfig({ ...config, action: e.target.value })}
+              >
+                <option value="write">Write to Memory</option>
+                <option value="read">Read from Memory</option>
+                <option value="search">Search Memory</option>
+                <option value="delete">Delete from Memory</option>
+              </select>
+            </div>
+
+            <div className="node-config-section">
+              <label className="node-config-label">Scope</label>
+              <select
+                className="node-config-select"
+                value={config.scope || 'agent'}
+                onChange={(e) => setConfig({ ...config, scope: e.target.value })}
+              >
+                <option value="session">Session (this execution only)</option>
+                <option value="agent">Agent (persists across executions)</option>
+                <option value="shared">Shared (visible to all agents)</option>
+              </select>
+            </div>
+
+            {(config.action === 'write' || config.action === 'read' || config.action === 'delete') && (
+              <div className="node-config-section">
+                <label className="node-config-label">Key</label>
+                <input
+                  type="text"
+                  className="node-config-input"
+                  value={config.key || ''}
+                  onChange={(e) => setConfig({ ...config, key: e.target.value })}
+                  placeholder="e.g. last_summary, user_preference"
+                />
+              </div>
+            )}
+
+            {config.action === 'write' && (
+              <>
+                <div className="node-config-section">
+                  <label className="node-config-label">Value (leave empty to store input data)</label>
+                  <textarea
+                    className="node-config-textarea"
+                    value={typeof config.value === 'string' ? config.value : ''}
+                    onChange={(e) => setConfig({ ...config, value: e.target.value || undefined })}
+                    placeholder="Static value, or leave empty to save the incoming node data"
+                    rows={3}
+                  />
+                </div>
+                <div className="node-config-section">
+                  <label className="node-config-label">Expire After (minutes, 0 = never)</label>
+                  <input
+                    type="number"
+                    className="node-config-input"
+                    value={config.ttlMinutes || 0}
+                    onChange={(e) => setConfig({ ...config, ttlMinutes: parseInt(e.target.value) || 0 })}
+                    min={0}
+                  />
+                </div>
+              </>
+            )}
+
+            {config.action === 'search' && (
+              <div className="node-config-section">
+                <label className="node-config-label">Search Query</label>
+                <input
+                  type="text"
+                  className="node-config-input"
+                  value={config.query || ''}
+                  onChange={(e) => setConfig({ ...config, query: e.target.value })}
+                  placeholder="Keywords to search in stored memory"
+                />
+              </div>
+            )}
+
+            <div className="node-config-info-box info">
+              <AlertCircle size={14} />
+              <span>
+                {config.scope === 'session' && 'Session memory is discarded after this execution ends.'}
+                {config.scope === 'agent' && 'Agent memory persists across all future executions of this agent.'}
+                {config.scope === 'shared' && 'Shared memory is readable and writable by all deployed agents.'}
+              </span>
+            </div>
+          </>
+        )}
+
+        {/* ─── AGENT CALL NODE ─── */}
+        {node.data.type === 'agent_call' && (() => {
+          const registeredAgents = AgentBus.listAgents();
+          return (
+            <>
+              <div className="node-config-section">
+                <label className="node-config-label">Target Agent</label>
+                <select
+                  className="node-config-select"
+                  value={config.targetAgentId || ''}
+                  onChange={(e) => {
+                    const selected = registeredAgents.find(a => a.agentId === e.target.value);
+                    setConfig({
+                      ...config,
+                      targetAgentId: e.target.value,
+                      targetAgentName: selected?.name || '',
+                    });
+                  }}
+                >
+                  <option value="">Select an agent...</option>
+                  {registeredAgents.map((agent) => (
+                    <option key={agent.agentId} value={agent.agentId}>
+                      {agent.name} {agent.status !== 'active' ? `(${agent.status})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {config.targetAgentId && (() => {
+                const target = registeredAgents.find(a => a.agentId === config.targetAgentId);
+                return target ? (
+                  <div className="node-config-info-box info">
+                    <AlertCircle size={14} />
+                    <span>
+                      <strong>{target.name}</strong>
+                      {target.description ? ` — ${target.description}` : ''}
+                      {target.capabilities.length > 0 && (
+                        <><br />Capabilities: {target.capabilities.join(', ')}</>
+                      )}
+                    </span>
+                  </div>
+                ) : null;
+              })()}
+
+              <div className="node-config-section">
+                <label className="node-config-label">
+                  <input
+                    type="checkbox"
+                    checked={config.passInput !== false}
+                    onChange={(e) => setConfig({ ...config, passInput: e.target.checked })}
+                    style={{ marginRight: 8 }}
+                  />
+                  Pass current data as input to target agent
+                </label>
+              </div>
+
+              <div className="node-config-section">
+                <label className="node-config-label">
+                  <input
+                    type="checkbox"
+                    checked={config.waitForResult !== false}
+                    onChange={(e) => setConfig({ ...config, waitForResult: e.target.checked })}
+                    style={{ marginRight: 8 }}
+                  />
+                  Wait for result before continuing
+                </label>
+              </div>
+
+              <div className="node-config-section">
+                <label className="node-config-label">Timeout (seconds)</label>
+                <input
+                  type="number"
+                  className="node-config-input"
+                  value={config.timeoutSeconds || 30}
+                  onChange={(e) => setConfig({ ...config, timeoutSeconds: parseInt(e.target.value) || 30 })}
+                  min={5}
+                  max={300}
+                />
+              </div>
+
+              {registeredAgents.length === 0 && (
+                <div className="node-config-info-box warning">
+                  <AlertCircle size={14} />
+                  <span>
+                    No agents are deployed yet. Deploy at least one other agent to enable agent-to-agent calls.
+                  </span>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       <div className="node-config-footer">

@@ -208,34 +208,65 @@ export const GmailService = {
     };
   },
 
-  /** Fetch recent inbox messages and convert to UnifiedMessage format */
-  async fetchMessages(maxResults = 20): Promise<UnifiedMessage[]> {
+  /** Fetch recent inbox messages (paginated, capped for performance) */
+  async fetchMessages(maxTotal = 200): Promise<UnifiedMessage[]> {
     if (!gmailClient) throw new Error('Gmail not connected');
 
-    const listRes = await gmailClient.users.messages.list({
-      userId: 'me',
-      maxResults,
-      labelIds: ['INBOX'],
-      q: 'is:unread OR is:important',
-    });
+    const allMessageRefs: gmail_v1.Schema$Message[] = [];
+    let pageToken: string | undefined;
 
-    return this.processMessages(listRes.data.messages || [], false);
+    // Paginate through inbox messages up to the cap
+    do {
+      const batchSize = Math.min(500, maxTotal - allMessageRefs.length);
+      if (batchSize <= 0) break;
+
+      const listRes = await gmailClient.users.messages.list({
+        userId: 'me',
+        maxResults: batchSize,
+        labelIds: ['INBOX'],
+        pageToken,
+      });
+
+      if (listRes.data.messages) {
+        allMessageRefs.push(...listRes.data.messages);
+      }
+      pageToken = listRes.data.nextPageToken || undefined;
+      console.log(`📬 Fetched page: ${allMessageRefs.length} message refs so far...`);
+    } while (pageToken && allMessageRefs.length < maxTotal);
+
+    console.log(`📬 Total inbox messages to process: ${allMessageRefs.length}`);
+    return this.processMessages(allMessageRefs, false);
   },
 
   /** 
-   * Fetch user's SENT messages for voice learning.
+   * Fetch sent messages for voice learning (paginated, capped).
    * This is critical for building the user's own style profile.
    */
-  async fetchSentMessages(maxResults = 100): Promise<UnifiedMessage[]> {
+  async fetchSentMessages(maxTotal = 200): Promise<UnifiedMessage[]> {
     if (!gmailClient) throw new Error('Gmail not connected');
 
-    const listRes = await gmailClient.users.messages.list({
-      userId: 'me',
-      maxResults,
-      labelIds: ['SENT'],
-    });
+    const allMessageRefs: gmail_v1.Schema$Message[] = [];
+    let pageToken: string | undefined;
 
-    return this.processMessages(listRes.data.messages || [], true);
+    do {
+      const batchSize = Math.min(500, maxTotal - allMessageRefs.length);
+      if (batchSize <= 0) break;
+
+      const listRes = await gmailClient.users.messages.list({
+        userId: 'me',
+        maxResults: batchSize,
+        labelIds: ['SENT'],
+        pageToken,
+      });
+
+      if (listRes.data.messages) {
+        allMessageRefs.push(...listRes.data.messages);
+      }
+      pageToken = listRes.data.nextPageToken || undefined;
+    } while (pageToken && allMessageRefs.length < maxTotal);
+
+    console.log(`📬 Total sent messages to process: ${allMessageRefs.length}`);
+    return this.processMessages(allMessageRefs, false);
   },
 
   /** Process a list of messages into UnifiedMessage format */
@@ -385,8 +416,15 @@ export const GmailService = {
   async sendNewEmail(to: string, subject: string, body: string): Promise<{ messageId: string; success: boolean }> {
     if (!gmailClient) throw new Error('Gmail not connected');
 
+    // Validate the To address
+    const toTrimmed = (to || '').trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!toTrimmed || !emailRegex.test(toTrimmed)) {
+      throw new Error(`Invalid To header: "${toTrimmed || '(empty)'}". Provide a valid email address.`);
+    }
+
     const emailLines = [
-      `To: ${to}`,
+      `To: ${toTrimmed}`,
       `Subject: ${subject}`,
       'Content-Type: text/plain; charset=utf-8',
       '',

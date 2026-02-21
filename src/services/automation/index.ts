@@ -10,6 +10,11 @@ export {
   AutomationSlackAPI,
   AutomationAIAPI,
   AutomationHttpAPI,
+  AutomationBrowserAPI,
 } from './automationApi';
-export type { AutomationStatus } from './automationApi';
+export type { AutomationStatus, BrowserActionResult } from './automationApi';
+export { AgentMemoryService } from './memoryService';
+export { AgentBus } from './agentBus';
+export { generatePlan } from './planGenerator';
+export { planToWorkflow } from './planConverter';
 

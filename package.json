@@ -4,9 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "dev": "cp pitch-deck.html public/pitch-deck.html && vite",
+    "build": "tsc -b && cp pitch-deck.html public/pitch-deck.html && vite build",
+    "deploy": "npm run build && firebase deploy --only hosting",
+    "preview": "vite preview",
+    "workflows:fetch": "git clone --depth 1 https://github.com/Zie619/n8n-workflows.git /tmp/n8n-workflows && cp -r /tmp/n8n-workflows/workflows public/workflows && rm -rf /tmp/n8n-workflows",
+    "workflows:index": "node scripts/build-workflow-index.mjs",
+    "workflows:setup": "npm run workflows:fetch && npm run workflows:index"
   },
   "dependencies": {
     "@xyflow/react": "^12.10.0",

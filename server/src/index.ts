@@ -23,10 +23,10 @@ import { app } from './app.js';
 
 export const api = onRequest(
   {
-    // Allow generous timeout for AI operations
-    timeoutSeconds: 120,
-    // Allow up to 256MB memory for message processing
-    memory: '256MiB',
+    // Allow generous timeout for AI operations + bulk email fetching
+    timeoutSeconds: 300,
+    // 512MB for processing large inboxes
+    memory: '512MiB',
     // Allow unauthenticated access (Firebase Hosting rewrites need this)
     invoker: 'public',
   },

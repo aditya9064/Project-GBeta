@@ -52,6 +52,10 @@ router.get('/status', (_req: Request, res: Response) => {
       ai: {
         configured: !!process.env.OPENAI_API_KEY,
       },
+      browser: {
+        available: true,
+        engine: 'puppeteer',
+      },
     },
   });
 });
@@ -63,8 +67,13 @@ router.post('/gmail/send', async (req: Request, res: Response) => {
   try {
     const { to, subject, body } = req.body;
 
-    if (!to) {
-      res.status(400).json({ success: false, error: 'Missing "to" field' });
+    if (!to || !to.trim()) {
+      res.status(400).json({ success: false, error: 'Missing "to" field — provide a valid email address' });
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(to.trim())) {
+      res.status(400).json({ success: false, error: `Invalid To header: "${to}". Provide a valid email address (e.g. user@example.com)` });
       return;
     }
     if (!subject) {
@@ -139,15 +148,13 @@ router.post('/gmail/reply', async (req: Request, res: Response) => {
 /** Read recent emails from inbox */
 router.get('/gmail/read', async (req: Request, res: Response) => {
   try {
-    const maxResults = parseInt(req.query.maxResults as string) || 10;
-
     const gmailConn = GmailService.getConnection();
     if (gmailConn.status !== 'connected') {
       res.status(400).json({ success: false, error: 'Gmail is not connected' });
       return;
     }
 
-    const emails = await GmailService.fetchMessages(maxResults);
+    const emails = await GmailService.fetchMessages();
     res.json({
       success: true,
       data: {
@@ -261,6 +268,27 @@ router.post('/http', async (req: Request, res: Response) => {
 
     if (!url) {
       res.status(400).json({ success: false, error: 'Missing "url" field' });
+      return;
+    }
+
+    // Reject n8n template expressions (e.g. {{ $env.WEBHOOK_URL }})
+    if (/\{\{.*\}\}/.test(url)) {
+      res.status(400).json({
+        success: false,
+        error: `URL contains unresolved template expression: "${url}". Please configure the URL with an actual value.`,
+        _templateExpression: true,
+      });
+      return;
+    }
+
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch {
+      res.status(400).json({
+        success: false,
+        error: `Invalid URL: "${url}". Please provide a valid HTTP/HTTPS URL.`,
+      });
       return;
     }
 

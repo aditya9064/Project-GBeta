@@ -177,7 +177,7 @@ export function useTeamChat(teamId: string | null, channelId: string | null = 'g
   const [onlineUsers, setOnlineUsers] = useState<UserPresence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Subscribe to channels for this team
   useEffect(() => {

@@ -1,21 +1,21 @@
-/* Settings page — matches CrewOS container background */
-.crewos-settings {
+/* Settings page — matches OperonAI container background */
+.operonai-settings {
   flex: 1;
   overflow-y: auto;
   background: #f5f5f9;
   padding: 32px 40px 48px;
 }
 
-.crewos-settings-inner {
+.operonai-settings-inner {
   max-width: 640px;
   margin: 0 auto;
 }
 
-.crewos-settings-header {
+.operonai-settings-header {
   margin-bottom: 32px;
 }
 
-.crewos-settings-title {
+.operonai-settings-title {
   font-size: 24px;
   font-weight: 700;
   color: #1a1a2e;
@@ -23,19 +23,19 @@
   letter-spacing: -0.02em;
 }
 
-.crewos-settings-subtitle {
+.operonai-settings-subtitle {
   font-size: 14px;
   color: #6b6b80;
   margin: 0;
 }
 
-.crewos-settings-form {
+.operonai-settings-form {
   display: flex;
   flex-direction: column;
   gap: 40px;
 }
 
-.crewos-settings-section {
+.operonai-settings-section {
   background: #ffffff;
   border-radius: 16px;
   padding: 24px 28px;
@@ -43,33 +43,33 @@
   border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-.crewos-settings-section-title {
+.operonai-settings-section-title {
   font-size: 16px;
   font-weight: 600;
   color: #1a1a2e;
   margin: 0 0 6px;
 }
 
-.crewos-settings-section-desc {
+.operonai-settings-section-desc {
   font-size: 13px;
   color: #6b6b80;
   margin: 0 0 20px;
   line-height: 1.5;
 }
 
-.crewos-settings-fields {
+.operonai-settings-fields {
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
 
-.crewos-settings-field {
+.operonai-settings-field {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.crewos-settings-field label {
+.operonai-settings-field label {
   font-size: 13px;
   font-weight: 500;
   color: #1a1a2e;
@@ -78,12 +78,12 @@
   gap: 8px;
 }
 
-.crewos-settings-field label svg {
+.operonai-settings-field label svg {
   color: #6b6b80;
   flex-shrink: 0;
 }
 
-.crewos-settings-field input {
+.operonai-settings-field input {
   padding: 12px 14px;
   background: #f5f5f9;
   border: 1px solid #e5e5eb;
@@ -93,20 +93,20 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.crewos-settings-field input:focus {
+.operonai-settings-field input:focus {
   border-color: #e07a3a;
   box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.12);
 }
 
-.crewos-settings-field input::placeholder {
+.operonai-settings-field input::placeholder {
   color: #9a9ab0;
 }
 
-.crewos-settings-actions {
+.operonai-settings-actions {
   margin-top: 24px;
 }
 
-.crewos-settings-save {
+.operonai-settings-save {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -121,17 +121,17 @@
   transition: opacity 0.2s, transform 0.15s;
 }
 
-.crewos-settings-save:hover:not(:disabled) {
+.operonai-settings-save:hover:not(:disabled) {
   opacity: 0.95;
   transform: translateY(-1px);
 }
 
-.crewos-settings-save:disabled {
+.operonai-settings-save:disabled {
   opacity: 0.8;
   cursor: not-allowed;
 }
 
-.crewos-settings-account-card {
+.operonai-settings-account-card {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -141,7 +141,7 @@
   border: 1px solid #e5e5eb;
 }
 
-.crewos-settings-account-avatar {
+.operonai-settings-account-avatar {
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -155,18 +155,18 @@
   flex-shrink: 0;
 }
 
-.crewos-settings-account-info {
+.operonai-settings-account-info {
   min-width: 0;
 }
 
-.crewos-settings-account-name {
+.operonai-settings-account-name {
   font-size: 15px;
   font-weight: 600;
   color: #1a1a2e;
   margin-bottom: 2px;
 }
 
-.crewos-settings-account-email {
+.operonai-settings-account-email {
   font-size: 13px;
   color: #6b6b80;
 }

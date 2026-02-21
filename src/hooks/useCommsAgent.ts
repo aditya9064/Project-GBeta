@@ -26,6 +26,7 @@ import {
   type VIPNotification,
   type StyleProfile,
   type ChannelGroupSummary,
+  type EmailCategory,
 } from '../services/commsApi';
 
 /* ─── Types ────────────────────────────────────────────── */
@@ -125,6 +126,167 @@ export interface CommsAgentActions {
   // Channel group actions
   expandGroup: (groupId: string, importance: Priority) => void;
   collapseGroup: () => void;
+}
+
+/* ─── Smart Email Classifier ───────────────────────────── */
+/*
+ * Classifies emails into categories: work, promotional, newsletter,
+ * notification, or spam. Uses sender patterns, subject keywords,
+ * content analysis, and common promotional indicators.
+ */
+
+// Known promotional/newsletter sender patterns
+const PROMO_SENDER_PATTERNS = [
+  /noreply@/i, /no-reply@/i, /notifications?@/i, /updates?@/i, /news@/i,
+  /marketing@/i, /promo(tions?)?@/i, /deals?@/i, /offers?@/i, /sales@/i,
+  /newsletter@/i, /digest@/i, /info@/i, /hello@/i, /team@/i,
+  /support@.*\.(io|com|co|app)$/i, /mailer-daemon/i, /postmaster/i,
+  /@email\./i, /@mail\./i, /@e\./i, /@m\./i, /@campaign\./i,
+  /@(mailchimp|sendgrid|hubspot|mailgun|constantcontact|campaignmonitor)/i,
+  /@(shopify|stripe|squarespace|wix|notion|figma|canva|slack|asana|trello|jira)/i,
+  /@(linkedin|twitter|x\.com|facebook|instagram|pinterest|tiktok|youtube)/i,
+  /@(github|gitlab|bitbucket|vercel|netlify|heroku|aws|gcp|azure)/i,
+  /@(doordash|ubereats|grubhub|instacart|amazon|ebay|walmart|target)/i,
+  /@(medium|substack|beehiiv|convertkit|ghost)/i,
+];
+
+// Subject line keywords that indicate promotional/non-work emails
+const PROMO_SUBJECT_KEYWORDS = [
+  /\b(unsubscribe|opt.?out)\b/i,
+  /\b(sale|discount|off|deal|offer|promo|coupon|save|free|limited.?time)\b/i,
+  /\b(newsletter|digest|weekly|monthly|roundup|recap|update from)\b/i,
+  /\b(order|shipping|delivery|tracking|receipt|invoice|payment)\b/i,
+  /\b(verify|confirm|reset|password|security.?alert|sign.?in|log.?in)\b/i,
+  /\b(welcome\s+to|thanks?\s+for\s+(signing|joining|subscribing))\b/i,
+  /\b(your\s+(daily|weekly|monthly))/i,
+  /\b(don'?t\s+miss|act\s+now|hurry|last\s+chance|expires?)\b/i,
+  /\b(new\s+arrivals?|just\s+dropped|trending|popular|best.?sellers?)\b/i,
+  /\b(webinar|event|register|rsvp|attend)\b/i,
+  /\b(black\s+friday|cyber\s+monday|holiday|season)\b/i,
+  /\b(your\s+\w+\s+summary|activity\s+report)\b/i,
+];
+
+// Content keywords that strongly indicate promotional emails
+const PROMO_CONTENT_KEYWORDS = [
+  /\bunsubscribe\b/i, /\bopt.?out\b/i, /\bemail\s+preferences\b/i,
+  /\bmanage\s+subscriptions?\b/i, /\bview\s+in\s+browser\b/i,
+  /\bno\s+longer\s+wish\b/i, /\breceiving\s+this\s+email\b/i,
+  /\bwere?\s+sent\s+to\b/i, /\bmailing\s+list\b/i,
+  /\bpowered\s+by\s+(mailchimp|sendgrid|hubspot|constant\s*contact)/i,
+  /\bterms\s+(and|&)\s+conditions\b/i, /\bprivacy\s+policy\b/i,
+  /\b©\s*\d{4}\b/, /\bAll\s+rights\s+reserved\b/i,
+  /\bshop\s+now\b/i, /\bbuy\s+now\b/i, /\bget\s+started\b/i,
+  /\blearn\s+more\b/i, /\bread\s+more\b/i, /\bclick\s+here\b/i,
+  /\buse\s+code\b/i, /\benter\s+code\b/i, /\bapply\s+code\b/i,
+];
+
+// Notification sender patterns (automated system notifications)
+const NOTIFICATION_PATTERNS = [
+  /@(github|gitlab|bitbucket|jira|trello|asana|notion|linear|clickup)/i,
+  /\b(build|deploy|ci|cd|pipeline|test)\b.*@/i,
+  /noreply@/i, /notifications?@/i,
+];
+
+const NOTIFICATION_SUBJECT_KEYWORDS = [
+  /\b(build|deploy(ment)?|pipeline)\s+(passed|failed|success|error)\b/i,
+  /\b(pull\s+request|merge\s+request|issue|commit|push|release)\b/i,
+  /\b(assigned\s+to\s+you|mentioned\s+you|tagged\s+you)\b/i,
+  /\b(new\s+comment|review\s+requested)\b/i,
+  /\b(alert|warning|critical|down(time)?|outage)\b/i,
+  /\b(your\s+\w+\s+is\s+ready|completed|finished|processed)\b/i,
+];
+
+function classifyEmail(msg: UnifiedMessage): EmailCategory {
+  // Slack & Teams messages are always "work"
+  if (msg.channel !== 'email') return 'work';
+
+  const subject = (msg.subject || '').toLowerCase();
+  const from = (msg.fromEmail || msg.from || '').toLowerCase();
+  const content = (msg.fullMessage || '').toLowerCase();
+  const preview = (msg.preview || '').toLowerCase();
+  const allText = `${subject} ${content} ${preview}`;
+
+  let promoScore = 0;
+  let workScore = 0;
+  let notifScore = 0;
+  let newsletterScore = 0;
+
+  // ── Sender analysis ──
+  if (PROMO_SENDER_PATTERNS.some(p => p.test(from))) promoScore += 3;
+  if (NOTIFICATION_PATTERNS.some(p => p.test(from))) notifScore += 3;
+
+  // Personal-looking senders (firstname.lastname@ or firstname@ at company domain)
+  if (/^[a-z]+(\.[a-z]+)?@[a-z]+\.(com|io|co|org)$/i.test(from)) workScore += 3;
+  // If from has a person's name in the "from" field (not a company name)
+  if (msg.from && /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(msg.from)) workScore += 2;
+
+  // ── Subject analysis ──
+  let promoSubjectHits = 0;
+  for (const pattern of PROMO_SUBJECT_KEYWORDS) {
+    if (pattern.test(subject)) promoSubjectHits++;
+  }
+  promoScore += promoSubjectHits * 2;
+
+  let notifSubjectHits = 0;
+  for (const pattern of NOTIFICATION_SUBJECT_KEYWORDS) {
+    if (pattern.test(subject)) notifSubjectHits++;
+  }
+  notifScore += notifSubjectHits * 2;
+
+  // Direct address ("Hi [name]", "Hey team") = likely work
+  if (/^(hi|hey|hello|dear)\s+/i.test(content.trim())) workScore += 2;
+  // Questions directed at the reader = likely work
+  if (/\b(can you|could you|would you|do you|are you|please)\b/i.test(content)) workScore += 2;
+  // References to specific people, teams, projects = work
+  if (/\b(our team|the team|your team|the project|the sprint)\b/i.test(content)) workScore += 1;
+
+  // ── Content analysis ──
+  let promoContentHits = 0;
+  for (const pattern of PROMO_CONTENT_KEYWORDS) {
+    if (pattern.test(content)) promoContentHits++;
+  }
+  promoScore += promoContentHits * 1.5;
+
+  // Newsletter indicators
+  if (/\b(digest|roundup|recap|this\s+week\s+in|top\s+stories)\b/i.test(allText)) newsletterScore += 4;
+  if (/\b(issue\s+#?\d+|edition|volume)\b/i.test(allText)) newsletterScore += 3;
+  if (/\b(curated|handpicked|selected\s+for\s+you)\b/i.test(allText)) newsletterScore += 2;
+
+  // Spam signals
+  const spamScore =
+    (/\b(congratulations|you('ve)?\s+won|claim\s+your|act\s+now|limited\s+time)\b/i.test(allText) ? 5 : 0) +
+    (/\b(click\s+(here|below|now)|wire\s+transfer|western\s+union|bitcoin|crypto\s+opportunity)\b/i.test(allText) ? 5 : 0) +
+    (/[A-Z]{5,}/.test(msg.fullMessage) ? 2 : 0); // Lots of CAPS
+
+  if (spamScore >= 5) return 'spam';
+
+  // ── Final decision ──
+  // Strong promotional signal
+  if (promoScore >= 6 && promoScore > workScore) return 'promotional';
+  // Newsletter
+  if (newsletterScore >= 4 && newsletterScore > workScore) return 'newsletter';
+  // Notification
+  if (notifScore >= 4 && notifScore > workScore) return 'notification';
+  // Moderate promo signal but no strong work signal
+  if (promoScore >= 4 && workScore <= 2) return 'promotional';
+  // Everything else is work
+  return 'work';
+}
+
+/** Classify all messages and return updated array */
+function classifyMessages(messages: UnifiedMessage[]): UnifiedMessage[] {
+  return messages.map(msg => ({
+    ...msg,
+    emailCategory: msg.emailCategory || classifyEmail(msg),
+  }));
+}
+
+/** Check if a message is a non-work email that shouldn't get an AI reply */
+function isNonWorkEmail(msg: UnifiedMessage): boolean {
+  return msg.emailCategory === 'promotional' ||
+         msg.emailCategory === 'newsletter' ||
+         msg.emailCategory === 'notification' ||
+         msg.emailCategory === 'spam';
 }
 
 /* ─── Mock data fallback ───────────────────────────────── */
@@ -327,6 +489,79 @@ const MOCK_MESSAGES: UnifiedMessage[] = [
     receivedTime: '10:11 AM', relativeTime: '25 min ago',
     priority: 'medium', status: 'pending', starred: false,
   },
+  /* ─── Promotional / Newsletter / Notification Emails ──── */
+  {
+    id: 'msg-18', externalId: 'ext-18', channel: 'email',
+    from: 'LinkedIn', fromEmail: 'notifications@linkedin.com',
+    fromInitial: 'LI', fromColor: '#0A66C2',
+    subject: 'You appeared in 24 searches this week',
+    preview: 'See who\'s looking at your profile. Your network has been busy this week...',
+    fullMessage: 'Hi there,\n\nYou appeared in 24 searches this week.\n\nSee who\'s looking at your profile and discover new opportunities.\n\nYour weekly search stats:\n- Profile views: 47 (+12%)\n- Search appearances: 24\n- Post impressions: 1,203\n\nView your full analytics on LinkedIn.\n\n---\nYou are receiving LinkedIn notification emails.\nUnsubscribe · Help\n© 2026 LinkedIn Corporation',
+    receivedAt: new Date(Date.now() - 1.5 * 3600000).toISOString(),
+    receivedTime: '9:06 AM', relativeTime: '1.5 hrs ago',
+    priority: 'low', status: 'pending', starred: false,
+    emailCategory: 'promotional',
+  },
+  {
+    id: 'msg-19', externalId: 'ext-19', channel: 'email',
+    from: 'AWS', fromEmail: 'no-reply@aws.amazon.com',
+    fromInitial: 'AW', fromColor: '#FF9900',
+    subject: 'Your AWS Monthly Cost Summary — January 2026',
+    preview: 'Your total AWS charges for January 2026 are $2,847.32. View your full billing dashboard...',
+    fullMessage: 'Hello,\n\nYour AWS account billing summary for January 2026 is ready.\n\nTotal charges: $2,847.32\nForecasted next month: $3,100.00\n\nTop services:\n- EC2: $1,240.00\n- S3: $420.00\n- RDS: $680.00\n- Lambda: $180.00\n- Other: $327.32\n\nView your full billing dashboard at aws.amazon.com/billing\n\nThis is an automated notification from Amazon Web Services.\nAmazon Web Services, Inc. is a subsidiary of Amazon.com, Inc.\n\nUnsubscribe from billing notifications.',
+    receivedAt: new Date(Date.now() - 5 * 3600000).toISOString(),
+    receivedTime: '5:36 AM', relativeTime: '5 hrs ago',
+    priority: 'low', status: 'pending', starred: false,
+    emailCategory: 'notification',
+  },
+  {
+    id: 'msg-20', externalId: 'ext-20', channel: 'email',
+    from: 'Vercel', fromEmail: 'ship@vercel.com',
+    fromInitial: 'VR', fromColor: '#000000',
+    subject: '🚀 Vercel Ship 2026 — Register Now (Free)',
+    preview: 'Join us for Vercel Ship 2026 — our annual conference featuring Next.js 16, AI SDK 5.0...',
+    fullMessage: 'Vercel Ship 2026 is here.\n\nJoin us on March 20th for our biggest conference ever.\n\n🎯 What\'s new:\n- Next.js 16 with React Server Components 2.0\n- AI SDK 5.0 — build intelligent apps faster\n- Edge Functions GA — zero cold starts worldwide\n- New Vercel Firewall — enterprise security\n\n📅 March 20, 2026 · Virtual · Free\n\nRegister now → vercel.com/ship-2026\n\nSee you there,\nThe Vercel Team\n\n---\nYou received this because you signed up for Vercel updates.\nUnsubscribe · Manage email preferences\n\n© 2026 Vercel, Inc. All rights reserved.',
+    receivedAt: new Date(Date.now() - 6 * 3600000).toISOString(),
+    receivedTime: '4:36 AM', relativeTime: '6 hrs ago',
+    priority: 'low', status: 'pending', starred: false,
+    emailCategory: 'promotional',
+  },
+  {
+    id: 'msg-21', externalId: 'ext-21', channel: 'email',
+    from: 'TLDR Newsletter', fromEmail: 'dan@tldrnewsletter.com',
+    fromInitial: 'TL', fromColor: '#6366F1',
+    subject: 'TLDR: OpenAI Launches GPT-5, Google Announces Gemini Ultra 2.0',
+    preview: 'Big Tech & Startups — OpenAI launches GPT-5 with real-time reasoning capabilities...',
+    fullMessage: 'TLDR 2026-02-14\n\n📱 Big Tech & Startups\n\nOpenAI Launches GPT-5 with Real-Time Reasoning (3 minute read)\nOpenAI announced GPT-5 with breakthrough reasoning capabilities...\n\nGoogle Announces Gemini Ultra 2.0 (2 minute read)\nGoogle\'s latest model achieves state-of-the-art on all benchmarks...\n\n🚀 Science & Futuristic Technology\n\nNASA\'s Artemis III Successfully Lands on the Moon (4 minute read)\n...\n\n💻 Programming, Design & Data Science\n\nReact 20 Released with Automatic Memoization (GitHub Repo)\n...\n\n---\nIf you have any comments or feedback, just respond to this email!\n\nThanks for reading,\nDan Ni (@tldrdan)\n\nIf you don\'t want to receive future editions of TLDR, please unsubscribe.',
+    receivedAt: new Date(Date.now() - 7 * 3600000).toISOString(),
+    receivedTime: '3:36 AM', relativeTime: '7 hrs ago',
+    priority: 'low', status: 'pending', starred: false,
+    emailCategory: 'newsletter',
+  },
+  {
+    id: 'msg-22', externalId: 'ext-22', channel: 'email',
+    from: 'GitHub', fromEmail: 'notifications@github.com',
+    fromInitial: 'GH', fromColor: '#24292F',
+    subject: '[operonai/platform] Build #4521 failed — main branch',
+    preview: 'Build #4521 on main failed. 2 tests failing in auth module. View the workflow run...',
+    fullMessage: 'Run #4521 of CI/CD Pipeline on main branch has failed.\n\nCommit: a3f82d1 — "feat: add OAuth2 token refresh"\nAuthor: @david-park\n\nFailed jobs:\n- test-auth-module (2 failures)\n  ✗ should refresh expired token\n  ✗ should handle concurrent refresh requests\n- lint (passed)\n- build (passed)\n\nView the workflow run: https://github.com/operonai/platform/actions/runs/4521\n\n—\nYou are receiving this because you are subscribed to this repository.\nManage notification settings · Unsubscribe',
+    receivedAt: new Date(Date.now() - 30 * 60000).toISOString(),
+    receivedTime: '10:06 AM', relativeTime: '30 min ago',
+    priority: 'low', status: 'pending', starred: false,
+    emailCategory: 'notification',
+  },
+  {
+    id: 'msg-23', externalId: 'ext-23', channel: 'email',
+    from: 'Stripe', fromEmail: 'receipts@stripe.com',
+    fromInitial: 'ST', fromColor: '#635BFF',
+    subject: 'Your receipt from OperonAI Platform',
+    preview: 'Amount paid: $299.00. Your monthly subscription to OperonAI Platform Pro has been renewed...',
+    fullMessage: 'Receipt from OperonAI Platform\n\nAmount paid: $299.00\nDate: February 14, 2026\nPayment method: Visa ending in 4242\n\nDescription:\nOperonAI Platform — Pro Plan (Monthly)\nFebruary 14 - March 14, 2026\n\nSubtotal: $299.00\nTax: $0.00\nTotal: $299.00\n\nIf you have any questions, contact support@operonai.ai\n\nView receipt: https://pay.stripe.com/receipts/...\n\n---\nStripe, 354 Oyster Point Blvd, South San Francisco, CA 94080\nReceipts are sent for each payment. Manage email preferences.',
+    receivedAt: new Date(Date.now() - 8 * 3600000).toISOString(),
+    receivedTime: '2:36 AM', relativeTime: '8 hrs ago',
+    priority: 'low', status: 'pending', starred: false,
+    emailCategory: 'notification',
+  },
 ];
 
 /* ─── Hook ─────────────────────────────────────────────── */
@@ -379,6 +614,8 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
         loadFromBackend();
       }
       // If backend is not available, we keep using mock data
+      // Classify mock messages on load
+      setMessages(prev => classifyMessages(prev.length > 0 ? prev : MOCK_MESSAGES));
     });
   }, []);
 
@@ -400,7 +637,8 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
       ]);
 
       if (msgData && msgData.messages.length > 0) {
-        setMessages(msgData.messages);
+        // Classify all messages from backend
+        setMessages(classifyMessages(msgData.messages));
       }
       setConnections(conns);
       if (config) setAiConfig(config);
@@ -529,7 +767,7 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
         const result = await MessagesAPI.sync();
         if (result) {
           const msgData = await MessagesAPI.getMessages();
-          if (msgData) setMessages(msgData.messages);
+          if (msgData) setMessages(classifyMessages(msgData.messages));
         }
       }
     } catch (err) {
@@ -543,6 +781,19 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
     messageId: string,
     feedback?: string
   ): Promise<GeneratedDraft | null> => {
+    // Check if this is a promotional/newsletter email
+    const targetMsg = messages.find(m => m.id === messageId);
+    if (targetMsg && isNonWorkEmail(targetMsg)) {
+      // Skip draft generation for non-work emails
+      setMessages(prev =>
+        prev.map(m => m.id === messageId ? { ...m, status: 'skipped' as MessageStatus } : m)
+      );
+      setSelectedMessage(prev =>
+        prev && prev.id === messageId ? { ...prev, status: 'skipped' as MessageStatus } : prev
+      );
+      return null;
+    }
+
     setIsGenerating(true);
     setError(null);
     try {
@@ -626,13 +877,29 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
     try {
       const pending = messages.filter(m => m.status === 'pending');
 
-      // Separate VIP messages from regular ones
-      const vipPending = pending.filter(m =>
+      // ── Step 1: Skip promotional/newsletter/notification/spam emails ──
+      const promotionalPending = pending.filter(m => isNonWorkEmail(m));
+      const workPending = pending.filter(m => !isNonWorkEmail(m));
+
+      // Mark promotional emails as "skipped" — no reply needed
+      if (promotionalPending.length > 0) {
+        setMessages(prev =>
+          prev.map(m =>
+            promotionalPending.some(pm => pm.id === m.id)
+              ? { ...m, status: 'skipped' as MessageStatus }
+              : m
+          )
+        );
+        console.log(`📧 ${promotionalPending.length} promotional/newsletter emails skipped — no reply needed`);
+      }
+
+      // ── Step 2: Separate VIP messages from regular work emails ──
+      const vipPending = workPending.filter(m =>
         vipContacts.some(
           v => v.name === m.from || (v.email && m.fromEmail && v.email.toLowerCase() === m.fromEmail.toLowerCase())
         )
       );
-      const nonVipPending = pending.filter(m =>
+      const nonVipPending = workPending.filter(m =>
         !vipContacts.some(
           v => v.name === m.from || (v.email && m.fromEmail && v.email.toLowerCase() === m.fromEmail.toLowerCase())
         )

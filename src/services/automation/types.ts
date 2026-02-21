@@ -1,6 +1,6 @@
 // Automation Agent Types - Inspired by n8n and Zapier
 
-export type NodeType = 'trigger' | 'action' | 'app' | 'knowledge' | 'condition' | 'ai' | 'filter' | 'delay';
+export type NodeType = 'trigger' | 'action' | 'app' | 'knowledge' | 'condition' | 'ai' | 'filter' | 'delay' | 'memory' | 'agent_call' | 'browser_task';
 
 export type AgentStatus = 'draft' | 'active' | 'paused' | 'error' | 'archived';
 
@@ -12,7 +12,8 @@ export type TriggerType =
   | 'email' 
   | 'form' 
   | 'manual'
-  | 'app_event';
+  | 'app_event'
+  | 'agent_trigger';
 
 export type AppType = 
   | 'gmail' 
@@ -133,6 +134,38 @@ export interface DelayConfig {
   unit: 'seconds' | 'minutes' | 'hours' | 'days';
 }
 
+export type BrowserAction =
+  | 'navigate'
+  | 'click'
+  | 'type'
+  | 'select'
+  | 'scroll'
+  | 'wait'
+  | 'screenshot'
+  | 'extract'
+  | 'submit'
+  | 'login'
+  | 'search'
+  | 'add_to_cart'
+  | 'checkout'
+  | 'custom';
+
+export interface BrowserTaskConfig {
+  action: BrowserAction;
+  url?: string;
+  selector?: string;
+  value?: string;
+  description: string;
+  waitAfterMs?: number;
+  requiresConfirmation?: boolean;
+  screenshotBefore?: boolean;
+  screenshotAfter?: boolean;
+  credentials?: {
+    usernameField?: string;
+    passwordField?: string;
+  };
+}
+
 // Workflow Node
 export interface WorkflowNodeData {
   id: string;
@@ -202,6 +235,12 @@ export interface DeployedAgent {
     notifyEmail?: string;
     timeout: number; // in seconds
   };
+
+  // Memory — persistent key-value store for this agent
+  memoryEnabled?: boolean;
+
+  // Inter-agent — capabilities this agent advertises for discovery
+  capabilities?: string[];
 }
 
 // Execution Record
@@ -255,8 +294,70 @@ export interface ExecutionContext {
     data: any;
   };
   variables: Record<string, any>;
-  nodeOutputs: Record<string, any>; // Map of nodeId -> output
+  nodeOutputs: Record<string, any>;
   currentNodeId?: string;
+  memory: Record<string, any>;
+  callerAgentId?: string;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Agent Memory
+// ═══════════════════════════════════════════════════════════
+
+export type MemoryScope = 'session' | 'agent' | 'shared';
+
+export interface MemoryEntry {
+  id: string;
+  agentId: string;
+  scope: MemoryScope;
+  key: string;
+  value: any;
+  metadata?: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
+  expiresAt?: Date;
+}
+
+export interface MemoryConfig {
+  action: 'read' | 'write' | 'search' | 'delete';
+  scope: MemoryScope;
+  key?: string;
+  query?: string;
+  value?: any;
+  ttlMinutes?: number;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Inter-Agent Communication
+// ═══════════════════════════════════════════════════════════
+
+export interface AgentCallConfig {
+  targetAgentId: string;
+  targetAgentName?: string;
+  passInput: boolean;
+  waitForResult: boolean;
+  timeoutSeconds?: number;
+  inputMapping?: Record<string, string>;
+}
+
+export interface AgentBusEvent {
+  id: string;
+  type: 'agent_output' | 'agent_request' | 'broadcast';
+  sourceAgentId: string;
+  sourceAgentName: string;
+  targetAgentId?: string;
+  payload: any;
+  timestamp: Date;
+  handled: boolean;
+}
+
+export interface AgentRegistryEntry {
+  agentId: string;
+  name: string;
+  description?: string;
+  capabilities: string[];
+  status: AgentStatus;
+  lastSeen: Date;
 }
 
 // App Credentials

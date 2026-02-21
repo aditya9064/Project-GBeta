@@ -17,7 +17,8 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api';
 /* ─── Types (mirror of server types) ───────────────────── */
 
 export type Channel = 'email' | 'slack' | 'teams';
-export type MessageStatus = 'pending' | 'ai_drafted' | 'approved' | 'sent' | 'escalated';
+export type MessageStatus = 'pending' | 'ai_drafted' | 'approved' | 'sent' | 'escalated' | 'skipped';
+export type EmailCategory = 'work' | 'promotional' | 'newsletter' | 'notification' | 'spam';
 export type Priority = 'high' | 'medium' | 'low';
 export type ConnectionStatus = 'connected' | 'disconnected' | 'error' | 'connecting';
 
@@ -54,6 +55,8 @@ export interface UnifiedMessage {
   isGroupChat?: boolean;
   /** True if the user was mentioned or their name appeared in this group message */
   mentionsUser?: boolean;
+  /** AI-classified email category — promotional emails won't get AI replies */
+  emailCategory?: EmailCategory;
 }
 
 export interface MessageAnalysis {

@@ -180,7 +180,7 @@ export const TeamsService = {
   },
 
   /** Fetch recent Teams messages (from chats and channels) */
-  async fetchMessages(limit = 20): Promise<UnifiedMessage[]> {
+  async fetchMessages(limit = 200): Promise<UnifiedMessage[]> {
     if (!graphClient) throw new Error('Teams not connected');
 
     const messages: UnifiedMessage[] = [];

@@ -52,14 +52,18 @@ async function ensureFirestore(): Promise<boolean> {
   if (firestoreChecked) return firestoreAvailable;
 
   try {
-    // Quick read to verify permissions
-    await db.collection(COLLECTION).doc('__ping__').get();
+    // Quick read to verify Firestore is accessible (avoid reserved __ prefix)
+    await db.collection(COLLECTION).doc('health_check').get();
     firestoreChecked = true;
+    console.log('✅ Firestore is accessible for token storage');
     return true;
-  } catch {
+  } catch (err: any) {
+    // Log the actual error for debugging
+    console.error('⚠️  Firestore check failed:', err?.message || err);
+    console.error('   Code:', err?.code, 'Details:', err?.details);
     firestoreAvailable = false;
     firestoreChecked = true;
-    console.warn('⚠️  Firestore permission denied — falling back to in-memory token store');
+    console.warn('⚠️  Falling back to in-memory token store');
     return false;
   }
 }

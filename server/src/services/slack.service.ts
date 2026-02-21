@@ -277,7 +277,7 @@ export const SlackService = {
   /** Fetch recent messages from ALL the user's Slack conversations
    *  (DMs, private channels, public channels, group DMs)
    */
-  async fetchMessages(limit = 20): Promise<UnifiedMessage[]> {
+  async fetchMessages(limit = 200): Promise<UnifiedMessage[]> {
     if (!slackClient) throw new Error('Slack not connected');
 
     const messages: UnifiedMessage[] = [];

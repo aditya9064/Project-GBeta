@@ -12,8 +12,11 @@ import {
   ExecutionStatus,
   checkAutomationBackend,
   isBackendAvailable,
+  AgentMemoryService,
+  AgentBus,
 } from '../services/automation';
 import type { AutomationStatus, ExecutionLog } from '../services/automation';
+import type { AgentRegistryEntry, AgentBusEvent } from '../services/automation/types';
 import { ExecutionEngine } from '../services/automation/executionEngine';
 
 // Demo user ID for local storage
@@ -37,9 +40,16 @@ interface AgentContextType {
   runAgent: (agentId: string, triggerData?: any) => Promise<{ success: boolean; output?: any; error?: string; logs?: ExecutionLog[] }>;
   getExecutionHistory: (agentId: string) => Promise<ExecutionRecord[]>;
   checkBackend: () => Promise<void>;
+  // Memory
+  getAgentMemory: (agentId: string) => Promise<Record<string, any>>;
+  clearAgentMemory: (agentId: string) => Promise<void>;
+  // Inter-agent
+  agentRegistry: AgentRegistryEntry[];
+  busEvents: AgentBusEvent[];
+  findAgentsByCapability: (capability: string) => AgentRegistryEntry[];
+  callAgent: (sourceAgentId: string, targetAgentId: string, input: any) => Promise<{ success: boolean; output?: any; error?: string }>;
 }
 
-// Default context value for fallback when AgentProvider is not available (e.g. during HMR)
 const defaultAgentContext: AgentContextType = {
   agents: [],
   loading: false,
@@ -58,6 +68,12 @@ const defaultAgentContext: AgentContextType = {
   runAgent: async () => ({ success: false, error: 'AgentProvider not available' }),
   getExecutionHistory: async () => [],
   checkBackend: async () => {},
+  getAgentMemory: async () => ({}),
+  clearAgentMemory: async () => {},
+  agentRegistry: [],
+  busEvents: [],
+  findAgentsByCapability: () => [],
+  callAgent: async () => ({ success: false, error: 'AgentProvider not available' }),
 };
 
 const AgentContext = createContext<AgentContextType>(defaultAgentContext);
@@ -120,6 +136,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   const [executions, setExecutions] = useState<ExecutionRecord[]>([]);
   const [backendStatus, setBackendStatus] = useState<AutomationStatus | null>(null);
   const [lastExecutionLogs, setLastExecutionLogs] = useState<ExecutionLog[]>([]);
+  const [agentRegistry, setAgentRegistry] = useState<AgentRegistryEntry[]>([]);
+  const [busEvents, setBusEvents] = useState<AgentBusEvent[]>([]);
 
   // Check backend status on mount
   const checkBackend = useCallback(async () => {
@@ -141,10 +159,23 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     checkBackend();
-    // Re-check every 60 seconds
     const interval = setInterval(checkBackend, 60000);
     return () => clearInterval(interval);
   }, [checkBackend]);
+
+  // Sync AgentBus registry whenever agents list changes
+  useEffect(() => {
+    AgentBus.syncRegistry(agents);
+    setAgentRegistry(AgentBus.listAgents());
+  }, [agents]);
+
+  // Subscribe to bus events for UI display
+  useEffect(() => {
+    const unsub = AgentBus.subscribe('*', (event) => {
+      setBusEvents((prev) => [...prev.slice(-99), event]);
+    });
+    return unsub;
+  }, []);
 
   const refreshAgents = useCallback(async () => {
     setLoading(true);
@@ -170,6 +201,15 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     const triggerNode = workflow.nodes.find(n => n.type === 'trigger');
     const triggerType = triggerNode?.config ? (triggerNode.config as any).triggerType || 'manual' : 'manual';
     
+    const hasMemoryNode = workflow.nodes.some((n) => n.type === 'memory');
+    const capabilities: string[] = [];
+    for (const node of workflow.nodes) {
+      const cfg = node.config as any;
+      if (node.type === 'app' && cfg.appType) capabilities.push(`app:${cfg.appType}`);
+      if (node.type === 'ai') capabilities.push('ai:processing');
+      if (node.type === 'memory') capabilities.push('memory:enabled');
+    }
+
     const newAgent: DeployedAgent = {
       id: `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       userId: DEMO_USER_ID,
@@ -192,6 +232,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         notifyOnFailure: false,
         timeout: 300,
       },
+      memoryEnabled: hasMemoryNode,
+      capabilities,
     };
 
     setAgents(prev => {
@@ -401,6 +443,52 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  // ─── Memory helpers ──────────────────────────────────
+  const getAgentMemory = useCallback(async (agentId: string) => {
+    return AgentMemoryService.loadAgentMemory(agentId);
+  }, []);
+
+  const clearAgentMemoryHandler = useCallback(async (agentId: string) => {
+    await AgentMemoryService.clearAgentMemory(agentId);
+  }, []);
+
+  // ─── Inter-agent helpers ─────────────────────────────
+  const findAgentsByCapability = useCallback((capability: string) => {
+    return AgentBus.findAgentsByCapability(capability);
+  }, []);
+
+  const callAgentHandler = useCallback(async (
+    sourceAgentId: string,
+    targetAgentId: string,
+    input: any,
+  ) => {
+    const source = agents.find((a) => a.id === sourceAgentId);
+    return AgentBus.callAgent(
+      sourceAgentId,
+      source?.name || sourceAgentId,
+      targetAgentId,
+      input,
+    );
+  }, [agents]);
+
+  // Register the runAgent callback with AgentBus so agents can invoke each other
+  useEffect(() => {
+    AgentBus.setAgentRunner(async (agentId: string, triggerData: any) => {
+      const agent = agents.find((a) => a.id === agentId);
+      if (!agent) throw new Error(`Agent ${agentId} not found`);
+      if (agent.status !== 'active') throw new Error(`Agent ${agent.name} is ${agent.status}`);
+
+      const result = await ExecutionEngine.executeWorkflow(
+        agentId,
+        DEMO_USER_ID,
+        agent.workflow,
+        'manual',
+        triggerData,
+      );
+      return result;
+    });
+  }, [agents]);
+
   return (
     <AgentContext.Provider value={{ 
       agents, 
@@ -420,6 +508,12 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       runAgent, 
       getExecutionHistory,
       checkBackend,
+      getAgentMemory,
+      clearAgentMemory: clearAgentMemoryHandler,
+      agentRegistry,
+      busEvents,
+      findAgentsByCapability,
+      callAgent: callAgentHandler,
     }}>
       {children}
     </AgentContext.Provider>

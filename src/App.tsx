@@ -386,11 +386,6 @@ function App() {
   const [activeInboxItem, setActiveInboxItem] = useState('inbox');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
-    const storedTheme = localStorage.getItem('theme');
-    if (storedTheme) return storedTheme as 'light' | 'dark' | 'system';
-    return 'dark';
-  });
 
   // Derive active view from current route
   const getActiveView = () => {
@@ -419,17 +414,10 @@ function App() {
   const [backlogSearch, setBacklogSearch] = useState('');
   const [meetWithSearch, setMeetWithSearch] = useState('');
 
-  // Theme effect - must be before early returns to follow Rules of Hooks
+  // Force light mode
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'system') {
-      const systemIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.setAttribute('data-theme', systemIsDark ? 'dark' : 'light');
-    } else {
-      root.setAttribute('data-theme', theme);
-    }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+    document.documentElement.setAttribute('data-theme', 'light');
+  }, []);
 
   // All useCallback hooks must be before conditional returns (Rules of Hooks)
   const handleViewChange = useCallback((viewId: string) => {
@@ -451,9 +439,6 @@ function App() {
     }
   }, [navigate]);
 
-  const handleThemeChange = useCallback((newTheme: 'light' | 'dark' | 'system') => {
-    setTheme(newTheme);
-  }, []);
 
   // State for showing landing vs auth (must be before any early returns)
   const [showAuth, setShowAuth] = useState(false);
@@ -1192,33 +1177,11 @@ function App() {
             </button>
           </div>
           <div className="theme-options">
-            <button
-              className={`theme-option ${theme === 'light' ? 'selected' : ''}`}
-              onClick={() => handleThemeChange('light')}
-              type="button"
-            >
+            <div className="theme-option selected">
               <div className="theme-preview light"><Icons.Sun /></div>
               <span className="theme-label">Light</span>
-              {theme === 'light' && <Icons.CheckCircle />}
-            </button>
-            <button
-              className={`theme-option ${theme === 'dark' ? 'selected' : ''}`}
-              onClick={() => handleThemeChange('dark')}
-              type="button"
-            >
-              <div className="theme-preview dark"><Icons.Moon /></div>
-              <span className="theme-label">Dark</span>
-              {theme === 'dark' && <Icons.CheckCircle />}
-            </button>
-            <button
-              className={`theme-option ${theme === 'system' ? 'selected' : ''}`}
-              onClick={() => handleThemeChange('system')}
-              type="button"
-            >
-              <div className="theme-preview system"><Icons.Monitor /></div>
-              <span className="theme-label">System</span>
-              {theme === 'system' && <Icons.CheckCircle />}
-            </button>
+              <Icons.CheckCircle />
+            </div>
           </div>
         </div>
       </div>

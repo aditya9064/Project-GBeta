@@ -56,7 +56,7 @@ async function autoSyncIfEmpty(): Promise<void> {
   // Fetch from Gmail
   if (GmailService.getConnection().status === 'connected') {
     try {
-      const emails = await GmailService.fetchMessages(20);
+      const emails = await GmailService.fetchMessages();
       newMessages.push(...emails);
     } catch (err) {
       console.error('Auto-sync Gmail error:', err);
@@ -66,7 +66,7 @@ async function autoSyncIfEmpty(): Promise<void> {
   // Fetch from Slack
   if (SlackService.getConnection().status === 'connected') {
     try {
-      const slackMsgs = await SlackService.fetchMessages(20);
+      const slackMsgs = await SlackService.fetchMessages();
       newMessages.push(...slackMsgs);
     } catch (err) {
       console.error('Auto-sync Slack error:', err);
@@ -76,7 +76,7 @@ async function autoSyncIfEmpty(): Promise<void> {
   // Fetch from Teams
   if (TeamsService.getConnection().status === 'connected') {
     try {
-      const teamsMsgs = await TeamsService.fetchMessages(20);
+      const teamsMsgs = await TeamsService.fetchMessages();
       newMessages.push(...teamsMsgs);
     } catch (err) {
       console.error('Auto-sync Teams error:', err);
@@ -297,7 +297,7 @@ router.post('/sync', async (_req: Request, res: Response) => {
     const gmailConn = GmailService.getConnection();
     if (gmailConn.status === 'connected') {
       try {
-        const emails = await GmailService.fetchMessages(20);
+        const emails = await GmailService.fetchMessages();
         newMessages.push(...emails);
         results.push({ channel: 'email', count: emails.length });
       } catch (err) {
@@ -313,7 +313,7 @@ router.post('/sync', async (_req: Request, res: Response) => {
     const slackConn = SlackService.getConnection();
     if (slackConn.status === 'connected') {
       try {
-        const slackMsgs = await SlackService.fetchMessages(20);
+        const slackMsgs = await SlackService.fetchMessages();
         newMessages.push(...slackMsgs);
         results.push({ channel: 'slack', count: slackMsgs.length });
       } catch (err) {
@@ -329,7 +329,7 @@ router.post('/sync', async (_req: Request, res: Response) => {
     const teamsConn = TeamsService.getConnection();
     if (teamsConn.status === 'connected') {
       try {
-        const teamsMsgs = await TeamsService.fetchMessages(20);
+        const teamsMsgs = await TeamsService.fetchMessages();
         newMessages.push(...teamsMsgs);
         results.push({ channel: 'teams', count: teamsMsgs.length });
       } catch (err) {

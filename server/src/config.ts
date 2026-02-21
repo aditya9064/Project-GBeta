@@ -77,6 +77,12 @@ export const config = {
     ],
   },
 
+  // n8n — Self-hosted automation engine
+  n8n: {
+    baseUrl: process.env.N8N_BASE_URL || 'http://localhost:5678',
+    apiKey: process.env.N8N_API_KEY || '',
+  },
+
   // Firebase (project ID is auto-detected in Cloud Functions runtime)
   firebase: {
     projectId: process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'gbeta-a7ea6',

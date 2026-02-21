@@ -62,7 +62,7 @@ function formatTimeDiff(minutes: number): string {
 
 export function useReminders(events: CalendarEvent[]) {
   const notifiedReminders = useRef<Set<string>>(new Set());
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check for upcoming reminders
   const checkReminders = useCallback(() => {
@@ -149,6 +149,8 @@ export function useReminders(events: CalendarEvent[]) {
     hasPermission: typeof Notification !== 'undefined' && Notification.permission === 'granted'
   };
 }
+
+
 
 
 

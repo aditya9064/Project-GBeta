@@ -48,21 +48,21 @@ export function SettingsPage() {
   if (!user) return null;
 
   return (
-    <div className="crewos-settings">
-      <div className="crewos-settings-inner">
-        <header className="crewos-settings-header">
-          <h1 className="crewos-settings-title">Settings</h1>
-          <p className="crewos-settings-subtitle">Manage your profile and account details.</p>
+    <div className="operonai-settings">
+      <div className="operonai-settings-inner">
+        <header className="operonai-settings-header">
+          <h1 className="operonai-settings-title">Settings</h1>
+          <p className="operonai-settings-subtitle">Manage your profile and account details.</p>
         </header>
 
-        <form onSubmit={handleSave} className="crewos-settings-form">
+        <form onSubmit={handleSave} className="operonai-settings-form">
           {/* Account / Profile section */}
-          <section className="crewos-settings-section">
-            <h2 className="crewos-settings-section-title">Account &amp; profile</h2>
-            <p className="crewos-settings-section-desc">Edit your information. These details are used across CrewOS.</p>
+          <section className="operonai-settings-section">
+            <h2 className="operonai-settings-section-title">Account &amp; profile</h2>
+            <p className="operonai-settings-section-desc">Edit your information. These details are used across OperonAI.</p>
 
-            <div className="crewos-settings-fields">
-              <div className="crewos-settings-field">
+            <div className="operonai-settings-fields">
+              <div className="operonai-settings-field">
                 <label htmlFor="displayName">
                   <User size={16} />
                   Display name
@@ -76,7 +76,7 @@ export function SettingsPage() {
                 />
               </div>
 
-              <div className="crewos-settings-field">
+              <div className="operonai-settings-field">
                 <label htmlFor="email">
                   <Mail size={16} />
                   Email
@@ -90,7 +90,7 @@ export function SettingsPage() {
                 />
               </div>
 
-              <div className="crewos-settings-field">
+              <div className="operonai-settings-field">
                 <label htmlFor="fullName">Full name</label>
                 <input
                   id="fullName"
@@ -101,7 +101,7 @@ export function SettingsPage() {
                 />
               </div>
 
-              <div className="crewos-settings-field">
+              <div className="operonai-settings-field">
                 <label htmlFor="company">
                   <Building2 size={16} />
                   Company
@@ -115,7 +115,7 @@ export function SettingsPage() {
                 />
               </div>
 
-              <div className="crewos-settings-field">
+              <div className="operonai-settings-field">
                 <label htmlFor="role">
                   <Briefcase size={16} />
                   Role
@@ -130,8 +130,8 @@ export function SettingsPage() {
               </div>
             </div>
 
-            <div className="crewos-settings-actions">
-              <button type="submit" className="crewos-settings-save" disabled={saving}>
+            <div className="operonai-settings-actions">
+              <button type="submit" className="operonai-settings-save" disabled={saving}>
                 {saving ? (
                   <>Saving…</>
                 ) : saved ? (
@@ -150,21 +150,21 @@ export function SettingsPage() {
           </section>
 
           {/* Create account / Account info */}
-          <section className="crewos-settings-section">
-            <h2 className="crewos-settings-section-title">Account</h2>
-            <p className="crewos-settings-section-desc">
+          <section className="operonai-settings-section">
+            <h2 className="operonai-settings-section-title">Account</h2>
+            <p className="operonai-settings-section-desc">
               You are signed in. Update your profile above to complete your account details. 
               To create a new account or sign in elsewhere, use the login page.
             </p>
-            <div className="crewos-settings-account-card">
-              <div className="crewos-settings-account-avatar">
+            <div className="operonai-settings-account-card">
+              <div className="operonai-settings-account-avatar">
                 {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
               </div>
-              <div className="crewos-settings-account-info">
-                <div className="crewos-settings-account-name">
+              <div className="operonai-settings-account-info">
+                <div className="operonai-settings-account-name">
                   {user.displayName || fullName || 'No name set'}
                 </div>
-                <div className="crewos-settings-account-email">{user.email || 'No email'}</div>
+                <div className="operonai-settings-account-email">{user.email || 'No email'}</div>
               </div>
             </div>
           </section>
