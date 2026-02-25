@@ -14,6 +14,10 @@ dist-ssr
 dist-backup
 *.local
 
+# Workflow files (may contain API keys)
+public/workflows/
+**/workflows/index.json
+
 # Environment files (contain secrets)
 .env
 .env.local
@@ -30,4 +34,3 @@ server/.env
 *.njsproj
 *.sln
 *.sw?
-public/workflows/

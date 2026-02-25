@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Zap, Bot, FileText, BarChart3, Mail, Shield,
-  ArrowRight, Check, ChevronDown, Send as SendIcon,
-  Layers, Brain, Activity, Globe, Users, Star,
+  Zap, ArrowRight, Check, Github, Linkedin, Twitter,
+  Mail, Send,
 } from 'lucide-react';
 import './LandingPage.css';
 
@@ -17,381 +16,341 @@ const fadeUp = {
 };
 
 const stagger = {
-  visible: { transition: { staggerChildren: 0.15 } },
+  visible: { transition: { staggerChildren: 0.12 } },
 };
+
+const products = [
+  {
+    color: 'orange',
+    emoji: '📄',
+    name: 'Document Intelligence',
+    desc: 'Not a GPT wrapper — six specialized models trained on your corpus. OCR, table extraction, classification, structure generation, and cross-reference validation.',
+    features: [
+      'Lease agreements, MSAs, invoices, COIs generation',
+      'Template replication with variable detection',
+      'PDF & DOCX export with formatting preservation',
+    ],
+    tech: ['React', 'TypeScript', 'OpenAI', 'Firebase', 'PDF.js'],
+  },
+  {
+    color: 'blue',
+    emoji: '📬',
+    name: 'Communications Agent',
+    desc: 'AI-powered inbox that reads, understands, and drafts responses across Gmail, Slack, and Teams. Smart prioritization with VIP detection and context-aware replies.',
+    features: [
+      'Unified inbox across Gmail, Slack, and Teams',
+      'AI-drafted replies matching your writing style',
+      'VIP detection and smart message prioritization',
+    ],
+    tech: ['Gmail API', 'Slack SDK', 'MS Graph', 'Node.js', 'OAuth 2.0'],
+  },
+  {
+    color: 'purple',
+    emoji: '📊',
+    name: 'Sales Intelligence',
+    desc: 'Predictive lead scoring, deal velocity tracking, and competitive intelligence. Automatically surfaces upsell opportunities and alerts on stalling deals.',
+    features: [
+      'AI-powered lead scoring with 92% accuracy',
+      'Deal velocity tracking and win prediction',
+      'Automated competitive intel gathering',
+    ],
+    tech: ['HubSpot', 'React', 'TypeScript', 'Charts', 'ML Pipeline'],
+  },
+  {
+    color: 'green',
+    emoji: '⚡',
+    name: 'Workflow Builder',
+    desc: 'Visual drag-and-drop automation builder powered by n8n. Connect 400+ integrations and deploy autonomous agent workflows in minutes.',
+    features: [
+      'Visual node-based workflow editor',
+      '400+ pre-built integrations via n8n',
+      'Real-time execution logs and monitoring',
+    ],
+    tech: ['n8n', 'React Flow', 'Node.js', 'Firebase', 'Docker'],
+  },
+];
+
+const skills = [
+  'React', 'TypeScript', 'Node.js', 'Firebase', 'OpenAI',
+  'n8n', 'Vite', 'Express', 'Gmail API', 'Slack SDK',
+  'MS Graph', 'HubSpot', 'Docker', 'OAuth 2.0', 'React Flow',
+  'Framer Motion', 'Radix UI', 'PDF.js', 'Git', 'Cloud Functions',
+  'Firestore', 'REST APIs', 'WebSockets', 'CI/CD',
+];
+
+const marqueeWords = [
+  'INTELLIGENT', 'AUTOMATED', 'SCALABLE', 'ENTERPRISE',
+  'RELIABLE', 'SECURE', 'REAL-TIME', 'AUTONOMOUS',
+];
+
+const testimonials = [
+  { quote: 'OperonAI cut our email response time by 80%. The AI drafts are indistinguishable from what I would write.', name: 'Sarah Chen', role: 'VP of Operations', initials: 'SC', av: 1 },
+  { quote: 'The document intelligence pipeline is genuinely impressive. Not a toy — it handles our 50-page contracts flawlessly.', name: 'Marcus Johnson', role: 'Legal Director', initials: 'MJ', av: 2 },
+  { quote: 'We deployed 12 agents in the first week. The visual builder makes it accessible to non-technical team members.', name: 'Priya Patel', role: 'CTO, TechForward', initials: 'PP', av: 3 },
+  { quote: 'The sales intelligence module predicted deal outcomes better than our seasoned reps. Game changer for pipeline management.', name: 'Alex Rodriguez', role: 'Sales Director', initials: 'AR', av: 4 },
+  { quote: 'Finally, an AI platform that understands enterprise needs. SOC2 compliant, self-hosted option, and genuinely useful.', name: 'Emily Nakamura', role: 'CISO', initials: 'EN', av: 5 },
+  { quote: 'Our team went from drowning in Slack noise to having every message triaged and prioritized automatically.', name: 'David Park', role: 'Engineering Manager', initials: 'DP', av: 6 },
+];
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   const [scrolled, setScrolled] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [clockTime, setClockTime] = useState('');
 
   useEffect(() => {
-    const el = document.querySelector('.nova-landing');
+    const el = document.querySelector('.op-landing');
     if (!el) return;
     const onScroll = () => setScrolled(el.scrollTop > 40);
     el.addEventListener('scroll', onScroll);
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
-  const features = [
-    {
-      icon: <Bot size={18} />,
-      label: 'AI Agents',
-      title: 'Autonomous Agent Workforce',
-      desc: 'Deploy intelligent agents that handle complex workflows end-to-end. From email triage to document generation, your agents work 24/7 with human-level understanding.',
-      mockIcon: '🤖',
-      mockTitle: 'Agent Dashboard',
-    },
-    {
-      icon: <Mail size={18} />,
-      label: 'Communications',
-      title: 'Unified Communications Hub',
-      desc: 'AI-powered inbox that reads, understands, and drafts responses across Gmail, Slack, and Teams. Smart prioritization with VIP detection and context-aware replies.',
-      mockIcon: '📬',
-      mockTitle: 'Inbox Intelligence',
-    },
-    {
-      icon: <FileText size={18} />,
-      label: 'Document AI',
-      title: 'Custom Document Intelligence',
-      desc: 'Not a GPT wrapper — six specialized models trained on your corpus. OCR, table extraction, classification, structure generation, and cross-reference validation.',
-      mockIcon: '📄',
-      mockTitle: 'Document Pipeline',
-    },
-    {
-      icon: <BarChart3 size={18} />,
-      label: 'Sales Intelligence',
-      title: 'AI-Driven Sales Pipeline',
-      desc: 'Predictive lead scoring, deal velocity tracking, and competitive intelligence. Automatically surfaces upsell opportunities and alerts on stalling deals.',
-      mockIcon: '📊',
-      mockTitle: 'Pipeline Analytics',
-    },
-  ];
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      setClockTime(now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
 
-  const steps = [
-    { title: 'Connect', desc: 'Link your Gmail, Slack, Teams, CRM, and internal tools in minutes.' },
-    { title: 'Configure', desc: 'Use the visual builder to create agent workflows or pick from templates.' },
-    { title: 'Deploy', desc: 'Agents go live instantly. Monitor, adjust, and scale as needed.' },
-  ];
-
-  const plans = [
-    {
-      name: 'Starter',
-      price: '49',
-      desc: 'For small teams getting started with automation.',
-      features: ['3 AI agents', '1,000 actions/month', 'Email integration', 'Basic analytics', 'Community support'],
-      popular: false,
-    },
-    {
-      name: 'Professional',
-      price: '149',
-      desc: 'For growing teams that need full automation.',
-      features: ['Unlimited agents', '25,000 actions/month', 'All integrations', 'Document AI', 'Sales Intelligence', 'Priority support'],
-      popular: true,
-    },
-    {
-      name: 'Enterprise',
-      price: '499',
-      desc: 'For organizations with advanced requirements.',
-      features: ['Everything in Pro', 'Unlimited actions', 'Custom model training', 'SSO & RBAC', 'Dedicated CSM', 'SLA guarantee'],
-      popular: false,
-    },
-  ];
-
-  const testimonials = [
-    { quote: 'OperonAI cut our email response time by 80%. The AI drafts are indistinguishable from what I would write.', name: 'Sarah Chen', role: 'VP of Operations', initials: 'SC' },
-    { quote: 'The document intelligence pipeline is genuinely impressive. Not a toy — it handles our 50-page contracts flawlessly.', name: 'Marcus Johnson', role: 'Legal Director', initials: 'MJ' },
-    { quote: 'We deployed 12 agents in the first week. The visual builder makes it accessible to non-technical team members.', name: 'Priya Patel', role: 'CTO', initials: 'PP' },
-  ];
-
-  const faqs = [
-    { q: 'How is OperonAI different from ChatGPT or other AI tools?', a: 'OperonAI is purpose-built for business automation. Unlike general-purpose chatbots, our agents are trained on your specific data and workflows, with built-in integrations for Gmail, Slack, CRM, and more.' },
-    { q: 'Is my data secure?', a: 'Absolutely. We use end-to-end encryption, SOC2 compliance, and your data never leaves your environment. We offer on-premise deployment for enterprise customers.' },
-    { q: 'How long does it take to set up?', a: 'Most teams are up and running in under an hour. Connect your accounts, pick a template or build a custom workflow, and deploy — no code required.' },
-    { q: 'Can I train the AI on my company\'s writing style?', a: 'Yes. Our style analysis engine learns from your past communications and documents to match your tone, formatting, and terminology.' },
-  ];
+  const scrollTo = (sel: string) => {
+    document.querySelector(`.op-landing ${sel}`)?.scrollIntoView({ behavior: 'smooth' });
+    setMobileMenuOpen(false);
+  };
 
   return (
-    <div className="nova-landing">
-      {/* Navigation */}
-      <nav className={`nova-nav ${scrolled ? 'scrolled' : ''}`}>
-        <div className="nav-container">
-          <div className="nav-brand">
-            <Zap size={24} className="nav-logo" />
-            <span className="nav-brand-text">OperonAI</span>
-          </div>
-
-          <div className={`nav-links ${mobileMenuOpen ? 'open' : ''}`}>
-            <button onClick={() => document.querySelector('.features')?.scrollIntoView({ behavior: 'smooth' })}>Product</button>
-            <button onClick={() => document.querySelector('.how-it-works')?.scrollIntoView({ behavior: 'smooth' })}>How It Works</button>
-            <button onClick={() => document.querySelector('.pricing')?.scrollIntoView({ behavior: 'smooth' })}>Pricing</button>
-            <button onClick={() => document.querySelector('.testimonials')?.scrollIntoView({ behavior: 'smooth' })}>Testimonials</button>
-          </div>
-
-          <div className="nav-actions">
-            <button className="nav-login">Log in</button>
-            <button className="nav-cta" onClick={onGetStarted}>Get Started</button>
-          </div>
-
-          <button className="mobile-menu-toggle" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            <span /><span /><span />
-          </button>
+    <div className="op-landing">
+      {/* Nav */}
+      <nav className={`op-nav ${scrolled ? 'scrolled' : ''}`}>
+        <div className="op-nav-brand" onClick={() => scrollTo('.op-hero')}>
+          <Zap size={20} className="op-nav-logo" />
+          <span className="op-nav-name">OperonAI</span>
         </div>
+
+        <div className={`op-nav-links ${mobileMenuOpen ? 'open' : ''}`}>
+          <button onClick={() => scrollTo('.op-showcase')}>Products</button>
+          <button onClick={() => scrollTo('.op-skills')}>Stack</button>
+          <button onClick={() => scrollTo('.op-about')}>About</button>
+          <button onClick={() => scrollTo('.op-testimonials')}>Voices</button>
+        </div>
+
+        <button className="op-nav-cta" onClick={onGetStarted}>Get Started</button>
+
+        <button className="op-mobile-toggle" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <span /><span /><span />
+        </button>
       </nav>
 
       {/* Hero */}
-      <section className="hero">
-        <motion.div className="hero-container" initial="hidden" animate="visible" variants={stagger}>
-          <motion.div className="hero-badge" variants={fadeUp}>
-            <span className="badge-icon">⚡</span>
-            AI-Powered Business Automation
+      <section className="op-hero">
+        <motion.div className="op-hero-inner" initial="hidden" animate="visible" variants={stagger}>
+          <motion.div className="op-hero-massive" variants={fadeUp}>
+            OPERON
+          </motion.div>
+          <motion.div className="op-hero-sub" variants={fadeUp}>
+            We design and build <span className="op-hero-accent">AI agents</span> that
+          </motion.div>
+          <motion.div className="op-hero-accent" style={{ fontSize: 'clamp(24px, 3.5vw, 38px)' }} variants={fadeUp}>
+            deliver real impact.
           </motion.div>
 
-          <motion.h1 className="hero-title" variants={fadeUp}>
-            We build <span className="gradient-text">AI agents</span> that deliver real impact.
-          </motion.h1>
+          <motion.div className="op-hero-badges" variants={fadeUp}>
+            <span className="op-badge">
+              <span className="op-badge-dot" />
+              Based in San Francisco, CA
+            </span>
+            <span className="op-badge">
+              AI Automation & Enterprise Solutions
+            </span>
+          </motion.div>
 
-          <motion.p className="hero-subtitle" variants={fadeUp}>
-            Deploy intelligent agents that automate communications, generate documents, and accelerate your sales pipeline — all from one platform.
+          <motion.p className="op-hero-tag" variants={fadeUp}>
+            Crafting intelligent workflows
           </motion.p>
-
-          <motion.div className="hero-cta" variants={fadeUp}>
-            <button className="btn-primary large" onClick={onGetStarted}>
-              Start Free Trial <ArrowRight size={18} />
-            </button>
-            <button className="btn-secondary large" onClick={() => document.querySelector('.features')?.scrollIntoView({ behavior: 'smooth' })}>
-              See How It Works
-            </button>
-          </motion.div>
-
-          <motion.div className="hero-stats" variants={fadeUp}>
-            <div className="stat-item">
-              <span className="stat-value">50K+</span>
-              <span className="stat-label">Actions Automated</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-value">200+</span>
-              <span className="stat-label">Teams Using</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-value">99.9%</span>
-              <span className="stat-label">Uptime</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-value">4.9★</span>
-              <span className="stat-label">Rating</span>
-            </div>
-          </motion.div>
-        </motion.div>
-
-        <motion.div className="hero-visual" initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 0.8 }}>
-          <div className="app-preview">
-            <div className="preview-header">
-              <div className="preview-dots"><span /><span /><span /></div>
-              <span className="preview-title">OperonAI — Agent Workforce</span>
-            </div>
-            <div className="preview-content">
-              <div className="preview-sidebar">
-                <div className="sidebar-item active" />
-                <div className="sidebar-item" />
-                <div className="sidebar-item" />
-                <div className="sidebar-item" />
-                <div className="sidebar-item" />
-              </div>
-              <div className="preview-main">
-                <div className="preview-card" />
-                <div className="preview-card" />
-                <div className="preview-card wide" />
-              </div>
-            </div>
-          </div>
-
-          <div className="floating-card card-1">
-            <span className="floating-icon">📧</span>
-            <div className="floating-text">
-              <span className="floating-title">Email Triaged</span>
-              <span className="floating-sub">AI draft ready</span>
-            </div>
-          </div>
-          <div className="floating-card card-2">
-            <span className="floating-icon">📄</span>
-            <div className="floating-text">
-              <span className="floating-title">Contract Generated</span>
-              <span className="floating-sub">12 pages · validated</span>
-            </div>
-          </div>
-          <div className="floating-card card-3">
-            <span className="floating-icon">📊</span>
-            <div className="floating-text">
-              <span className="floating-title">Lead Scored</span>
-              <span className="floating-sub">Score: 92 — Hot</span>
-            </div>
-          </div>
         </motion.div>
       </section>
 
-      {/* Features */}
-      <section className="features">
-        <div className="section-container">
-          <motion.div className="section-header" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
-            <span className="section-label">Platform</span>
-            <h2>Everything You Need</h2>
-            <p>Four powerful modules working together as one intelligent platform.</p>
-          </motion.div>
+      {/* Interactive Cards */}
+      <section className="op-cards-section">
+        <div className="op-section">
+          <div className="op-label">VENTURE</div>
 
-          <div className="features-tabs">
-            <div className="tabs-nav">
-              {features.map((f, i) => (
-                <button key={i} className={`tab-btn ${activeTab === i ? 'active' : ''}`} onClick={() => setActiveTab(i)}>
-                  <span className="tab-icon">{f.icon}</span>
-                  {f.label}
-                </button>
-              ))}
-            </div>
+          <motion.div className="op-cards-grid" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+            {/* Profile Card */}
+            <motion.div className="op-icard op-icard-profile" variants={fadeUp}>
+              <div>
+                <div className="op-icard-avatar">O</div>
+                <div className="op-icard-name">OperonAI</div>
+                <div className="op-icard-role">{'< Crafting Intelligent Workflows />'}</div>
+              </div>
+              <div className="op-icard-carousel">
+                <div className="op-carousel-img">📄</div>
+                <div className="op-carousel-img">📬</div>
+                <div className="op-carousel-img">📊</div>
+                <div className="op-carousel-img">⚡</div>
+              </div>
+            </motion.div>
 
-            <div className="tabs-content">
-              {features.map((f, i) => (
-                <div key={i} className={`tab-panel ${activeTab === i ? 'active' : ''}`}>
-                  <div className="panel-text">
-                    <h3>{f.title}</h3>
-                    <p>{f.desc}</p>
-                    <button className="btn-link" onClick={onGetStarted}>
-                      Try it now <ArrowRight size={16} />
-                    </button>
-                  </div>
-                  <div className="feature-mockup">
-                    <div className="mockup-header">
-                      <span className="mockup-icon">{f.mockIcon}</span>
-                      {f.mockTitle}
-                    </div>
-                    <div className="mockup-content">
-                      <div className="mockup-item" />
-                      <div className="mockup-item short" />
-                      <div className="mockup-item" />
-                      <div className="mockup-item short" />
-                    </div>
-                  </div>
+            {/* Center Card — Clock + Globe */}
+            <motion.div className="op-icard op-icard-center" variants={fadeUp}>
+              <div className="op-clock-wrap">
+                <span className="op-clock-face">{clockTime}</span>
+              </div>
+              <div className="op-globe-pins">
+                <span className="op-globe-pin">🇺🇸 USA</span>
+                <span className="op-globe-pin">🇬🇧 UK</span>
+                <span className="op-globe-pin">🇮🇳 India</span>
+              </div>
+              <div className="op-feature-tags">
+                <span className="op-ftag">Automation</span>
+                <span className="op-ftag">Intelligence</span>
+                <span className="op-ftag">Scale</span>
+                <span className="op-ftag">Enterprise</span>
+              </div>
+            </motion.div>
+
+            {/* Contact Card */}
+            <motion.div className="op-icard op-icard-contact" variants={fadeUp}>
+              <div>
+                <div className="op-icard-status">
+                  <span className="op-status-dot" />
+                  Available for projects
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="op-icard-cta-title">Let's build something that actually works.</div>
+                <div className="op-icard-cta-sub">AI automation for teams that ship.</div>
+                <div className="op-icard-email">h e l l o @ o p e r o n . a i</div>
+              </div>
+              <button className="op-icard-btn" onClick={onGetStarted}>
+                <Send size={16} style={{ display: 'inline', marginRight: 8 }} />
+                Get Started
+              </button>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="how-it-works">
-        <div className="section-container">
-          <motion.div className="section-header" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
-            <span className="section-label">Simple Setup</span>
-            <h2>Up and Running in Minutes</h2>
-            <p>Three steps to transform your workflow.</p>
-          </motion.div>
+      {/* Showcase */}
+      <section className="op-showcase">
+        <div className="op-label">SHOWCASE</div>
 
-          <motion.div className="steps" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-            {steps.map((s, i) => (
-              <React.Fragment key={i}>
-                {i > 0 && <div className="step-connector" />}
-                <motion.div className="step" variants={fadeUp}>
-                  <div className="step-number">{i + 1}</div>
-                  <h3>{s.title}</h3>
-                  <p>{s.desc}</p>
-                </motion.div>
-              </React.Fragment>
-            ))}
-          </motion.div>
-
-          <div className="how-cta">
-            <button className="btn-primary" onClick={onGetStarted}>
-              Get Started Free <ArrowRight size={16} />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section className="pricing">
-        <div className="section-container">
-          <motion.div className="section-header" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
-            <span className="section-label">Pricing</span>
-            <h2>Simple, Transparent Pricing</h2>
-            <p>Start free. Scale when you're ready.</p>
-          </motion.div>
-
-          <motion.div className="pricing-grid" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-            {plans.map((plan) => (
-              <motion.div key={plan.name} className={`pricing-card ${plan.popular ? 'popular' : ''}`} variants={fadeUp}>
-                {plan.popular && <span className="popular-badge">Most Popular</span>}
-                <div className="plan-name">{plan.name}</div>
-                <div className="plan-price">
-                  <span className="currency">$</span>
-                  <span className="amount">{plan.price}</span>
-                  <span className="period">/mo</span>
-                </div>
-                <p className="plan-description">{plan.desc}</p>
-                <button className={`plan-cta ${plan.popular ? 'primary' : 'secondary'}`} onClick={onGetStarted}>
-                  Start Free Trial
-                </button>
-                <ul className="plan-features">
-                  {plan.features.map((f) => (
+        <div className="op-products">
+          {products.map((p) => (
+            <motion.div key={p.name} className={`op-product-card ${p.color}`} initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
+              <div className="op-product-info">
+                <span className="op-product-emoji">{p.emoji}</span>
+                <h3>{p.name}</h3>
+                <p>{p.desc}</p>
+                <ul className="op-product-features">
+                  {p.features.map((f) => (
                     <li key={f}><Check size={16} /> {f}</li>
                   ))}
                 </ul>
-              </motion.div>
-            ))}
-          </motion.div>
+                <div className="op-tech-pills">
+                  {p.tech.map((t) => (
+                    <span key={t} className="op-tech-pill">{t}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="op-product-mockup">
+                <div className="op-mockup-bar"><span /><span /><span /></div>
+                <div className="op-mockup-body">
+                  <div className="op-mockup-line" />
+                  <div className="op-mockup-line short" />
+                  <div className="op-mockup-block" />
+                  <div className="op-mockup-line med" />
+                  <div className="op-mockup-line short" />
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
 
-          <div className="pricing-note">
-            <Shield size={16} /> 14-day free trial · No credit card required
+      {/* Skills */}
+      <section className="op-skills">
+        <div className="op-skills-header">
+          <span className="op-label">OUR STACK</span>
+          <h2>The Technology Behind</h2>
+        </div>
+
+        <motion.div className="op-skills-grid" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+          {skills.map((s) => (
+            <motion.div key={s} className="op-skill-badge" variants={fadeUp}>
+              <span className="op-skill-icon">{s[0]}</span>
+              {s}
+            </motion.div>
+          ))}
+        </motion.div>
+
+        <div className="op-marquee-wrap">
+          <div className="op-marquee-track">
+            {[...marqueeWords, ...marqueeWords].map((w, i) => (
+              <React.Fragment key={i}>
+                <span className="op-marquee-item">{w}</span>
+                <span className="op-marquee-dot">★</span>
+              </React.Fragment>
+            ))}
           </div>
+        </div>
+      </section>
+
+      {/* About */}
+      <section className="op-about">
+        <div className="op-about-inner">
+          <div>
+            <div className="op-about-label">A QUICK GLANCE</div>
+            <h2 className="op-about-title">
+              Building the bridge between <span className="op-about-accent">ideas and automation</span>
+            </h2>
+            <div className="op-about-text">
+              <p>
+                OperonAI is an engineering-driven platform that turns complex business workflows into autonomous agent systems. We manage the entire stack with a focus on reliability, security, and seamless integration.
+              </p>
+              <p>
+                From communications triage to document generation, our AI agents handle the operational complexity so teams can focus on what matters — building and shipping.
+              </p>
+              <p className="op-about-highlight">
+                Our platform is built to last, helping your team reach the next level.
+              </p>
+            </div>
+          </div>
+          <motion.div className="op-about-visual" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+            <motion.div className="op-about-card" variants={fadeUp}>
+              <h4>🤖 Agent Workforce</h4>
+              <p>Deploy and manage AI agents that run 24/7. Each agent is purpose-built for specific business functions with human-level understanding.</p>
+            </motion.div>
+            <motion.div className="op-about-card" variants={fadeUp}>
+              <h4>🔗 Deep Integrations</h4>
+              <p>Native connections to Gmail, Slack, Teams, HubSpot, and 400+ tools via n8n. Your agents work where your team works.</p>
+            </motion.div>
+            <motion.div className="op-about-card" variants={fadeUp}>
+              <h4>🛡️ Enterprise Ready</h4>
+              <p>SOC2 compliant, end-to-end encryption, and on-premise deployment options. Built for teams that take security seriously.</p>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
       {/* Testimonials */}
-      <section className="testimonials">
-        <div className="section-container">
-          <motion.div className="section-header" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
-            <span className="section-label">Testimonials</span>
-            <h2>Trusted by Leading Teams</h2>
-            <p>See what our customers have to say.</p>
-          </motion.div>
+      <section className="op-testimonials">
+        <div className="op-section">
+          <div className="op-test-header">
+            <span className="op-label">WHAT OTHERS SAY</span>
+            <h2>The Voices Behind</h2>
+          </div>
 
-          <motion.div className="testimonials-grid" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+          <div className="op-test-scroll">
             {testimonials.map((t) => (
-              <motion.div key={t.name} className="testimonial-card" variants={fadeUp}>
-                <div className="testimonial-content">
-                  <p>"{t.quote}"</p>
-                </div>
-                <div className="testimonial-author">
-                  <div className="author-avatar">{t.initials}</div>
-                  <div className="author-info">
-                    <span className="author-name">{t.name}</span>
-                    <span className="author-role">{t.role}</span>
+              <div key={t.name} className="op-test-card">
+                <p>&ldquo;{t.quote}&rdquo;</p>
+                <div className="op-test-author">
+                  <div className={`op-test-avatar av-${t.av}`}>{t.initials}</div>
+                  <div>
+                    <span className="op-test-name">{t.name}</span>
+                    <span className="op-test-role">{t.role}</span>
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="faq">
-        <div className="section-container">
-          <motion.div className="section-header" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
-            <span className="section-label">FAQ</span>
-            <h2>Frequently Asked Questions</h2>
-          </motion.div>
-
-          <div className="faq-list">
-            {faqs.map((faq, i) => (
-              <div key={i} className={`faq-item ${openFaq === i ? 'open' : ''}`}>
-                <button className="faq-question" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
-                  {faq.q}
-                  <ChevronDown size={20} className="faq-icon" />
-                </button>
-                <div className="faq-answer">
-                  <p>{faq.a}</p>
                 </div>
               </div>
             ))}
@@ -399,75 +358,66 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="cta-section">
-        <div className="section-container">
-          <div className="cta-content">
-            <h2>Ready to automate your business?</h2>
-            <p>Join hundreds of teams using OperonAI to work smarter, not harder.</p>
-            <div className="cta-buttons">
-              <button className="btn-primary" onClick={onGetStarted}>
-                Start Free Trial <ArrowRight size={16} />
-              </button>
-              <button className="btn-secondary">
-                Schedule a Demo
-              </button>
-            </div>
+      {/* Footer CTA */}
+      <section className="op-footer-cta">
+        <div className="op-gradient-ring">
+          <div className="op-gradient-ring-inner">
+            <Zap size={48} />
           </div>
         </div>
+        <h2>Let's build something that actually works.</h2>
+        <button className="op-cta-btn" onClick={onGetStarted}>
+          Get Started <ArrowRight size={18} />
+        </button>
       </section>
 
       {/* Footer */}
-      <footer className="nova-footer">
-        <div className="footer-container">
-          <div className="footer-main">
-            <div className="footer-brand">
-              <div className="footer-logo">
-                <Zap size={20} />
-                <span>OperonAI</span>
+      <footer className="op-footer">
+        <div className="op-footer-inner">
+          <div className="op-footer-top">
+            <div className="op-footer-brand">
+              <div className="op-footer-logo">
+                <Zap size={18} />
+                <span>OPERON</span>
               </div>
-              <p>AI-powered business automation that actually works. Built for teams that ship.</p>
+              <p>AI-powered business automation that actually works. Built for teams that ship. Every workflow has a purpose.</p>
             </div>
 
-            <div className="footer-links">
-              <div className="footer-column">
-                <h4>Product</h4>
-                <button>AI Agents</button>
-                <button>Communications</button>
-                <button>Document AI</button>
-                <button>Sales Intelligence</button>
-              </div>
-              <div className="footer-column">
-                <h4>Company</h4>
+            <div className="op-footer-cols">
+              <div className="op-footer-col">
+                <h4>General</h4>
+                <button>Home</button>
                 <button>About</button>
-                <button>Careers</button>
-                <button>Blog</button>
                 <button>Contact</button>
               </div>
-              <div className="footer-column">
-                <h4>Resources</h4>
-                <button>Documentation</button>
-                <button>API Reference</button>
-                <button>Status</button>
-                <button>Changelog</button>
+              <div className="op-footer-col">
+                <h4>Products</h4>
+                <button>Document AI</button>
+                <button>Communications</button>
+                <button>Sales Intelligence</button>
+                <button>Workflow Builder</button>
+              </div>
+              <div className="op-footer-col">
+                <h4>Company</h4>
+                <button>Careers</button>
+                <button>Blog</button>
+                <button>Security</button>
+              </div>
+              <div className="op-footer-col">
+                <h4>Legal</h4>
+                <button>Privacy Policy</button>
+                <button>Terms of Service</button>
               </div>
             </div>
           </div>
 
-          <div className="footer-newsletter">
-            <h4>Stay in the loop</h4>
-            <form onSubmit={(e) => e.preventDefault()}>
-              <input type="email" placeholder="your@email.com" />
-              <button type="submit">Subscribe</button>
-            </form>
-          </div>
-
-          <div className="footer-bottom">
-            <p>© 2026 OperonAI. All rights reserved.</p>
-            <div className="footer-legal">
-              <button>Privacy</button>
-              <button>Terms</button>
-              <button>Security</button>
+          <div className="op-footer-bottom">
+            <p>&copy; 2026 OperonAI. All Rights Reserved.</p>
+            <div className="op-footer-socials">
+              <button aria-label="LinkedIn"><Linkedin size={16} /></button>
+              <button aria-label="GitHub"><Github size={16} /></button>
+              <button aria-label="Twitter"><Twitter size={16} /></button>
+              <button aria-label="Email"><Mail size={16} /></button>
             </div>
           </div>
         </div>
