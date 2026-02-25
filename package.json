@@ -1,0 +1,47 @@
+{
+  "name": "project-gbeta",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite preview --outDir dist-firebase --port 5173",
+    "dev:source": "vite",
+    "build": "vite build --outDir dist-build",
+    "lint": "eslint .",
+    "preview": "vite preview --outDir dist-firebase"
+  },
+  "dependencies": {
+    "@babel/core": "^7.29.0",
+    "@esbuild/darwin-arm64": "^0.27.3",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "@xyflow/react": "^12.10.1",
+    "date-fns": "^4.1.0",
+    "docx": "^9.6.0",
+    "esbuild": "^0.27.3",
+    "firebase": "^12.9.0",
+    "framer-motion": "^12.29.2",
+    "jspdf": "^4.2.0",
+    "lucide-react": "^0.563.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.13.1",
+    "tinyglobby": "^0.2.15"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "^7.3.1"
+  }
+}

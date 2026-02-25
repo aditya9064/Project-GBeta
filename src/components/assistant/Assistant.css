@@ -1,0 +1,499 @@
+/* ============================================================
+   Operon Voice Assistant — Always-on Alexa/Siri style
+   Ambient listening indicator + fullscreen orb overlay
+   ============================================================ */
+
+/* ─── TRIGGER BUTTON (base) ──────────────────────────────── */
+
+button.assistant-trigger {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #e07a3a 0%, #d46b2c 100%);
+  color: #fff;
+  cursor: pointer;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 4px 16px rgba(224, 122, 58, 0.3),
+    0 1px 4px rgba(0, 0, 0, 0.08);
+  transition: transform 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
+              box-shadow 200ms ease;
+}
+
+button.assistant-trigger:hover {
+  transform: scale(1.1);
+  box-shadow:
+    0 6px 24px rgba(224, 122, 58, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+button.assistant-trigger:active {
+  transform: scale(0.92);
+}
+
+/* ─── MUTED STATE ────────────────────────────────────────── */
+
+button.assistant-trigger.muted {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  box-shadow:
+    0 4px 16px rgba(107, 114, 128, 0.25),
+    0 1px 4px rgba(0, 0, 0, 0.08);
+  opacity: 0.7;
+}
+
+button.assistant-trigger.muted:hover {
+  opacity: 1;
+  box-shadow:
+    0 6px 24px rgba(107, 114, 128, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ─── AMBIENT LISTENING STATE ────────────────────────────── */
+
+button.assistant-trigger.ambient {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+}
+
+button.assistant-trigger.ambient.listening,
+button.assistant-trigger.ambient.wake-listening {
+  background: linear-gradient(135deg, #e07a3a 0%, #d46b2c 100%);
+  animation: assistant-ambient-glow 3s ease-in-out infinite;
+}
+
+button.assistant-trigger.ambient.connecting {
+  background: linear-gradient(135deg, #e99a6a 0%, #d46b2c 100%);
+  animation: assistant-ambient-pulse 1.5s ease-in-out infinite;
+}
+
+button.assistant-trigger.ambient.error {
+  background: linear-gradient(135deg, #e07a3a 0%, #d46b2c 100%);
+  opacity: 0.6;
+  animation: assistant-ambient-pulse 2s ease-in-out infinite;
+}
+
+/* Pulse ring behind ambient trigger */
+.assistant-trigger-pulse {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(224, 122, 58, 0.4);
+  pointer-events: none;
+  animation: assistant-trigger-ring 3s ease-in-out infinite;
+}
+
+button.assistant-trigger.ambient.connecting .assistant-trigger-pulse {
+  border-color: rgba(224, 122, 58, 0.3);
+  animation-duration: 1.5s;
+}
+
+button.assistant-trigger.ambient.error .assistant-trigger-pulse {
+  border-color: rgba(239, 68, 68, 0.3);
+  animation: none;
+}
+
+@keyframes assistant-ambient-glow {
+  0%, 100% {
+    box-shadow:
+      0 4px 16px rgba(224, 122, 58, 0.3),
+      0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+  50% {
+    box-shadow:
+      0 4px 24px rgba(224, 122, 58, 0.45),
+      0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+}
+
+@keyframes assistant-ambient-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes assistant-trigger-ring {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.15); opacity: 0; }
+}
+
+/* ─── AMBIENT TRANSCRIPT BUBBLE ──────────────────────────── */
+
+.assistant-ambient-transcript {
+  position: fixed;
+  bottom: 90px;
+  right: 28px;
+  max-width: 280px;
+  padding: 10px 14px;
+  background: rgba(30, 30, 40, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  border: 1px solid rgba(224, 122, 58, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  z-index: 10000;
+  animation: assistant-ambient-transcript-in 250ms ease both;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes assistant-ambient-transcript-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── FULLSCREEN OVERLAY ─────────────────────────────────── */
+
+.assistant-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: assistant-overlay-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes assistant-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.assistant-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 15, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.assistant-orb-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  z-index: 1;
+  animation: assistant-orb-float-in 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 100ms;
+}
+
+@keyframes assistant-orb-float-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ─── ANIMATED RINGS ─────────────────────────────────────── */
+
+.assistant-orb-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(224, 122, 58, 0.15);
+  pointer-events: none;
+  transition: border-color 400ms ease, transform 400ms ease;
+}
+
+.assistant-orb-ring.ring-1 {
+  width: 180px;
+  height: 180px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: assistant-ring-breathe 3s ease-in-out infinite;
+}
+
+.assistant-orb-ring.ring-2 {
+  width: 240px;
+  height: 240px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: assistant-ring-breathe 3s ease-in-out infinite;
+  animation-delay: 0.5s;
+  border-color: rgba(224, 122, 58, 0.08);
+}
+
+.assistant-orb-ring.ring-3 {
+  width: 300px;
+  height: 300px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: assistant-ring-breathe 3s ease-in-out infinite;
+  animation-delay: 1s;
+  border-color: rgba(224, 122, 58, 0.04);
+}
+
+/* Speaking state — warm orange rings */
+.assistant-orb-ring.speaking {
+  border-color: rgba(224, 122, 58, 0.25);
+  animation-duration: 1.2s;
+}
+
+.assistant-orb-ring.ring-2.speaking {
+  border-color: rgba(224, 122, 58, 0.15);
+}
+
+.assistant-orb-ring.ring-3.speaking {
+  border-color: rgba(224, 122, 58, 0.08);
+}
+
+/* Processing state */
+.assistant-orb-ring.processing,
+.assistant-orb-ring.connecting {
+  border-color: rgba(224, 122, 58, 0.15);
+  animation-duration: 2s;
+}
+
+.assistant-orb-ring.ring-2.processing,
+.assistant-orb-ring.ring-2.connecting {
+  border-color: rgba(224, 122, 58, 0.08);
+}
+
+.assistant-orb-ring.ring-3.processing,
+.assistant-orb-ring.ring-3.connecting {
+  border-color: rgba(224, 122, 58, 0.04);
+}
+
+/* Error state */
+.assistant-orb-ring.error {
+  border-color: rgba(239, 68, 68, 0.15);
+  animation: none;
+}
+
+@keyframes assistant-ring-breathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  50% { transform: translate(-50%, -50%) scale(1.08); opacity: 0.5; }
+}
+
+/* ─── CORE ORB ───────────────────────────────────────────── */
+
+.assistant-orb {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 400ms ease, box-shadow 400ms ease, transform 200ms ease;
+}
+
+.assistant-orb:active {
+  transform: scale(0.92);
+}
+
+/* Connecting */
+.assistant-orb.connecting {
+  background: radial-gradient(circle at 40% 40%, #e99a6a, #e07a3a 60%, #c05d1e);
+  box-shadow:
+    0 0 40px rgba(224, 122, 58, 0.3),
+    0 0 80px rgba(224, 122, 58, 0.15),
+    inset 0 -4px 12px rgba(0, 0, 0, 0.15);
+  animation: assistant-orb-pulse 1.5s ease-in-out infinite;
+}
+
+/* Listening — warm glow */
+.assistant-orb.listening {
+  background: radial-gradient(circle at 40% 40%, #e99a6a, #e07a3a 60%, #d46b2c);
+  box-shadow:
+    0 0 50px rgba(224, 122, 58, 0.4),
+    0 0 100px rgba(224, 122, 58, 0.15),
+    inset 0 -4px 12px rgba(0, 0, 0, 0.15);
+  animation: assistant-orb-listen 1s ease-in-out infinite;
+}
+
+@keyframes assistant-orb-listen {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+/* Listening rings */
+.assistant-orb-ring.listening {
+  border-color: rgba(224, 122, 58, 0.2);
+  animation-duration: 1.5s;
+}
+
+.assistant-orb-ring.ring-2.listening {
+  border-color: rgba(224, 122, 58, 0.12);
+}
+
+.assistant-orb-ring.ring-3.listening {
+  border-color: rgba(224, 122, 58, 0.06);
+}
+
+/* Processing */
+.assistant-orb.processing {
+  background: radial-gradient(circle at 40% 40%, #e99a6a, #e07a3a 60%, #c05d1e);
+  box-shadow:
+    0 0 40px rgba(224, 122, 58, 0.35),
+    0 0 80px rgba(224, 122, 58, 0.15),
+    inset 0 -4px 12px rgba(0, 0, 0, 0.15);
+  animation: assistant-orb-pulse 2s ease-in-out infinite;
+}
+
+/* Speaking — warm orange */
+.assistant-orb.speaking {
+  background: radial-gradient(circle at 40% 40%, #f0a060, #e07a3a 60%, #d46b2c);
+  box-shadow:
+    0 0 50px rgba(224, 122, 58, 0.4),
+    0 0 100px rgba(224, 122, 58, 0.15),
+    inset 0 -4px 12px rgba(0, 0, 0, 0.15);
+  animation: assistant-orb-speak 0.8s ease-in-out infinite;
+}
+
+@keyframes assistant-orb-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+@keyframes assistant-orb-speak {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.assistant-orb-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* ─── AUDIO BARS (speaking) ──────────────────────────────── */
+
+.assistant-orb-bars {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+}
+
+.assistant-orb-bars span {
+  width: 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.9);
+  animation: assistant-bar-bounce 0.6s ease-in-out infinite alternate;
+}
+
+.assistant-orb-bars span:nth-child(1) { height: 12px; animation-delay: 0s; }
+.assistant-orb-bars span:nth-child(2) { height: 24px; animation-delay: 0.1s; }
+.assistant-orb-bars span:nth-child(3) { height: 36px; animation-delay: 0.2s; }
+.assistant-orb-bars span:nth-child(4) { height: 24px; animation-delay: 0.3s; }
+.assistant-orb-bars span:nth-child(5) { height: 12px; animation-delay: 0.4s; }
+
+.assistant-orb-bars.speaking span {
+  animation-duration: 0.5s;
+}
+
+.assistant-orb-bars.speaking span:nth-child(1) { height: 16px; }
+.assistant-orb-bars.speaking span:nth-child(2) { height: 28px; }
+.assistant-orb-bars.speaking span:nth-child(3) { height: 40px; }
+.assistant-orb-bars.speaking span:nth-child(4) { height: 28px; }
+.assistant-orb-bars.speaking span:nth-child(5) { height: 16px; }
+
+@keyframes assistant-bar-bounce {
+  from { transform: scaleY(0.3); }
+  to { transform: scaleY(1); }
+}
+
+/* ─── PROCESSING DOTS ────────────────────────────────────── */
+
+.assistant-orb-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.assistant-orb-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  animation: assistant-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.assistant-orb-dots span:nth-child(2) { animation-delay: 0.2s; }
+.assistant-orb-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes assistant-dot-pulse {
+  0%, 60%, 100% { transform: scale(0.6); opacity: 0.4; }
+  30% { transform: scale(1); opacity: 1; }
+}
+
+/* ─── LABELS & TRANSCRIPT ────────────────────────────────── */
+
+.assistant-orb-label {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  min-height: 20px;
+  transition: color 300ms ease;
+}
+
+.assistant-orb-label.speaking {
+  color: rgba(240, 160, 96, 0.9);
+}
+
+.assistant-orb-label.processing,
+.assistant-orb-label.connecting {
+  color: rgba(224, 160, 100, 0.9);
+}
+
+.assistant-orb-label.error {
+  color: rgba(248, 113, 113, 0.9);
+}
+
+.assistant-orb-transcript {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: center;
+  max-width: 400px;
+  line-height: 1.5;
+  animation: assistant-transcript-in 300ms ease both;
+}
+
+@keyframes assistant-transcript-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.assistant-orb-error {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(248, 113, 113, 0.8);
+  text-align: center;
+  max-width: 300px;
+  margin-top: -8px;
+}
+
+/* ─── SPINNER (kept for compatibility) ───────────────────── */
+
+.assistant-spin {
+  animation: assistant-spin-anim 1s linear infinite;
+}
+
+@keyframes assistant-spin-anim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

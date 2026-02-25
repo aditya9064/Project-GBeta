@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Operon AI — Pitch Deck</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-dark: #0a0a0f;
+    --bg-card: #12121a;
+    --bg-card-hover: #1a1a28;
+    --accent: #6366f1;
+    --accent-light: #818cf8;
+    --accent-glow: rgba(99, 102, 241, 0.25);
+    --green: #10b981;
+    --green-glow: rgba(16, 185, 129, 0.2);
+    --orange: #f59e0b;
+    --pink: #ec4899;
+    --text: #f1f5f9;
+    --text-dim: #94a3b8;
+    --text-muted: #64748b;
+    --border: rgba(255,255,255,0.06);
+    --radius: 16px;
+  }
+
+  html, body {
+    height: 100%; width: 100%;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg-dark);
+    color: var(--text);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ───── slide container ───── */
+  .deck { position: relative; width: 100%; height: 100%; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    padding: 60px 80px;
+    opacity: 0;
+    transform: translateX(60px);
+    pointer-events: none;
+    transition: opacity .5s cubic-bezier(.4,0,.2,1), transform .5s cubic-bezier(.4,0,.2,1);
+  }
+  .slide.active {
+    opacity: 1; transform: translateX(0); pointer-events: auto;
+  }
+  .slide.exit-left {
+    opacity: 0; transform: translateX(-60px);
+  }
+
+  /* ───── backgrounds ───── */
+  .bg-gradient {
+    position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  }
+  .bg-gradient::before {
+    content: '';
+    position: absolute; width: 800px; height: 800px;
+    border-radius: 50%;
+    filter: blur(180px);
+    opacity: .35;
+  }
+  .bg-gradient.purple::before  { background: var(--accent); top: -200px; right: -200px; }
+  .bg-gradient.green::before   { background: var(--green); bottom: -200px; left: -200px; }
+  .bg-gradient.pink::before    { background: var(--pink); top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  .bg-gradient.orange::before  { background: var(--orange); top: -100px; left: -100px; }
+  .bg-gradient.dual::before    { background: var(--accent); top: -300px; right: -200px; }
+  .bg-gradient.dual::after {
+    content: ''; position: absolute; width: 600px; height: 600px;
+    border-radius: 50%; filter: blur(160px); opacity: .25;
+    background: var(--green); bottom: -200px; left: -100px;
+  }
+
+  /* ───── typography ───── */
+  .kicker {
+    font-size: 13px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--accent-light); margin-bottom: 16px;
+  }
+  h1 { font-size: clamp(36px, 5vw, 64px); font-weight: 800; line-height: 1.1; letter-spacing: -1.5px; }
+  h2 { font-size: clamp(28px, 3.5vw, 48px); font-weight: 700; line-height: 1.2; letter-spacing: -1px; }
+  h3 { font-size: 22px; font-weight: 600; }
+  .subtitle {
+    font-size: clamp(16px, 1.8vw, 22px); font-weight: 300; color: var(--text-dim);
+    max-width: 700px; margin-top: 20px; line-height: 1.6;
+  }
+
+  .highlight { color: var(--accent-light); }
+  .highlight-green { color: var(--green); }
+  .highlight-pink { color: var(--pink); }
+  .highlight-orange { color: var(--orange); }
+
+  /* ───── layout helpers ───── */
+  .center-text { text-align: center; }
+  .left-text   { text-align: left; align-items: flex-start; }
+  .w-full { width: 100%; }
+  .gap-24 { gap: 24px; }
+  .gap-32 { gap: 32px; }
+  .gap-40 { gap: 40px; }
+  .mt-12 { margin-top: 12px; }
+  .mt-20 { margin-top: 20px; }
+  .mt-32 { margin-top: 32px; }
+  .mb-8  { margin-bottom: 8px; }
+
+  .row { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+  .col { display: flex; flex-direction: column; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 100%; max-width: 1100px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; width: 100%; max-width: 1100px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; width: 100%; max-width: 1100px; }
+
+  .two-col {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 60px;
+    width: 100%; max-width: 1100px; align-items: center;
+  }
+
+  /* ───── cards ───── */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    transition: background .25s, border-color .25s;
+  }
+  .card:hover {
+    background: var(--bg-card-hover);
+    border-color: rgba(255,255,255,0.1);
+  }
+  .card .icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; margin-bottom: 16px;
+  }
+  .icon-purple { background: var(--accent-glow); color: var(--accent-light); }
+  .icon-green  { background: var(--green-glow); color: var(--green); }
+  .icon-pink   { background: rgba(236,72,153,0.15); color: var(--pink); }
+  .icon-orange { background: rgba(245,158,11,0.15); color: var(--orange); }
+
+  .card h3 { margin-bottom: 8px; }
+  .card p  { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
+
+  /* ───── stat row ───── */
+  .stat-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 32px; text-align: center;
+    min-width: 200px;
+  }
+  .stat-card .number {
+    font-size: 42px; font-weight: 800; letter-spacing: -1px;
+  }
+  .stat-card .label {
+    font-size: 14px; color: var(--text-dim); margin-top: 6px;
+  }
+
+  /* ───── team cards ───── */
+  .team-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 28px; text-align: center;
+  }
+  .team-avatar {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--pink));
+    margin: 0 auto 16px; display: flex; align-items: center;
+    justify-content: center; font-size: 28px; font-weight: 700;
+  }
+  .team-card .name { font-size: 18px; font-weight: 600; }
+  .team-card .role { font-size: 13px; color: var(--accent-light); margin-top: 4px; font-weight: 500; }
+  .team-card .bio  { font-size: 13px; color: var(--text-dim); margin-top: 10px; line-height: 1.5; }
+
+  /* ───── comparison table ───── */
+  .compare-table {
+    width: 100%; max-width: 1000px; border-collapse: separate;
+    border-spacing: 0; border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .compare-table th {
+    background: var(--bg-card); padding: 16px 20px;
+    font-size: 13px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--text-dim); text-align: left;
+  }
+  .compare-table th:first-child { width: 240px; }
+  .compare-table th.us { color: var(--accent-light); }
+  .compare-table td {
+    padding: 14px 20px; font-size: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .compare-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .compare-table .check { color: var(--green); font-weight: 700; font-size: 18px; }
+  .compare-table .cross { color: var(--text-muted); font-size: 18px; }
+  .compare-table .partial { color: var(--orange); font-size: 14px; }
+
+  /* ───── timeline ───── */
+  .timeline {
+    display: flex; flex-direction: column; gap: 0; width: 100%; max-width: 800px;
+    position: relative; padding-left: 32px;
+  }
+  .timeline::before {
+    content: ''; position: absolute; left: 8px; top: 8px; bottom: 8px;
+    width: 2px; background: linear-gradient(to bottom, var(--accent), var(--green));
+    border-radius: 2px;
+  }
+  .timeline-item { display: flex; gap: 20px; padding: 18px 0; position: relative; }
+  .timeline-item::before {
+    content: ''; position: absolute; left: -28px; top: 26px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--bg-dark);
+  }
+  .timeline-item .date {
+    font-size: 13px; font-weight: 600; color: var(--accent-light);
+    min-width: 80px; padding-top: 2px;
+  }
+  .timeline-item .desc { font-size: 15px; color: var(--text-dim); line-height: 1.5; }
+  .timeline-item .desc strong { color: var(--text); }
+
+  /* ───── bullet list ───── */
+  .bullet-list { list-style: none; padding: 0; }
+  .bullet-list li {
+    position: relative; padding-left: 28px; margin-bottom: 16px;
+    font-size: 16px; color: var(--text-dim); line-height: 1.6;
+  }
+  .bullet-list li::before {
+    content: '→'; position: absolute; left: 0; color: var(--accent-light);
+    font-weight: 600;
+  }
+  .bullet-list li strong { color: var(--text); }
+
+  /* ───── badge ───── */
+  .badge {
+    display: inline-block; padding: 4px 12px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; letter-spacing: .5px;
+  }
+  .badge-purple { background: var(--accent-glow); color: var(--accent-light); }
+  .badge-green  { background: var(--green-glow); color: var(--green); }
+
+  /* ───── CTA card ───── */
+  .cta-card {
+    background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(16,185,129,0.08));
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 20px; padding: 48px; text-align: center;
+    max-width: 800px; width: 100%;
+  }
+
+  /* ───── nav bar ───── */
+  .nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 32px;
+    background: rgba(10,10,15,0.85); backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+  }
+  .nav .progress-bar {
+    position: absolute; top: 0; left: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    transition: width .4s ease;
+  }
+  .nav .slide-counter { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+  .nav .controls { display: flex; gap: 8px; }
+  .nav button {
+    width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--bg-card); color: var(--text);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; transition: background .2s, border-color .2s;
+  }
+  .nav button:hover { background: var(--bg-card-hover); border-color: rgba(255,255,255,0.12); }
+  .nav .brand { font-size: 13px; font-weight: 600; color: var(--text-dim); letter-spacing: 1px; }
+
+  /* ───── placeholder ───── */
+  .placeholder {
+    background: rgba(245,158,11,0.08);
+    border: 1px dashed rgba(245,158,11,0.35);
+    border-radius: 8px; padding: 6px 12px;
+    color: var(--orange); font-size: 13px; font-style: italic;
+  }
+
+  /* ───── demo slide ───── */
+  .demo-frame {
+    width: 100%; max-width: 960px; aspect-ratio: 16/9;
+    border-radius: var(--radius); border: 1px solid var(--border);
+    background: var(--bg-card);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; position: relative;
+  }
+  .demo-placeholder {
+    text-align: center; color: var(--text-dim);
+  }
+  /* ───── pipeline diagram ───── */
+  .pipeline-svg-wrap {
+    width: 100%; max-width: 1060px; margin: 0 auto;
+  }
+  .pipeline-svg-wrap svg { width: 100%; height: auto; }
+
+  /* ───── category grid ───── */
+  .cat-featured {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    width: 100%; max-width: 1100px;
+  }
+  .cat-featured-item {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px 20px;
+    text-align: left; position: relative; overflow: hidden;
+    transition: border-color .25s, transform .25s;
+  }
+  .cat-featured-item:hover {
+    border-color: rgba(255,255,255,0.12); transform: translateY(-2px);
+  }
+  .cat-featured-item .cat-f-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 14px;
+  }
+  .cat-featured-item .cat-f-count {
+    font-size: 32px; font-weight: 800; letter-spacing: -1px; line-height: 1;
+  }
+  .cat-featured-item .cat-f-name {
+    font-size: 14px; font-weight: 500; color: var(--text-dim); margin-top: 4px;
+  }
+  .cat-featured-item .cat-f-bar {
+    height: 4px; border-radius: 4px; margin-top: 16px;
+    opacity: .6;
+  }
+  .cat-grid-sm {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px;
+    width: 100%; max-width: 1100px;
+  }
+  .cat-sm-item {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 10px; text-align: center;
+    transition: border-color .2s;
+  }
+  .cat-sm-item:hover { border-color: rgba(255,255,255,0.1); }
+  .cat-sm-item .cat-sm-icon {
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 8px; color: var(--text-muted);
+  }
+  .cat-sm-item .cat-sm-count {
+    font-size: 18px; font-weight: 700; color: var(--text);
+  }
+  .cat-sm-item .cat-sm-name {
+    font-size: 11px; font-weight: 500; color: var(--text-muted); margin-top: 2px;
+  }
+
+  .demo-placeholder .play-icon {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: var(--accent-glow); color: var(--accent-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; margin: 0 auto 16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- ===== SLIDE 1 — TITLE ===== -->
+  <div class="slide active center-text" data-slide="0">
+    <div class="bg-gradient dual"></div>
+    <div class="kicker">Introducing</div>
+    <h1>Operon <span class="highlight">AI</span></h1>
+    <p class="subtitle">The AI Agent Platform That Runs Your Business — So You Can Focus on Growing It.</p>
+    <div class="mt-32 row gap-24">
+      <span class="badge badge-purple">AI-Powered Automation</span>
+      <span class="badge badge-green">No-Code Workflow Builder</span>
+      <span class="badge badge-purple">Document Intelligence</span>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 2 — TEAM ===== -->
+  <div class="slide center-text" data-slide="1">
+    <div class="bg-gradient purple"></div>
+    <div class="kicker">Our Team</div>
+    <h2>We're Focused on <span class="highlight">People</span></h2>
+    <p class="subtitle mb-8">Built by operators who understand the pain of manual work — for operators who want to automate it.</p>
+    <div class="grid-3 mt-32">
+      <div class="team-card">
+        <div class="team-avatar">AM</div>
+        <div class="name">Aditya Miriyala</div>
+        <div class="role">CEO / Co-Founder</div>
+        <p class="bio">Serial builder. Previously founded a startup backed by Founders University ($100K funding). Co-built and sold tools with engineers in SF for $1.2M.</p>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar" style="background:linear-gradient(135deg,var(--green),var(--accent))">KC</div>
+        <div class="name">Koushik Cherukuri</div>
+        <div class="role">CFO / Co-Founder</div>
+        <p class="bio">Grew up learning finance from his father, a VP at one of India's major banks. Brings real-world financial discipline to early-stage growth.</p>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar" style="background:linear-gradient(135deg,var(--orange),var(--pink))">KL</div>
+        <div class="name">Khushal Lingamaneni</div>
+        <div class="role">COO / Co-Founder</div>
+        <p class="bio">Scaled one of the largest non-profits to over 120,000 members. Proven operator who knows how to build, grow, and mobilize communities at scale.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 3 — GENESIS ===== -->
+  <div class="slide left-text" data-slide="2">
+    <div class="bg-gradient green"></div>
+    <div class="kicker">Our Story</div>
+    <h2>The Genesis of <span class="highlight-green">Operon AI</span></h2>
+    <div class="two-col mt-32">
+      <div class="col gap-24">
+        <div>
+          <h3 class="mb-8">The Problem We Lived</h3>
+          <p style="color:var(--text-dim);line-height:1.7;font-size:15px;">
+            Every growing business drowns in repetitive tasks — drafting documents, responding to emails, updating CRMs, chasing leads. Teams spend <strong style="color:var(--text)">60%+ of their time</strong> on work that doesn't move the needle.
+          </p>
+        </div>
+        <div>
+          <h3 class="mb-8">The "Aha" Moment</h3>
+          <p style="color:var(--text-dim);line-height:1.7;font-size:15px;">
+            We watched businesses juggle <strong style="color:var(--text)">five, six, seven different platforms</strong> just to run their AI agents and automations — one tool for email, another for documents, another for sales, another for scheduling. None of them talked to each other. We realized no one was building a <strong style="color:var(--text)">single unified platform</strong> where every automation lives under one roof, powered by agents that collaborate like a real team of employees.
+          </p>
+        </div>
+        <div>
+          <h3 class="mb-8">The Vision</h3>
+          <p style="color:var(--text-dim);line-height:1.7;font-size:15px;">
+            Give every business a <strong style="color:var(--text)">digital crew</strong> of AI agents that work 24/7 — automating any workflow across every function of the business — while humans focus on strategy and relationships.
+          </p>
+        </div>
+      </div>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="date">Late 2025</div>
+          <div class="desc"><strong>Idea Born</strong> — Saw businesses fragmented across dozens of AI tools with no unified platform</div>
+        </div>
+        <div class="timeline-item">
+          <div class="date">Dec 2025</div>
+          <div class="desc"><strong>First Prototype</strong> — Built the workflow engine and core agent architecture</div>
+        </div>
+        <div class="timeline-item">
+          <div class="date">Jan 2026</div>
+          <div class="desc"><strong>Platform Built</strong> — Shipped workflow builder and agent catalog, leveraging n8n's open-source ecosystem for 3,650+ templates</div>
+        </div>
+        <div class="timeline-item">
+          <div class="date">Feb 2026</div>
+          <div class="desc"><strong>User Testing</strong> — 120 testers actively using the platform and providing feedback</div>
+        </div>
+        <div class="timeline-item">
+          <div class="date">Now</div>
+          <div class="desc"><strong>Next Step</strong> — Iterating on feedback, preparing for public launch</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 4 — PRODUCT OVERVIEW ===== -->
+  <div class="slide center-text" data-slide="3">
+    <div class="bg-gradient pink"></div>
+    <div class="kicker">Product</div>
+    <h2>One Platform. <span class="highlight-pink">Infinite Agents.</span></h2>
+    <p class="subtitle">Deploy AI agents that automate any workflow — across 20+ categories, 3,650+ templates, and 200+ integrations.</p>
+    <div class="grid-4 mt-32">
+      <div class="card">
+        <div class="icon icon-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+        <h3>Workflow Builder</h3>
+        <p>Visual drag-and-drop builder with AI-powered prompt-to-workflow generation. No code required.</p>
+      </div>
+      <div class="card">
+        <div class="icon icon-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
+        <h3>Document AI</h3>
+        <p>Generate leases, invoices, MSAs, and more. Upload a template, map your data, and produce documents at scale.</p>
+      </div>
+      <div class="card">
+        <div class="icon icon-pink"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <h3>Comms Agents</h3>
+        <p>Email response, SMS campaigns, live chat, and social media — all unified and AI-driven.</p>
+      </div>
+      <div class="card">
+        <div class="icon icon-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+        <h3>Sales Intelligence</h3>
+        <p>Lead scoring, deal forecasting, competitive radar, and next-best-action recommendations.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 5 — PRODUCT DEEP DIVE ===== -->
+  <div class="slide center-text" data-slide="4">
+    <div class="bg-gradient purple"></div>
+    <div class="kicker">How It Works</div>
+    <h2>From Prompt to <span class="highlight">Production</span> in Minutes</h2>
+    <div class="grid-3 mt-32">
+      <div class="card" style="text-align:left;">
+        <div style="font-size:36px;font-weight:800;color:var(--accent-light);margin-bottom:12px;">01</div>
+        <h3>Describe Your Task</h3>
+        <p>Tell Operon AI what you need in plain English — or pick from our pre-built agent catalog with 50+ templates.</p>
+      </div>
+      <div class="card" style="text-align:left;">
+        <div style="font-size:36px;font-weight:800;color:var(--accent-light);margin-bottom:12px;">02</div>
+        <h3>Customize & Connect</h3>
+        <p>Wire up your apps — Gmail, Slack, Salesforce, Notion, Stripe, and 30+ integrations. Set triggers and conditions.</p>
+      </div>
+      <div class="card" style="text-align:left;">
+        <div style="font-size:36px;font-weight:800;color:var(--accent-light);margin-bottom:12px;">03</div>
+        <h3>Deploy & Monitor</h3>
+        <p>Hit deploy. Your agent runs 24/7 with full execution logs, versioning, and real-time monitoring.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 6 — WORKFLOW PIPELINE ===== -->
+  <div class="slide center-text" data-slide="5">
+    <div class="bg-gradient dual"></div>
+    <div class="kicker">Architecture</div>
+    <h2>The Operon AI <span class="highlight">Pipeline</span></h2>
+    <p class="subtitle" style="margin-bottom:0;">Agents collaborate like employees — each one specialized, all working together.</p>
+
+    <div class="pipeline-svg-wrap mt-32">
+      <svg viewBox="0 0 1060 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gPurple" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6366f1" stop-opacity=".18"/><stop offset="100%" stop-color="#6366f1" stop-opacity=".06"/></linearGradient>
+          <linearGradient id="gGreen" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#10b981" stop-opacity=".18"/><stop offset="100%" stop-color="#10b981" stop-opacity=".06"/></linearGradient>
+          <linearGradient id="gOrange" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f59e0b" stop-opacity=".18"/><stop offset="100%" stop-color="#f59e0b" stop-opacity=".06"/></linearGradient>
+          <linearGradient id="gPink" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ec4899" stop-opacity=".18"/><stop offset="100%" stop-color="#ec4899" stop-opacity=".06"/></linearGradient>
+          <linearGradient id="gCenter" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6366f1" stop-opacity=".22"/><stop offset="100%" stop-color="#10b981" stop-opacity=".10"/></linearGradient>
+          <marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0 0 L8 3 L0 6" fill="none" stroke="#64748b" stroke-width="1.2"/></marker>
+          <marker id="ahP" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0 0 L8 3 L0 6" fill="none" stroke="#818cf8" stroke-width="1.2"/></marker>
+          <marker id="ahG" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0 0 L8 3 L0 6" fill="none" stroke="#10b981" stroke-width="1.2"/></marker>
+        </defs>
+
+        <!-- LAYER LABELS (left side) -->
+        <text x="14" y="42" fill="#64748b" font-size="9" font-weight="600" letter-spacing="1.5" font-family="Inter,sans-serif">TRIGGERS</text>
+        <text x="14" y="212" fill="#64748b" font-size="9" font-weight="600" letter-spacing="1.5" font-family="Inter,sans-serif">ORCHESTRATOR</text>
+        <text x="14" y="342" fill="#64748b" font-size="9" font-weight="600" letter-spacing="1.5" font-family="Inter,sans-serif">AGENTS</text>
+        <text x="14" y="482" fill="#64748b" font-size="9" font-weight="600" letter-spacing="1.5" font-family="Inter,sans-serif">OUTPUTS</text>
+
+        <!-- ════════ ROW 1: TRIGGERS ════════ -->
+        <!-- Trigger boxes -->
+        <rect x="130" y="18" width="170" height="56" rx="12" fill="url(#gOrange)" stroke="#f59e0b" stroke-opacity=".3" stroke-width="1"/>
+        <text x="215" y="42" fill="#f59e0b" font-size="11" font-weight="600" text-anchor="middle" font-family="Inter,sans-serif">Email Received</text>
+        <text x="215" y="58" fill="#94a3b8" font-size="10" text-anchor="middle" font-family="Inter,sans-serif">Incoming message</text>
+
+        <rect x="330" y="18" width="170" height="56" rx="12" fill="url(#gPurple)" stroke="#6366f1" stroke-opacity=".3" stroke-width="1"/>
+        <text x="415" y="42" fill="#818cf8" font-size="11" font-weight="600" text-anchor="middle" font-family="Inter,sans-serif">Schedule / Cron</text>
+        <text x="415" y="58" fill="#94a3b8" font-size="10" text-anchor="middle" font-family="Inter,sans-serif">Time-based trigger</text>
+
+        <rect x="530" y="18" width="170" height="56" rx="12" fill="url(#gGreen)" stroke="#10b981" stroke-opacity=".3" stroke-width="1"/>
+        <text x="615" y="42" fill="#10b981" font-size="11" font-weight="600" text-anchor="middle" font-family="Inter,sans-serif">Webhook / API</text>
+        <text x="615" y="58" fill="#94a3b8" font-size="10" text-anchor="middle" font-family="Inter,sans-serif">External event</text>
+
+        <rect x="730" y="18" width="170" height="56" rx="12" fill="url(#gPink)" stroke="#ec4899" stroke-opacity=".3" stroke-width="1"/>
+        <text x="815" y="42" fill="#ec4899" font-size="11" font-weight="600" text-anchor="middle" font-family="Inter,sans-serif">User Prompt</text>
+        <text x="815" y="58" fill="#94a3b8" font-size="10" text-anchor="middle" font-family="Inter,sans-serif">Natural language</text>
+
+        <!-- Lines: triggers → orchestrator -->
+        <line x1="215" y1="74" x2="215" y2="120" stroke="#64748b" stroke-opacity=".4" stroke-width="1" stroke-dasharray="4 3"/>
+        <line x1="415" y1="74" x2="415" y2="120" stroke="#64748b" stroke-opacity=".4" stroke-width="1" stroke-dasharray="4 3"/>
+        <line x1="615" y1="74" x2="615" y2="120" stroke="#64748b" stroke-opacity=".4" stroke-width="1" stroke-dasharray="4 3"/>
+        <line x1="815" y1="74" x2="815" y2="120" stroke="#64748b" stroke-opacity=".4" stroke-width="1" stroke-dasharray="4 3"/>
+        <!-- Horizontal merge line -->
+        <line x1="215" y1="120" x2="815" y2="120" stroke="#64748b" stroke-opacity=".4" stroke-width="1"/>
+        <!-- Single line down to orchestrator -->
+        <line x1="515" y1="120" x2="515" y2="170" stroke="#818cf8" stroke-opacity=".6" stroke-width="1.5" marker-end="url(#ahP)"/>
+
+        <!-- ════════ ROW 2: ORCHESTRATOR ════════ -->
+        <rect x="330" y="178" width="370" height="64" rx="14" fill="url(#gCenter)" stroke="#6366f1" stroke-opacity=".35" stroke-width="1.5"/>
+        <!-- Pulsing ring -->
+        <rect x="328" y="176" width="374" height="68" rx="16" fill="none" stroke="#6366f1" stroke-opacity=".12" stroke-width="1">
+          <animate attributeName="stroke-opacity" values=".12;.28;.12" dur="3s" repeatCount="indefinite"/>
+        </rect>
+        <text x="515" y="206" fill="#f1f5f9" font-size="15" font-weight="700" text-anchor="middle" font-family="Inter,sans-serif">AI Orchestrator</text>
+        <text x="515" y="226" fill="#94a3b8" font-size="10" text-anchor="middle" font-family="Inter,sans-serif">Routes tasks  ·  Manages context  ·  Handles agent hand-offs</text>
+
+        <!-- Lines: orchestrator → agents (fan out) -->
+        <line x1="355" y1="242" x2="155" y2="300" stroke="#818cf8" stroke-opacity=".4" stroke-width="1" marker-end="url(#ahP)"/>
+        <line x1="435" y1="242" x2="355" y2="300" stroke="#818cf8" stroke-opacity=".4" stroke-width="1" marker-end="url(#ahP)"/>
+        <line x1="515" y1="242" x2="515" y2="300" stroke="#818cf8" stroke-opacity=".5" stroke-width="1.5" marker-end="url(#ahP)"/>
+        <line x1="595" y1="242" x2="675" y2="300" stroke="#818cf8" stroke-opacity=".4" stroke-width="1" marker-end="url(#ahP)"/>
+        <line x1="675" y1="242" x2="875" y2="300" stroke="#818cf8" stroke-opacity=".4" stroke-width="1" marker-end="url(#ahP)"/>
+
+        <!-- ════════ ROW 3: AGENTS ════════ -->
+        <!-- Agent 1: Documents -->
+        <rect x="70" y="308" width="170" height="68" rx="12" fill="url(#gPurple)" stroke="#6366f1" stroke-opacity=".25" stroke-width="1"/>
+        <text x="155" y="336" fill="#818cf8" font-size="12" font-weight="600" text-anchor="middle" font-family="Inter,sans-serif">Doc Agent</text>
+        <text x="155" y="354" fill="#94a3b8" font-size="9.5" text-anchor="middle" font-family="Inter,sans-serif">Generate &amp; process docs</text>
+
+        <!-- Agent 2: Communications -->
+        <rect x="270" y="308" width="170" height="68" rx="12" fill="url(#gGreen)" stroke="#10b981" stroke-opacity=".25" stroke-width="1"/>
+        <text x="355" y="336" fill="#10b981" font-size="12" font-weight="600" text-anchor="middle" font-family="Inter,sans-serif">Comms Agent</text>
+        <text x="355" y="354" fill="#94a3b8" font-size="9.5" text-anchor="middle" font-family="Inter,sans-serif">Email, SMS &amp; chat</text>
+
+        <!-- Agent 3: Sales -->
+        <rect x="470" y="308" width="170" height="68" rx="12" fill="url(#gPink)" stroke="#ec4899" stroke-opacity=".25" stroke-width="1"/>
+        <text x="555" y="336" fill="#ec4899" font-size="12" font-weight="600" text-anchor="middle" font-family="Inter,sans-serif">Sales Agent</text>
+        <text x="555" y="354" fill="#94a3b8" font-size="9.5" text-anchor="middle" font-family="Inter,sans-serif">Scoring &amp; forecasting</text>
+
+        <!-- Agent 4: Data -->
+        <rect x="670" y="308" width="170" height="68" rx="12" fill="url(#gOrange)" stroke="#f59e0b" stroke-opacity=".25" stroke-width="1"/>
+        <text x="755" y="336" fill="#f59e0b" font-size="12" font-weight="600" text-anchor="middle" font-family="Inter,sans-serif">Data Agent</text>
+        <text x="755" y="354" fill="#94a3b8" font-size="9.5" text-anchor="middle" font-family="Inter,sans-serif">Transform &amp; enrich</text>
+
+        <!-- Agent 5: Custom -->
+        <rect x="870" y="308" width="170" height="68" rx="12" fill="url(#gPurple)" stroke="#6366f1" stroke-opacity=".15" stroke-width="1"/>
+        <text x="955" y="336" fill="#818cf8" font-size="12" font-weight="600" text-anchor="middle" font-family="Inter,sans-serif">Custom Agent</text>
+        <text x="955" y="354" fill="#94a3b8" font-size="9.5" text-anchor="middle" font-family="Inter,sans-serif">Your logic &amp; rules</text>
+
+        <!-- Inter-agent collaboration lines (bidirectional dashes) -->
+        <line x1="240" y1="342" x2="270" y2="342" stroke="#64748b" stroke-opacity=".3" stroke-width="1" stroke-dasharray="3 2"/>
+        <line x1="440" y1="342" x2="470" y2="342" stroke="#64748b" stroke-opacity=".3" stroke-width="1" stroke-dasharray="3 2"/>
+        <line x1="640" y1="342" x2="670" y2="342" stroke="#64748b" stroke-opacity=".3" stroke-width="1" stroke-dasharray="3 2"/>
+        <line x1="840" y1="342" x2="870" y2="342" stroke="#64748b" stroke-opacity=".3" stroke-width="1" stroke-dasharray="3 2"/>
+
+        <!-- Lines: agents → output merge -->
+        <line x1="155" y1="376" x2="155" y2="420" stroke="#64748b" stroke-opacity=".35" stroke-width="1" stroke-dasharray="4 3"/>
+        <line x1="355" y1="376" x2="355" y2="420" stroke="#64748b" stroke-opacity=".35" stroke-width="1" stroke-dasharray="4 3"/>
+        <line x1="555" y1="376" x2="555" y2="420" stroke="#64748b" stroke-opacity=".35" stroke-width="1" stroke-dasharray="4 3"/>
+        <line x1="755" y1="376" x2="755" y2="420" stroke="#64748b" stroke-opacity=".35" stroke-width="1" stroke-dasharray="4 3"/>
+        <line x1="955" y1="376" x2="955" y2="420" stroke="#64748b" stroke-opacity=".35" stroke-width="1" stroke-dasharray="4 3"/>
+        <!-- Horizontal merge -->
+        <line x1="155" y1="420" x2="955" y2="420" stroke="#64748b" stroke-opacity=".35" stroke-width="1"/>
+
+        <!-- Fan out to outputs -->
+        <line x1="248" y1="420" x2="160" y2="460" stroke="#10b981" stroke-opacity=".35" stroke-width="1" marker-end="url(#ahG)"/>
+        <line x1="380" y1="420" x2="340" y2="460" stroke="#10b981" stroke-opacity=".35" stroke-width="1" marker-end="url(#ahG)"/>
+        <line x1="515" y1="420" x2="515" y2="460" stroke="#10b981" stroke-opacity=".4" stroke-width="1" marker-end="url(#ahG)"/>
+        <line x1="650" y1="420" x2="690" y2="460" stroke="#10b981" stroke-opacity=".35" stroke-width="1" marker-end="url(#ahG)"/>
+        <line x1="780" y1="420" x2="870" y2="460" stroke="#10b981" stroke-opacity=".35" stroke-width="1" marker-end="url(#ahG)"/>
+
+        <!-- ════════ ROW 4: OUTPUTS ════════ -->
+        <rect x="80" y="466" width="140" height="40" rx="10" fill="#12121a" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+        <text x="150" y="491" fill="#94a3b8" font-size="11" font-weight="500" text-anchor="middle" font-family="Inter,sans-serif">Slack / Email</text>
+
+        <rect x="260" y="466" width="140" height="40" rx="10" fill="#12121a" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+        <text x="330" y="491" fill="#94a3b8" font-size="11" font-weight="500" text-anchor="middle" font-family="Inter,sans-serif">CRM Update</text>
+
+        <rect x="440" y="466" width="140" height="40" rx="10" fill="#12121a" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+        <text x="510" y="491" fill="#94a3b8" font-size="11" font-weight="500" text-anchor="middle" font-family="Inter,sans-serif">Documents</text>
+
+        <rect x="620" y="466" width="140" height="40" rx="10" fill="#12121a" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+        <text x="690" y="491" fill="#94a3b8" font-size="11" font-weight="500" text-anchor="middle" font-family="Inter,sans-serif">Database</text>
+
+        <rect x="800" y="466" width="140" height="40" rx="10" fill="#12121a" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+        <text x="870" y="491" fill="#94a3b8" font-size="11" font-weight="500" text-anchor="middle" font-family="Inter,sans-serif">Dashboard / API</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 7 — ECOSYSTEM & COVERAGE ===== -->
+  <div class="slide center-text" data-slide="6">
+    <div class="bg-gradient dual"></div>
+    <div class="kicker">200+ Integrations · 3,650+ Templates · 20 Categories</div>
+    <h2>One Platform. <span class="highlight">Total Coverage.</span></h2>
+    <p class="subtitle">Connects to Gmail, Slack, Salesforce, Notion, Stripe, Shopify, HubSpot, and 200+ more — with ready-made automations across every business function.</p>
+
+    <!-- TOP 4 featured categories -->
+    <div class="cat-featured mt-32">
+      <div class="cat-featured-item">
+        <div class="cat-f-icon icon-purple"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+        <div class="cat-f-count highlight">1,982</div>
+        <div class="cat-f-name">Utilities</div>
+        <div class="cat-f-bar" style="width:100%;background:var(--accent);"></div>
+      </div>
+      <div class="cat-featured-item">
+        <div class="cat-f-icon icon-orange"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+        <div class="cat-f-count highlight-orange">691</div>
+        <div class="cat-f-name">Triggers</div>
+        <div class="cat-f-bar" style="width:35%;background:var(--orange);"></div>
+      </div>
+      <div class="cat-featured-item">
+        <div class="cat-f-icon icon-pink"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <div class="cat-f-count highlight-pink">266</div>
+        <div class="cat-f-name">Communication</div>
+        <div class="cat-f-bar" style="width:13%;background:var(--pink);"></div>
+      </div>
+      <div class="cat-featured-item">
+        <div class="cat-f-icon icon-green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+        <div class="cat-f-count highlight-green">172</div>
+        <div class="cat-f-name">Productivity</div>
+        <div class="cat-f-bar" style="width:9%;background:var(--green);"></div>
+      </div>
+    </div>
+
+    <!-- REMAINING 16 categories -->
+    <div class="cat-grid-sm" style="margin-top:16px;">
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+        <div class="cat-sm-count">100</div>
+        <div class="cat-sm-name">Email</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+        <div class="cat-sm-count">83</div>
+        <div class="cat-sm-name">File Storage</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+        <div class="cat-sm-count">69</div>
+        <div class="cat-sm-name">CRM & Sales</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+        <div class="cat-sm-count">50</div>
+        <div class="cat-sm-name">Development</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
+        <div class="cat-sm-count">44</div>
+        <div class="cat-sm-name">Database</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <div class="cat-sm-count">34</div>
+        <div class="cat-sm-name">Scheduling</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <div class="cat-sm-count">30</div>
+        <div class="cat-sm-name">Social Media</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z"/><line x1="9" y1="21" x2="15" y2="21"/></svg></div>
+        <div class="cat-sm-count">25</div>
+        <div class="cat-sm-name">AI & ML</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div class="cat-sm-count">21</div>
+        <div class="cat-sm-name">CMS</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
+        <div class="cat-sm-count">21</div>
+        <div class="cat-sm-name">E-Commerce</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <div class="cat-sm-count">15</div>
+        <div class="cat-sm-name">Finance</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <div class="cat-sm-count">14</div>
+        <div class="cat-sm-name">Documents</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></div>
+        <div class="cat-sm-count">12</div>
+        <div class="cat-sm-name">Design</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <div class="cat-sm-count">11</div>
+        <div class="cat-sm-name">Support</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+        <div class="cat-sm-count">8</div>
+        <div class="cat-sm-name">Analytics</div>
+      </div>
+      <div class="cat-sm-item">
+        <div class="cat-sm-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></div>
+        <div class="cat-sm-count">6</div>
+        <div class="cat-sm-name">Other</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 8 — COMPETITIVE EDGE & MOAT ===== -->
+  <div class="slide center-text" data-slide="7">
+    <div class="bg-gradient orange"></div>
+    <div class="kicker">Competitive Edge</div>
+    <h2>Why Operon AI <span class="highlight-orange">Wins</span></h2>
+    <div class="two-col mt-32" style="max-width:1100px;gap:40px;align-items:start;">
+      <div>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th class="us">Operon AI</th>
+              <th>Zapier / Make</th>
+              <th>Custom Dev</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>AI-Native Agents</td>
+              <td class="check">✓ Core</td>
+              <td class="partial">Basic</td>
+              <td class="partial">Partial</td>
+            </tr>
+            <tr>
+              <td>Prompt-to-Workflow</td>
+              <td class="check">✓ Full</td>
+              <td class="partial">Limited</td>
+              <td class="cross">✗</td>
+            </tr>
+            <tr>
+              <td>Agent Collaboration</td>
+              <td class="check">✓ Built-in</td>
+              <td class="cross">✗</td>
+              <td class="partial">Partial</td>
+            </tr>
+            <tr>
+              <td>Unified Platform</td>
+              <td class="check">✓ All-in-one</td>
+              <td class="partial">Automation only</td>
+              <td class="partial">Custom scope</td>
+            </tr>
+            <tr>
+              <td>Time to Deploy</td>
+              <td style="color:var(--green);font-weight:600;">Minutes</td>
+              <td style="color:var(--orange);">Hours</td>
+              <td style="color:var(--pink);">Weeks</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col gap-24">
+        <h3 style="font-size:18px;">Our Moat</h3>
+        <div class="card" style="text-align:left;padding:20px;">
+          <h3 style="font-size:14px;">AI-First Architecture</h3>
+          <p>Built from day one as agent-native — not bolted-on AI like competitors.</p>
+        </div>
+        <div class="card" style="text-align:left;padding:20px;">
+          <h3 style="font-size:14px;">n8n-Powered Engine</h3>
+          <p>Leveraging open-source infrastructure for 200+ integrations and rapid scaling.</p>
+        </div>
+        <div class="card" style="text-align:left;padding:20px;">
+          <h3 style="font-size:14px;">Unified Platform</h3>
+          <p>One platform replaces 5+ tools. Agents collaborate across every business function.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 9 — MARKET SIZE ===== -->
+  <div class="slide center-text" data-slide="8">
+    <div class="bg-gradient green"></div>
+    <div class="kicker">Market Opportunity</div>
+    <h2>A <span class="highlight-green">$124 Billion</span> Opportunity</h2>
+    <p class="subtitle">The AI automation market is massive and growing fast.</p>
+    <div class="row gap-32 mt-32">
+      <div class="stat-card" style="min-width:240px;">
+        <div class="number highlight" style="font-size:38px;">$124B</div>
+        <div class="label">TAM</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">Global AI & automation market by 2028</p>
+      </div>
+      <div class="stat-card" style="min-width:240px;">
+        <div class="number highlight-green" style="font-size:38px;">$18B</div>
+        <div class="label">SAM</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">SMB & mid-market workflow automation</p>
+      </div>
+      <div class="stat-card" style="min-width:240px;">
+        <div class="number highlight-pink" style="font-size:38px;">$1.2B</div>
+        <div class="label">SOM</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">AI-native agent platforms for SMBs in the US</p>
+      </div>
+    </div>
+    <div class="grid-3 mt-32" style="max-width:900px;">
+      <div class="card" style="text-align:center;padding:20px;">
+        <h3 style="font-size:28px;font-weight:800;color:var(--accent-light);">35%</h3>
+        <p>CAGR for AI automation (2024–2030)</p>
+      </div>
+      <div class="card" style="text-align:center;padding:20px;">
+        <h3 style="font-size:28px;font-weight:800;color:var(--green);">72%</h3>
+        <p>of businesses plan to adopt AI agents by 2027</p>
+      </div>
+      <div class="card" style="text-align:center;padding:20px;">
+        <h3 style="font-size:28px;font-weight:800;color:var(--orange);">5-7x</h3>
+        <p>ROI companies see from workflow automation</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 10 — BUSINESS MODEL ===== -->
+  <div class="slide center-text" data-slide="9">
+    <div class="bg-gradient purple"></div>
+    <div class="kicker">Business Model</div>
+    <h2>How We <span class="highlight">Make Money</span></h2>
+    <div class="grid-3 mt-32" style="max-width:1000px;">
+      <div class="card" style="text-align:center;padding:32px 24px;">
+        <p style="font-size:12px;color:var(--text-muted);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">Plus</p>
+        <h3 style="font-size:32px;font-weight:800;color:var(--text);">$15<span style="font-size:14px;font-weight:400;color:var(--text-dim);">/mo</span></h3>
+        <p style="font-size:13px;color:var(--text-dim);margin-top:12px;line-height:1.7;">
+          10 agents<br/>On-demand usage<br/>Community support<br/>Basic templates
+        </p>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:16px;">Land users, build habit</p>
+      </div>
+      <div class="card" style="text-align:center;padding:32px 24px;border-color:rgba(99,102,241,0.4);background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(16,185,129,0.04));">
+        <p style="font-size:12px;color:var(--accent-light);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">Pro</p>
+        <h3 style="font-size:32px;font-weight:800;color:var(--text);">$35<span style="font-size:14px;font-weight:400;color:var(--text-dim);">/mo</span></h3>
+        <p style="font-size:13px;color:var(--text-dim);margin-top:12px;line-height:1.7;">
+          25 agents<br/>On-demand usage<br/>Priority support<br/>All templates + custom workflows
+        </p>
+        <p style="font-size:11px;color:var(--accent-light);margin-top:16px;">Core revenue driver</p>
+      </div>
+      <div class="card" style="text-align:center;padding:32px 24px;">
+        <p style="font-size:12px;color:var(--text-muted);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">Enterprise</p>
+        <h3 style="font-size:32px;font-weight:800;color:var(--text);">$150+<span style="font-size:14px;font-weight:400;color:var(--text-dim);">/mo</span></h3>
+        <p style="font-size:13px;color:var(--text-dim);margin-top:12px;line-height:1.7;">
+          Unlimited everything<br/>Dedicated support<br/>Custom integrations<br/>SLA &amp; on-prem options
+        </p>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:16px;">Custom pricing available</p>
+      </div>
+    </div>
+    <p style="font-size:14px;color:var(--text-dim);margin-top:28px;max-width:700px;">
+      <strong style="color:var(--text);">Revenue levers:</strong> Subscription tiers + on-demand usage-based pricing + enterprise custom deals
+    </p>
+  </div>
+
+  <!-- ===== SLIDE 11 — TRACTION ===== -->
+  <div class="slide center-text" data-slide="10">
+    <div class="bg-gradient green"></div>
+    <div class="kicker">Traction</div>
+    <h2>Where We <span class="highlight-green">Stand Today</span></h2>
+    <div class="row gap-24 mt-32">
+      <div class="stat-card">
+        <div class="number highlight">120</div>
+        <div class="label">Beta Users</div>
+      </div>
+      <div class="stat-card">
+        <div class="number highlight-green">10</div>
+        <div class="label">Pre-Built Agents</div>
+      </div>
+      <div class="stat-card">
+        <div class="number highlight-pink">3,650+</div>
+        <div class="label">Workflow Templates</div>
+      </div>
+      <div class="stat-card">
+        <div class="number highlight-orange">200+</div>
+        <div class="label">Integrations</div>
+      </div>
+    </div>
+    <div class="two-col mt-32" style="max-width:900px;">
+      <div class="col gap-24">
+        <h3>Key Milestones</h3>
+        <ul class="bullet-list">
+          <li><strong>120 beta users</strong> — onboarded organically with zero ad spend</li>
+          <li><strong>3,650+ workflow templates</strong> — built across 20 categories</li>
+          <li><strong>200+ integrations</strong> — connected to the tools businesses already use</li>
+          <li><strong>Full platform live</strong> — workflow builder, agent catalog, and document AI shipped</li>
+        </ul>
+      </div>
+      <div class="col gap-24">
+        <h3>What Users Are Saying</h3>
+        <div class="card">
+          <p style="font-style:italic;color:var(--text-dim);line-height:1.7;">
+            "We used to juggle four different tools to manage our workflows. Operon AI replaced all of them in a single afternoon. It's like having an extra team that never sleeps."
+          </p>
+          <p class="mt-12" style="font-size:13px;color:var(--accent-light);font-weight:600;">— Akhil Mandali, Beta Tester</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 12 — DEMO ===== -->
+  <div class="slide center-text" data-slide="11">
+    <div class="bg-gradient pink"></div>
+    <div class="kicker">Live Demo</div>
+    <h2>See Operon AI <span class="highlight-pink">In Action</span></h2>
+    <p class="subtitle">Watch how a business can go from zero to a fully deployed AI agent in under 3 minutes.</p>
+    <div class="demo-frame mt-32">
+      <div class="demo-placeholder">
+        <div class="play-icon">▶</div>
+        <p style="font-size:16px;font-weight:500;">Live Demo</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 13 — PROGRAM ADVANTAGE ===== -->
+  <div class="slide center-text" data-slide="12">
+    <div class="bg-gradient dual"></div>
+    <div class="kicker">Program Strategy</div>
+    <h2>How We'll Take <span class="highlight">Maximum Advantage</span></h2>
+    <div class="grid-3 mt-32">
+      <div class="card" style="text-align:left;">
+        <div class="icon icon-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></div>
+        <h3>Accelerate GTM</h3>
+        <ul class="bullet-list" style="margin-top:12px;">
+          <li>Refine our ICP and messaging with mentor guidance</li>
+          <li>Launch targeted outbound to SMBs, agencies, and e-commerce teams</li>
+          <li>Build case studies from early wins</li>
+        </ul>
+      </div>
+      <div class="card" style="text-align:left;">
+        <div class="icon icon-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <h3>Build Network</h3>
+        <ul class="bullet-list" style="margin-top:12px;">
+          <li>Connect with potential enterprise pilots through the cohort</li>
+          <li>Engage mentors for sales strategy and fundraise prep</li>
+          <li>Forge partnerships with complementary startups</li>
+        </ul>
+      </div>
+      <div class="card" style="text-align:left;">
+        <div class="icon icon-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+        <h3>Scale Product</h3>
+        <ul class="bullet-list" style="margin-top:12px;">
+          <li>Hire key engineering talent with program resources</li>
+          <li>Achieve product-market fit milestones before demo day</li>
+          <li>Prepare for seed round during the program</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 14 — PROGRAM GOALS ===== -->
+  <div class="slide center-text" data-slide="13">
+    <div class="bg-gradient green"></div>
+    <div class="kicker">Our Commitment</div>
+    <h2>Goals for the <span class="highlight-green">Program Duration</span></h2>
+    <div class="grid-2 mt-32" style="max-width:900px;">
+      <div class="card" style="text-align:left;border-left:3px solid var(--accent);">
+        <h3 style="margin-bottom:16px;">By Mid-Program</h3>
+        <ul class="bullet-list">
+          <li><strong>250 registered users</strong> — double current beta base through targeted outreach</li>
+          <li><strong>15 paying customers</strong> — convert early adopters to paid plans</li>
+          <li><strong>5 enterprise pilots</strong> — signed LOIs with mid-market companies</li>
+          <li><strong>$3K MRR</strong> — first meaningful recurring revenue</li>
+        </ul>
+      </div>
+      <div class="card" style="text-align:left;border-left:3px solid var(--green);">
+        <h3 style="margin-bottom:16px;">By Demo Day</h3>
+        <ul class="bullet-list">
+          <li><strong>500+ users</strong> — with 50 paying customers</li>
+          <li><strong>$10K MRR</strong> — clear path to product-market fit</li>
+          <li><strong>2 case studies</strong> — documented ROI from enterprise pilots</li>
+          <li><strong>Seed round ready</strong> — deck, data room, and pipeline in place</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 15 — CLOSING ===== -->
+  <div class="slide center-text" data-slide="14">
+    <div class="bg-gradient dual"></div>
+    <div class="kicker">Let's Build the Future</div>
+    <h1>Your AI Crew<br/><span class="highlight">Starts Here.</span></h1>
+    <p class="subtitle">Operon AI is ready to give every business the superpowers of an AI-driven team.</p>
+    <div class="cta-card mt-32">
+      <h3 style="margin-bottom:8px;">Thank You</h3>
+      <p style="color:var(--text-dim);font-size:15px;">
+miriyalaa@msoe.edu · cherukurik@msoe.edu · lingamanenik@msoe.edu
+      </p>
+      <p style="color:var(--text-dim);font-size:15px;">
+        operonagent.com
+      </p>
+      <p style="color:var(--text-muted);font-size:13px;margin-top:12px;">
+        Questions? Let's talk.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ───── navigation ───── -->
+<div class="nav" id="nav">
+  <div class="progress-bar" id="progress" style="width:0%"></div>
+  <span class="brand">OPERON AI</span>
+  <span class="slide-counter"><span id="current">1</span> / <span id="total">15</span></span>
+  <div class="controls">
+    <button id="prev" title="Previous (←)">‹</button>
+    <button id="next" title="Next (→)">›</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let idx = 0;
+
+  const $current  = document.getElementById('current');
+  const $total    = document.getElementById('total');
+  const $progress = document.getElementById('progress');
+  const $prev     = document.getElementById('prev');
+  const $next     = document.getElementById('next');
+  $total.textContent = total;
+
+  function go(to) {
+    if (to < 0 || to >= total) return;
+    slides[idx].classList.remove('active');
+    slides[idx].classList.add('exit-left');
+    setTimeout(() => slides[idx === to ? idx : idx].classList.remove('exit-left'), 500);
+    const prev = idx;
+    idx = to;
+    slides[idx].classList.add('active');
+    setTimeout(() => slides[prev].classList.remove('exit-left'), 520);
+    $current.textContent = idx + 1;
+    $progress.style.width = ((idx + 1) / total * 100) + '%';
+  }
+
+  $prev.addEventListener('click', () => go(idx - 1));
+  $next.addEventListener('click', () => go(idx + 1));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(idx + 1); }
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); go(idx - 1); }
+    if (e.key === 'Home')       { e.preventDefault(); go(0); }
+    if (e.key === 'End')        { e.preventDefault(); go(total - 1); }
+  });
+
+  go(0);
+})();
+</script>
+
+</body>
+</html>
