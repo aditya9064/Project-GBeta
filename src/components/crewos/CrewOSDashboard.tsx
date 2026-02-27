@@ -64,7 +64,9 @@ import { CommunicationsAgent } from './CommunicationsAgent';
 import { SalesIntelligence } from './SalesIntelligence';
 import { ExecutionLogs } from './ExecutionLogs';
 import { ExecutionOutputPanel } from './ExecutionOutputPanel';
-import { WorkflowBuilder } from '../workflow';
+import { AgentExecutionViewer } from './AgentExecutionViewer';
+import { WorkflowBuilder, AgentSetupWizard } from '../workflow';
+import { planToWorkflow } from '../../services/automation/planConverter';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAgents } from '../../contexts/AgentContext';
 import { WorkflowDefinition, DeployedAgent as AutomationAgent } from '../../services/automation';
@@ -470,6 +472,7 @@ export function CrewOSDashboard() {
   const [activeTab, setActiveTab] = useState('board');
   const [agents, setAgents] = useState<DeployedAgent[]>([]);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [showPromptWizard, setShowPromptWizard] = useState(false);
   const [expandedCatalog, setExpandedCatalog] = useState<string | null>(null);
   const [deployingVersion, setDeployingVersion] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<DeployedAgent | null>(null);
@@ -496,6 +499,25 @@ export function CrewOSDashboard() {
     error?: string;
     isReal: boolean;
   } | null>(null);
+
+  // ─── Vision Agent Execution Viewers (multiple simultaneous) ──────
+  const [activeViewers, setActiveViewers] = useState<Array<{
+    key: string;
+    agentId: string;
+    agentName: string;
+    task: string;
+    url?: string;
+    appName?: string;
+  }>>([]);
+
+  // ─── Agent Run Results ──────
+  const [agentResults, setAgentResults] = useState<Record<string, import('./AgentExecutionViewer').AgentRunResult>>(() => {
+    try {
+      const saved = localStorage.getItem('gbeta-agent-results');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+  const [viewingResultId, setViewingResultId] = useState<string | null>(null);
 
   // ─── Unified Catalog state (built-in + n8n automations) ──────
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -526,6 +548,19 @@ export function CrewOSDashboard() {
     currentLogs: ExecutionLog[];
   } | null>(null);
   const [isResumingExecution, setIsResumingExecution] = useState(false);
+
+  // Persist agent results to localStorage
+  useEffect(() => {
+    try { localStorage.setItem('gbeta-agent-results', JSON.stringify(agentResults)); } catch { /* ignore */ }
+  }, [agentResults]);
+
+  const handleViewerComplete = useCallback((result: import('./AgentExecutionViewer').AgentRunResult) => {
+    setAgentResults(prev => ({ ...prev, [result.agentId]: result }));
+  }, []);
+
+  const closeViewer = useCallback((key: string) => {
+    setActiveViewers(prev => prev.filter(v => v.key !== key));
+  }, []);
 
   // Handle OAuth callback redirect — auto-switch to Communications page
   useEffect(() => {
@@ -640,7 +675,7 @@ export function CrewOSDashboard() {
   const handleWorkflowDeploy = useCallback(async (name: string, description: string, workflow: WorkflowDefinition) => {
     setIsDeploying(true);
     try {
-      await deployNewAgent(name, description, workflow, 'Zap', '#8b5cf6');
+      await deployNewAgent(name, description, workflow, 'Zap', '#e07a3a');
       showToast('success', `Agent "${name}" deployed successfully!`);
       // Navigate back to agents page after successful deploy
       setActiveNav('agents');
@@ -656,10 +691,10 @@ export function CrewOSDashboard() {
   const handlePromptSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!agentPrompt.trim() || isCreatingFromPrompt) return;
-    
+
     setIsCreatingFromPrompt(true);
     console.log('Creating agent from prompt:', agentPrompt);
-    
+
     // Navigate to workflow builder with the prompt
     setTimeout(() => {
       setIsCreatingFromPrompt(false);
@@ -667,6 +702,42 @@ export function CrewOSDashboard() {
       setActiveNav('workflow');
     }, 800);
   }, [agentPrompt, isCreatingFromPrompt, setActiveNav]);
+
+  /* Handle deploying from the prompt wizard (plan-based) */
+  const handlePromptWizardDeploy = useCallback(async (plan: any, userInputs: Record<string, string>) => {
+    setIsDeploying(true);
+    try {
+      const workflow = planToWorkflow(plan, userInputs);
+      await deployNewAgent(plan.title, plan.description, workflow, 'Zap', '#e07a3a');
+      showToast('success', `Agent "${plan.title}" deployed successfully!`);
+      setShowPromptWizard(false);
+    } catch (error: any) {
+      console.error('Wizard deploy error:', error);
+      showToast('error', `Failed to deploy: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsDeploying(false);
+    }
+  }, [deployNewAgent, showToast]);
+
+  /* Handle deploying from the prompt wizard (AI workflow) */
+  const handlePromptWizardDeployWorkflow = useCallback(async (
+    name: string,
+    description: string,
+    workflow: WorkflowDefinition,
+    _userInputs: Record<string, string>,
+  ) => {
+    setIsDeploying(true);
+    try {
+      await deployNewAgent(name, description, workflow, 'Zap', '#e07a3a');
+      showToast('success', `Agent "${name}" deployed successfully!`);
+      setShowPromptWizard(false);
+    } catch (error: any) {
+      console.error('Wizard deploy error:', error);
+      showToast('error', `Failed to deploy: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsDeploying(false);
+    }
+  }, [deployNewAgent, showToast]);
 
   /* Handle running an automation agent with feedback */
   const handleRunAgent = useCallback(async (agentId: string, resumeState?: {
@@ -676,6 +747,38 @@ export function CrewOSDashboard() {
   }) => {
     const agent = automationAgents.find(a => a.id === agentId);
     if (!agent) return;
+
+    // Any agent with browser nodes gets the embedded vision viewer
+    const browserNode = agent.workflow?.nodes?.find(
+      (n: any) => n.type === 'vision_browse' || n.type === 'desktop_task' || n.type === 'browser_task'
+    );
+    if (browserNode && !resumeState) {
+      const config = browserNode.config || {};
+      // For browser_task nodes, build a task description from the node chain
+      const allBrowserNodes = agent.workflow?.nodes?.filter(
+        (n: any) => n.type === 'vision_browse' || n.type === 'browser_task' || n.type === 'desktop_task'
+      ) || [];
+      const taskDescription = config.task
+        || allBrowserNodes.map((n: any) => n.config?.description || n.label).join(', then ')
+        || agent.name;
+      const startUrl = config.url
+        || allBrowserNodes.find((n: any) => n.config?.url)?.config?.url
+        || '';
+
+      const viewerKey = `${agentId}-${Date.now()}`;
+      setActiveViewers(prev => [
+        ...prev,
+        {
+          key: viewerKey,
+          agentId,
+          agentName: agent.name,
+          task: taskDescription,
+          url: startUrl,
+          appName: config.appName || config.app,
+        },
+      ]);
+      return;
+    }
     
     setRunningAgentId(agentId);
     setExecutionResult(null);
@@ -862,7 +965,7 @@ export function CrewOSDashboard() {
         template.description || `Automated workflow: ${template.name}`,
         workflow,
         icon,
-        '#8b5cf6'
+        '#e07a3a'
       );
       setShowCatalog(false);
       setActiveNav('agents');
@@ -899,7 +1002,7 @@ export function CrewOSDashboard() {
         targetHandle: wEdge.targetHandle,
         type: 'smoothstep',
         animated: true,
-        style: { stroke: '#8b5cf6', strokeWidth: 2 },
+        style: { stroke: '#e07a3a', strokeWidth: 2 },
       }));
       setEditWorkflow({ nodes: rfNodes, edges: rfEdges });
       setEditWorkflowName(template.name);
@@ -1470,6 +1573,16 @@ export function CrewOSDashboard() {
                           )}
                           {runningAgentId === agent.id ? 'Running...' : 'Run'}
                         </button>
+                        {agentResults[agent.id] && (
+                          <button
+                            className="aw-agent-action-btn results"
+                            onClick={() => setViewingResultId(agent.id)}
+                            title="View last run results"
+                          >
+                            <Database size={13} />
+                            Results
+                          </button>
+                        )}
                         <button
                           className="aw-agent-action-btn logs"
                           onClick={() => { setLogsAgentId(agent.id); setActiveNav('logs'); }}
@@ -1529,6 +1642,33 @@ export function CrewOSDashboard() {
                 <button className="operonai-modal-close" onClick={() => { setShowCatalog(false); setExpandedCatalog(null); }}>
                   <X size={20} />
                 </button>
+              </div>
+
+              {/* ─── Create from Prompt Banner ─── */}
+              <div
+                style={{
+                  margin: '0 24px',
+                  padding: '16px 20px',
+                  background: 'linear-gradient(135deg, #e07a3a 0%, #c05d1e 100%)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  cursor: 'pointer',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                }}
+                onClick={() => { setShowCatalog(false); setShowPromptWizard(true); }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 25px rgba(139, 92, 246, 0.3)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = ''; }}
+              >
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Wand2 size={20} color="#fff" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#fff', marginBottom: '2px' }}>Create Agent from Prompt</div>
+                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>Describe what you want in plain English — AI builds and deploys it for you</div>
+                </div>
+                <ChevronRight size={20} color="rgba(255,255,255,0.6)" />
               </div>
 
               {/* ─── Search Bar + Filters ─── */}
@@ -1900,6 +2040,112 @@ export function CrewOSDashboard() {
           );
         })()}
 
+      {/* Vision Agent Execution Viewers (multiple simultaneous) */}
+      {activeViewers.map((viewer, idx) => (
+        <AgentExecutionViewer
+          key={viewer.key}
+          agentId={viewer.agentId}
+          agentName={viewer.agentName}
+          task={viewer.task}
+          url={viewer.url}
+          appName={viewer.appName}
+          index={idx}
+          onClose={() => closeViewer(viewer.key)}
+          onComplete={handleViewerComplete}
+        />
+      ))}
+
+      {/* Agent Results Modal */}
+      {viewingResultId && agentResults[viewingResultId] && (() => {
+        const result = agentResults[viewingResultId];
+        return (
+          <div className="aev-overlay" onClick={(e) => { if (e.target === e.currentTarget) setViewingResultId(null); }}>
+            <div style={{
+              background: '#ffffff',
+              borderRadius: 16,
+              width: '90%',
+              maxWidth: 600,
+              maxHeight: '80vh',
+              overflow: 'auto',
+              padding: '28px 32px',
+              color: '#0f172a',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.15)',
+              border: '1px solid #e5e7eb',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#0f172a' }}>{result.agentName}</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+                    {result.status === 'done' ? 'Completed' : 'Failed'} in {result.totalSteps} steps — {new Date(result.completedAt).toLocaleString()}
+                  </p>
+                </div>
+                <button onClick={() => setViewingResultId(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: 1, marginBottom: 8 }}>Task</div>
+                <div style={{ fontSize: 14, color: '#475569', background: '#f8f9fa', padding: '10px 14px', borderRadius: 8, lineHeight: 1.5, border: '1px solid #e5e7eb' }}>{result.task}</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: 1, marginBottom: 8 }}>
+                  {result.status === 'done' ? 'Extracted Data' : 'Error'}
+                </div>
+                {result.status === 'error' && result.error ? (
+                  <div style={{ fontSize: 14, color: '#dc2626', background: '#fef2f2', padding: '10px 14px', borderRadius: 8, border: '1px solid #fecaca' }}>{result.error}</div>
+                ) : result.extractedData ? (
+                  <pre style={{
+                    fontSize: 13,
+                    color: '#c05d1e',
+                    background: 'rgba(224, 122, 58, 0.06)',
+                    padding: '14px 16px',
+                    borderRadius: 8,
+                    overflow: 'auto',
+                    maxHeight: 400,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    margin: 0,
+                    lineHeight: 1.6,
+                    border: '1px solid rgba(224, 122, 58, 0.15)',
+                  }}>{JSON.stringify(result.extractedData, null, 2)}</pre>
+                ) : (
+                  <div style={{ fontSize: 14, color: '#94a3b8', fontStyle: 'italic' }}>No data was extracted</div>
+                )}
+              </div>
+
+              {result.status === 'done' && (
+                <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(result.extractedData, null, 2));
+                    }}
+                    style={{
+                      padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb',
+                      background: '#ffffff', color: '#475569', fontSize: 13, cursor: 'pointer',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Copy to Clipboard
+                  </button>
+                  <button
+                    onClick={() => setViewingResultId(null)}
+                    style={{
+                      padding: '8px 16px', borderRadius: 8, border: 'none',
+                      background: 'linear-gradient(135deg, #e07a3a, #d46b2c)', color: '#fff', fontSize: 13, cursor: 'pointer',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Execution Output Panel (n8n-style) */}
       {executionOutputPanel && (
         <ExecutionOutputPanel
@@ -1926,6 +2172,16 @@ export function CrewOSDashboard() {
           onSubmit={handleResumeExecution}
           onCancel={handleCancelExecution}
           isSubmitting={isResumingExecution}
+        />
+      )}
+
+      {/* Prompt-to-Agent Wizard (accessible from catalog and agents page) */}
+      {showPromptWizard && (
+        <AgentSetupWizard
+          onClose={() => setShowPromptWizard(false)}
+          onDeploy={handlePromptWizardDeploy}
+          onDeployWorkflow={handlePromptWizardDeployWorkflow}
+          isDeploying={isDeploying}
         />
       )}
     </div>

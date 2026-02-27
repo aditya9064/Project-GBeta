@@ -301,7 +301,7 @@ const MOCK_MESSAGES: UnifiedMessage[] = [
   {
     id: 'msg-1', externalId: 'ext-1', channel: 'email',
     from: 'Jennifer Walsh', fromEmail: 'jennifer@company.com',
-    fromInitial: 'JW', fromColor: '#7C3AED',
+    fromInitial: 'JW', fromColor: '#e07a3a',
     subject: 'Q1 Budget Approval Request',
     preview: 'Hi team, I need approval on the Q1 budget allocation for the AI infrastructure upgrade...',
     fullMessage: 'Hi team,\n\nI need approval on the Q1 budget allocation for the AI infrastructure upgrade. We\'re looking at $45,000 for GPU clusters and $12,000 for additional API credits.\n\nThe breakdown is as follows:\n- 4x NVIDIA A100 GPU rental: $32,000\n- Cloud storage expansion: $8,000\n- API credits (OpenAI, Anthropic): $12,000\n- Monitoring tools: $5,000\n\nPlease review and let me know if you have any questions. I need approval by Friday.\n\nBest regards,\nJennifer Walsh\nVP of Engineering',
@@ -398,7 +398,7 @@ const MOCK_MESSAGES: UnifiedMessage[] = [
   /* ─── Additional Group Chat Messages ─────────────────── */
   {
     id: 'msg-9', externalId: 'ext-9', channel: 'slack',
-    from: 'Emily Carter', fromInitial: 'EC', fromColor: '#8B5CF6',
+    from: 'Emily Carter', fromInitial: 'EC', fromColor: '#f0a060',
     slackChannel: '#engineering',
     isGroupChat: true, mentionsUser: true,
     preview: '@you Can you review the auth middleware PR? It\'s blocking the release...',
@@ -453,7 +453,7 @@ const MOCK_MESSAGES: UnifiedMessage[] = [
   },
   {
     id: 'msg-14', externalId: 'ext-14', channel: 'teams',
-    from: 'Kevin Lee', fromInitial: 'KL', fromColor: '#7C3AED',
+    from: 'Kevin Lee', fromInitial: 'KL', fromColor: '#e07a3a',
     teamsChannel: 'Product Launch',
     isGroupChat: true, mentionsUser: true,
     preview: 'Great progress! @you the staging URL is now live for testing.',
@@ -535,7 +535,7 @@ const MOCK_MESSAGES: UnifiedMessage[] = [
   {
     id: 'msg-21', externalId: 'ext-21', channel: 'email',
     from: 'TLDR Newsletter', fromEmail: 'dan@tldrnewsletter.com',
-    fromInitial: 'TL', fromColor: '#6366F1',
+    fromInitial: 'TL', fromColor: '#d46b2c',
     subject: 'TLDR: OpenAI Launches GPT-5, Google Announces Gemini Ultra 2.0',
     preview: 'Big Tech & Startups — OpenAI launches GPT-5 with real-time reasoning capabilities...',
     fullMessage: 'TLDR 2026-02-14\n\n📱 Big Tech & Startups\n\nOpenAI Launches GPT-5 with Real-Time Reasoning (3 minute read)\nOpenAI announced GPT-5 with breakthrough reasoning capabilities...\n\nGoogle Announces Gemini Ultra 2.0 (2 minute read)\nGoogle\'s latest model achieves state-of-the-art on all benchmarks...\n\n🚀 Science & Futuristic Technology\n\nNASA\'s Artemis III Successfully Lands on the Moon (4 minute read)\n...\n\n💻 Programming, Design & Data Science\n\nReact 20 Released with Automatic Memoization (GitHub Repo)\n...\n\n---\nIf you have any comments or feedback, just respond to this email!\n\nThanks for reading,\nDan Ni (@tldrdan)\n\nIf you don\'t want to receive future editions of TLDR, please unsubscribe.',
@@ -1230,7 +1230,7 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
       .join('')
       .toUpperCase()
       .slice(0, 2);
-    const colors = ['#7C3AED', '#3B82F6', '#e07a3a', '#1a1a2e', '#EC4899', '#10B981', '#EF4444'];
+    const colors = ['#e07a3a', '#3B82F6', '#e07a3a', '#1a1a2e', '#EC4899', '#10B981', '#EF4444'];
     let hash = 0;
     for (let i = 0; i < contact.name.length; i++)
       hash = contact.name.charCodeAt(i) + ((hash << 5) - hash);

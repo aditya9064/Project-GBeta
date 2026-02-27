@@ -9,6 +9,7 @@
    POST /api/automation/gmail/send     — Send a new email
    POST /api/automation/gmail/reply    — Reply to an email
    GET  /api/automation/gmail/read     — Read recent emails
+   POST /api/automation/gmail/webhook  — Gmail push notification webhook
    POST /api/automation/slack/send     — Send a Slack message
    POST /api/automation/ai/process     — Process with AI (OpenAI)
    POST /api/automation/http           — Make an HTTP request
@@ -18,6 +19,10 @@ import { Router, Request, Response } from 'express';
 import { GmailService } from '../services/gmail.service.js';
 import { SlackService } from '../services/slack.service.js';
 import { AIEngine } from '../services/ai-engine.js';
+import { AgentStore } from '../services/agentStore.js';
+import { AgentExecutor } from '../services/agentExecutor.js';
+import { PromptToAgentService } from '../services/promptToAgent.js';
+import { config } from '../config.js';
 
 const router = Router();
 
@@ -180,6 +185,110 @@ router.get('/gmail/read', async (req: Request, res: Response) => {
       success: false,
       error: err instanceof Error ? err.message : 'Failed to read emails',
     });
+  }
+});
+
+/**
+ * Gmail Push Notification Webhook
+ * 
+ * This endpoint receives push notifications from Gmail when new emails arrive.
+ * Google Pub/Sub sends a POST request with:
+ * {
+ *   message: {
+ *     data: base64-encoded JSON with { emailAddress, historyId },
+ *     messageId: "...",
+ *     publishTime: "..."
+ *   }
+ * }
+ * 
+ * Setup requires:
+ * 1. Create Pub/Sub topic: projects/{project-id}/topics/gmail-notifications
+ * 2. Grant pubsub.publisher to gmail-api-push@system.gserviceaccount.com
+ * 3. Call GmailService.setupWatch() to register the watch
+ */
+router.post('/gmail/webhook', async (req: Request, res: Response) => {
+  try {
+    console.log('📬 Gmail webhook received');
+    
+    // Parse Pub/Sub message
+    const message = req.body.message;
+    if (!message?.data) {
+      console.log('📬 Gmail webhook: No message data');
+      res.status(200).send('OK'); // Always acknowledge to prevent retries
+      return;
+    }
+
+    const data = JSON.parse(Buffer.from(message.data, 'base64').toString());
+    const { emailAddress, historyId } = data;
+    console.log(`📬 Gmail webhook: New mail for ${emailAddress}, historyId: ${historyId}`);
+
+    // Restore Gmail connection
+    await GmailService.restoreFromStore();
+    const gmailConn = GmailService.getConnection();
+    if (gmailConn.status !== 'connected') {
+      console.log('📬 Gmail webhook: Gmail not connected');
+      res.status(200).send('OK');
+      return;
+    }
+
+    // Get new messages since the history ID
+    const newMessages = await GmailService.getMessagesSinceHistory(historyId);
+    console.log(`📬 Gmail webhook: Found ${newMessages.length} new message(s)`);
+
+    if (newMessages.length === 0) {
+      res.status(200).send('OK');
+      return;
+    }
+
+    // Find email-triggered agents and execute them
+    const activeAgents = await AgentStore.getActive();
+    const emailAgents = activeAgents.filter(a => {
+      const triggerNode = a.workflow?.nodes?.find((n: any) => n.type === 'trigger');
+      const cfg = triggerNode?.config || {};
+      return cfg.triggerType === 'email' || cfg.triggerType === 'gmail' || 
+             cfg.appType === 'gmail' || a.triggerType === 'email' || a.triggerType === 'gmail';
+    });
+
+    for (const agent of emailAgents) {
+      const triggerNode = agent.workflow?.nodes?.find((n: any) => n.type === 'trigger');
+      const emailFilter = triggerNode?.config?.emailFilter;
+
+      for (const email of newMessages) {
+        // Apply email filters if configured
+        if (emailFilter?.from && !email.fromEmail?.toLowerCase().includes(emailFilter.from.toLowerCase())) continue;
+        if (emailFilter?.subject && !email.subject?.toLowerCase().includes(emailFilter.subject.toLowerCase())) continue;
+
+        console.log(`🤖 Gmail webhook: Triggering "${agent.name}" for email from ${email.from}`);
+        
+        // Execute agent with email data
+        try {
+          await AgentExecutor.execute(agent, 'email', {
+            email: {
+              id: email.externalId,
+              from: email.from,
+              fromEmail: email.fromEmail,
+              subject: email.subject,
+              body: email.fullMessage || email.preview,
+              preview: email.preview,
+              receivedAt: email.receivedAt,
+            },
+            from: email.from,
+            fromEmail: email.fromEmail,
+            subject: email.subject,
+            body: email.fullMessage || email.preview,
+            messageId: email.externalId,
+            receivedAt: email.receivedAt,
+          });
+        } catch (err: any) {
+          console.error(`❌ Gmail webhook: Agent "${agent.name}" failed:`, err.message);
+        }
+      }
+    }
+
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error('Gmail webhook error:', err);
+    res.status(200).send('OK'); // Always acknowledge to prevent infinite retries
   }
 });
 
@@ -384,6 +493,43 @@ async function checkAgentsFirestore(): Promise<boolean> {
 const memAgents = new Map<string, any>();
 const memLogs = new Map<string, any[]>();
 
+/* ─── POST /api/agents/generate ─────────────────────────── */
+/** AI-powered prompt-to-workflow generation */
+
+agentsRouter.post('/generate', async (req: Request, res: Response) => {
+  try {
+    const { prompt } = req.body;
+
+    if (!prompt || !prompt.trim()) {
+      res.status(400).json({ success: false, error: 'Missing "prompt" field' });
+      return;
+    }
+
+    if (!config.openai.apiKey) {
+      res.status(503).json({ success: false, error: 'OpenAI API key not configured. AI generation requires OPENAI_API_KEY.' });
+      return;
+    }
+
+    console.log(`\n🧠 [PromptToAgent] Generating workflow for: "${prompt.slice(0, 80)}..."`);
+    const result = await PromptToAgentService.generate(prompt);
+
+    if (!result.success) {
+      console.error(`❌ [PromptToAgent] Generation failed: ${result.error}`);
+      res.status(422).json({ success: false, error: result.error });
+      return;
+    }
+
+    console.log(`✅ [PromptToAgent] Generated "${result.name}" — ${result.workflow.nodes.length} nodes, trigger: ${result.triggerType}`);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('[PromptToAgent] Route error:', err);
+    res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to generate agent from prompt',
+    });
+  }
+});
+
 /* ─── GET /api/agents ────────────────────────────────────── */
 
 agentsRouter.get('/', async (req: Request, res: Response) => {
@@ -397,6 +543,13 @@ agentsRouter.get('/', async (req: Request, res: Response) => {
       const agents = snap.docs
         .filter((d) => d.id !== '_health')
         .map((d) => ({ id: d.id, ...d.data() }));
+      
+      // Sync to AgentStore memory for scheduler access
+      agents.forEach((a: any) => {
+        memAgents.set(a.id, a);
+        AgentStore.addToMemory(a);
+      });
+      
       res.json({ success: true, data: agents });
       return;
     }
@@ -421,6 +574,9 @@ agentsRouter.post('/', async (req: Request, res: Response) => {
     }
 
     memAgents.set(agent.id, agent);
+    
+    // Also sync to AgentStore for scheduler access
+    AgentStore.addToMemory(agent);
 
     if (await checkAgentsFirestore()) {
       await agentsDb!.collection(AGENTS_COL).doc(agent.id).set(agent, { merge: true });
@@ -443,6 +599,9 @@ agentsRouter.put('/:id', async (req: Request, res: Response) => {
     const existing = memAgents.get(id);
     const merged = { ...(existing || {}), ...updates, id, updatedAt: new Date().toISOString() };
     memAgents.set(id, merged);
+    
+    // Also sync to AgentStore for scheduler access
+    AgentStore.addToMemory(merged);
 
     if (await checkAgentsFirestore()) {
       await agentsDb!.collection(AGENTS_COL).doc(id).set(merged, { merge: true });

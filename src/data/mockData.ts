@@ -95,6 +95,6 @@ export const activities: Activity[] = [
 ];
 
 export const workspaces = [
-  { id: 'w1', name: 'Acme Corp', icon: '🏢', color: '#6366F1' },
+  { id: 'w1', name: 'Acme Corp', icon: '🏢', color: '#e07a3a' },
   { id: 'w2', name: 'Personal', icon: '👤', color: '#10B981' }
 ];

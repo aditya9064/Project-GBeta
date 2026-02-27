@@ -124,7 +124,7 @@ export const knowledgeBaseTypes = [
 
 // Trigger types
 export const triggerTypes = [
-  { id: 'webhook', name: 'Webhook', icon: LinkIcon, color: '#3B82F6' },
+  { id: 'webhook', name: 'Webhook', icon: LinkIcon, color: '#0ea5e9' },
   { id: 'schedule', name: 'Schedule', icon: Clock, color: '#10B981' },
   { id: 'email', name: 'Email', icon: Mail, color: '#EA4335' },
   { id: 'form', name: 'Form Submission', icon: FileText, color: '#e07a3a' },
@@ -136,7 +136,7 @@ export const triggerTypes = [
 export const actionTypes = [
   { id: 'send-email', name: 'Send Email', icon: Mail, color: '#EA4335' },
   { id: 'create-task', name: 'Create Task', icon: CheckCircle2, color: '#10B981' },
-  { id: 'update-record', name: 'Update Record', icon: Edit, color: '#3B82F6' },
+  { id: 'update-record', name: 'Update Record', icon: Edit, color: '#0ea5e9' },
   { id: 'send-notification', name: 'Send Notification', icon: Bell, color: '#F59E0B' },
   { id: 'ai-process', name: 'AI Process', icon: Brain, color: '#e07a3a' },
   { id: 'filter', name: 'Filter', icon: Filter, color: '#d46b2c' },
@@ -246,9 +246,9 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
           type: MarkerType.ArrowClosed,
           width: 16,
           height: 16,
-          color: '#8B5CF6',
+          color: '#e07a3a',
         },
-        style: { stroke: '#8B5CF6', strokeWidth: 1.5 },
+        style: { stroke: '#e07a3a', strokeWidth: 1.5 },
       }, eds));
     },
     [setEdges]
@@ -533,9 +533,9 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
           type: MarkerType.ArrowClosed,
           width: 16,
           height: 16,
-          color: '#8B5CF6',
+          color: '#e07a3a',
         },
-        style: { stroke: '#8B5CF6', strokeWidth: 1.5 },
+        style: { stroke: '#e07a3a', strokeWidth: 1.5 },
       });
     }
 
@@ -818,9 +818,9 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
         type: MarkerType.ArrowClosed,
         width: 16,
         height: 16,
-        color: '#8B5CF6',
+        color: '#e07a3a',
       },
-      style: { stroke: '#8B5CF6', strokeWidth: 1.5 },
+      style: { stroke: '#e07a3a', strokeWidth: 1.5 },
     }));
 
     setNodes(rfNodes);
@@ -867,6 +867,27 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
         await onDeploy(plan.title, plan.description, workflow);
       } catch (error) {
         console.error('Auto-deploy from wizard failed:', error);
+      }
+    }
+  }, [applyWorkflowToCanvas, onDeploy]);
+
+  // When user deploys an AI-generated workflow directly
+  const handleWizardDeployWorkflow = useCallback(async (
+    name: string,
+    description: string,
+    workflow: WFDef,
+    _userInputs: Record<string, string>,
+  ) => {
+    applyWorkflowToCanvas(workflow, name);
+    setWorkflowName(name);
+    setWorkflowDescription(description);
+    setShowSetupWizard(false);
+
+    if (onDeploy) {
+      try {
+        await onDeploy(name, description, workflow);
+      } catch (error) {
+        console.error('Auto-deploy AI workflow failed:', error);
       }
     }
   }, [applyWorkflowToCanvas, onDeploy]);
@@ -960,12 +981,12 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
           defaultEdgeOptions={{
             type: 'smoothstep',
             animated: true,
-            style: { stroke: '#8B5CF6', strokeWidth: 1.5 },
+            style: { stroke: '#e07a3a', strokeWidth: 1.5 },
             markerEnd: {
               type: MarkerType.ArrowClosed,
               width: 16,
               height: 16,
-              color: '#8B5CF6',
+              color: '#e07a3a',
             },
           }}
         >
@@ -975,11 +996,11 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
               style={{ background: '#ffffff' }}
               nodeColor={(node) => {
                 switch ((node.data as any)?.type) {
-                  case 'trigger': return '#7c3aed';
-                  case 'app': return '#3b82f6';
+                  case 'trigger': return '#d46b2c';
+                  case 'app': return '#0ea5e9';
                   case 'knowledge': return '#e07a3a';
                   case 'action': return '#f59e0b';
-                  case 'ai': return '#8b5cf6';
+                  case 'ai': return '#e07a3a';
                   case 'memory': return '#06b6d4';
                   case 'agent_call': return '#ec4899';
                   case 'browser_task': return '#14b8a6';
@@ -1024,11 +1045,11 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
         {showNodeDropdown && (
           <div className="node-add-dropdown" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
             <button className="node-add-item" onClick={() => { addNode('trigger'); setShowNodeDropdown(false); }}>
-              <div className="node-add-item-icon" style={{ background: '#7c3aed14', color: '#7c3aed' }}><Bell size={14} /></div>
+              <div className="node-add-item-icon" style={{ background: '#d46b2c14', color: '#d46b2c' }}><Bell size={14} /></div>
               Trigger
             </button>
             <button className="node-add-item" onClick={() => { addNode('app'); setShowNodeDropdown(false); }}>
-              <div className="node-add-item-icon" style={{ background: '#3b82f614', color: '#3b82f6' }}><Cloud size={14} /></div>
+              <div className="node-add-item-icon" style={{ background: '#0ea5e914', color: '#0ea5e9' }}><Cloud size={14} /></div>
               App Integration
             </button>
             <button className="node-add-item" onClick={() => { addNode('knowledge'); setShowNodeDropdown(false); }}>
@@ -1040,7 +1061,7 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
               Action
             </button>
             <button className="node-add-item" onClick={() => { addNode('ai'); setShowNodeDropdown(false); }}>
-              <div className="node-add-item-icon" style={{ background: '#8b5cf614', color: '#8b5cf6' }}><Brain size={14} /></div>
+              <div className="node-add-item-icon" style={{ background: '#e07a3a14', color: '#e07a3a' }}><Brain size={14} /></div>
               AI Agent
             </button>
             <button className="node-add-item" onClick={() => { addNode('browser_task'); setShowNodeDropdown(false); }}>
@@ -1201,6 +1222,7 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
         <AgentSetupWizard
           onClose={() => setShowSetupWizard(false)}
           onDeploy={handleWizardDeploy}
+          onDeployWorkflow={handleWizardDeployWorkflow}
           isDeploying={isDeploying}
         />
       )}

@@ -63,7 +63,7 @@ const toTeam = (firestoreTeam: FirestoreTeam): Team => ({
 // Get avatar color based on name
 const getAvatarColor = (name: string) => {
   const colors = [
-    '#7C3AED', '#3B82F6', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#14B8A6', '#F97316'
+    '#e07a3a', '#0ea5e9', '#10B981', '#F59E0B', '#EC4899', '#f0a060', '#14B8A6', '#F97316'
   ];
   return colors[name.length % colors.length];
 };

@@ -3,14 +3,16 @@ import {
   X, Sparkles, ArrowRight, ArrowLeft, Loader2, CheckCircle, AlertTriangle,
   GripVertical, Trash2, Plus, Edit2, ChevronDown, ChevronUp, Globe, Brain,
   Cloud, Zap, HardDrive, Clock, Shield, ShieldAlert, ShieldCheck, Eye,
-  Rocket, AlertCircle,
+  Rocket, AlertCircle, Cpu,
 } from 'lucide-react';
-import { generatePlan, type GeneratedPlan, type PlanStep, type PlanInputField } from '../../services/automation/planGenerator';
+import { generatePlan, generateAgentFromPrompt, type GeneratedPlan, type PlanStep, type PlanInputField, type AIGeneratedAgent } from '../../services/automation/planGenerator';
+import type { WorkflowDefinition } from '../../services/automation/types';
 import './AgentSetupWizard.css';
 
 interface AgentSetupWizardProps {
   onClose: () => void;
   onDeploy: (plan: GeneratedPlan, userInputs: Record<string, string>) => void;
+  onDeployWorkflow?: (name: string, description: string, workflow: WorkflowDefinition, userInputs: Record<string, string>) => void;
   isDeploying?: boolean;
 }
 
@@ -19,6 +21,8 @@ type WizardStep = 'prompt' | 'review' | 'inputs' | 'confirm';
 const stepIcon = (type: string) => {
   switch (type) {
     case 'browser_task': return <Globe size={16} />;
+    case 'vision_browse': return <Eye size={16} />;
+    case 'desktop_task': return <Cpu size={16} />;
     case 'ai': return <Brain size={16} />;
     case 'app': return <Cloud size={16} />;
     case 'action': return <Zap size={16} />;
@@ -31,11 +35,13 @@ const stepIcon = (type: string) => {
 const stepColor = (type: string) => {
   switch (type) {
     case 'browser_task': return '#14b8a6';
-    case 'ai': return '#8b5cf6';
-    case 'app': return '#3b82f6';
+    case 'vision_browse': return '#0891b2';
+    case 'desktop_task': return '#d946ef';
+    case 'ai': return '#e07a3a';
+    case 'app': return '#0ea5e9';
     case 'action': return '#f59e0b';
     case 'memory': return '#06b6d4';
-    case 'trigger': return '#7c3aed';
+    case 'trigger': return '#d46b2c';
     case 'condition': return '#ef4444';
     default: return '#6b7280';
   }
@@ -49,11 +55,13 @@ const riskBadge = (level: string) => {
   }
 };
 
-export function AgentSetupWizard({ onClose, onDeploy, isDeploying }: AgentSetupWizardProps) {
+export function AgentSetupWizard({ onClose, onDeploy, onDeployWorkflow, isDeploying }: AgentSetupWizardProps) {
   const [wizardStep, setWizardStep] = useState<WizardStep>('prompt');
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState('');
   const [plan, setPlan] = useState<GeneratedPlan | null>(null);
+  const [aiResult, setAiResult] = useState<AIGeneratedAgent | null>(null);
   const [userInputs, setUserInputs] = useState<Record<string, string>>({});
   const [editingStepId, setEditingStepId] = useState<string | null>(null);
   const [editingDescription, setEditingDescription] = useState('');
@@ -61,6 +69,7 @@ export function AgentSetupWizard({ onClose, onDeploy, isDeploying }: AgentSetupW
   const [addStepAfter, setAddStepAfter] = useState<string | null>(null);
   const [newStepType, setNewStepType] = useState<PlanStep['type']>('browser_task');
   const [newStepDesc, setNewStepDesc] = useState('');
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   // Drag and drop state
   const dragItem = useRef<number | null>(null);
@@ -69,14 +78,55 @@ export function AgentSetupWizard({ onClose, onDeploy, isDeploying }: AgentSetupW
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) return;
     setIsGenerating(true);
+    setGenerationError(null);
+    setGenerationStatus('Understanding your request...');
 
-    // Simulate a brief "thinking" delay for UX
-    await new Promise((r) => setTimeout(r, 800));
+    try {
+      // Try AI-powered generation first
+      setGenerationStatus('Generating workflow with AI...');
+      const result = await generateAgentFromPrompt(prompt);
 
-    const generated = generatePlan(prompt);
-    setPlan(generated);
-    setIsGenerating(false);
-    setWizardStep('review');
+      if (result.success && result.workflow.nodes.length > 0) {
+        setAiResult(result);
+        // Convert AI result to plan format for the review step
+        const aiPlan: GeneratedPlan = {
+          title: result.name,
+          description: result.description,
+          steps: result.workflow.nodes.map((node, i) => ({
+            id: node.id,
+            order: i + 1,
+            type: (node.type === 'action' || node.type === 'code' || node.type === 'set' ? 'action' : node.type) as PlanStep['type'],
+            action: node.config?.action || node.config?.actionType || node.type,
+            description: node.description || node.label,
+            details: node.config || {},
+            requiresConfirmation: node.config?.requiresConfirmation || false,
+            requiresInput: false,
+            estimatedDuration: '2-5s',
+            riskLevel: node.type === 'browser_task' ? 'medium' : 'low',
+          })),
+          requiredInputs: result.requiredInputs,
+          warnings: result.warnings,
+          estimatedTotalDuration: result.estimatedDuration,
+          requiresBrowser: result.requiresBrowser,
+          riskAssessment: result.riskAssessment,
+        };
+        setPlan(aiPlan);
+        setWizardStep('review');
+      } else {
+        throw new Error(result.error || 'Generation returned empty workflow');
+      }
+    } catch (err: any) {
+      console.warn('AI generation failed, falling back:', err.message);
+      setGenerationStatus('Using local generation...');
+      // Fallback to keyword-based
+      const generated = generatePlan(prompt);
+      setPlan(generated);
+      setAiResult(null);
+      setWizardStep('review');
+    } finally {
+      setIsGenerating(false);
+      setGenerationStatus('');
+    }
   }, [prompt]);
 
   const handleDeleteStep = useCallback((stepId: string) => {
@@ -183,7 +233,16 @@ export function AgentSetupWizard({ onClose, onDeploy, isDeploying }: AgentSetupW
   const canProceedToConfirm = plan && (!canProceedToInputs || plan.requiredInputs.every((f) => !f.required || userInputs[f.key]));
 
   const handleDeploy = () => {
-    if (plan) onDeploy(plan, userInputs);
+    if (!plan) return;
+
+    // If we have an AI-generated workflow, deploy it directly
+    if (aiResult && onDeployWorkflow) {
+      onDeployWorkflow(aiResult.name, aiResult.description, aiResult.workflow, userInputs);
+      return;
+    }
+
+    // Fallback to plan-based deployment
+    onDeploy(plan, userInputs);
   };
 
   return (
@@ -259,7 +318,7 @@ export function AgentSetupWizard({ onClose, onDeploy, isDeploying }: AgentSetupW
                   className="wizard-prompt-input"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Describe what you want the agent to do..."
+                  placeholder="Describe what you want the agent to do in plain English..."
                   rows={4}
                   autoFocus
                   onKeyDown={(e) => {
@@ -269,17 +328,34 @@ export function AgentSetupWizard({ onClose, onDeploy, isDeploying }: AgentSetupW
                     }
                   }}
                 />
-                <button
-                  className="wizard-generate-btn"
-                  onClick={handleGenerate}
-                  disabled={!prompt.trim() || isGenerating}
-                >
-                  {isGenerating ? (
-                    <><Loader2 size={16} className="spin" /> Analyzing...</>
+                {generationError && (
+                  <div className="wizard-warning" style={{ margin: 0 }}>
+                    <AlertTriangle size={14} />
+                    <span>{generationError}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  {isGenerating && generationStatus ? (
+                    <span style={{ fontSize: '13px', color: '#e07a3a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Loader2 size={14} className="spin" /> {generationStatus}
+                    </span>
                   ) : (
-                    <><Sparkles size={16} /> Generate Plan</>
+                    <span style={{ fontSize: '12px', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Cpu size={12} /> Powered by AI — generates complete executable workflows
+                    </span>
                   )}
-                </button>
+                  <button
+                    className="wizard-generate-btn"
+                    onClick={handleGenerate}
+                    disabled={!prompt.trim() || isGenerating}
+                  >
+                    {isGenerating ? (
+                      <><Loader2 size={16} className="spin" /> Generating...</>
+                    ) : (
+                      <><Sparkles size={16} /> Generate Agent</>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -292,7 +368,17 @@ export function AgentSetupWizard({ onClose, onDeploy, isDeploying }: AgentSetupW
                 <div className="wizard-plan-info">
                   <h3 className="wizard-plan-title">{plan.title}</h3>
                   <p className="wizard-plan-desc">{plan.description}</p>
+                  {aiResult?.explanation && (
+                    <p style={{ fontSize: '13px', color: '#4b5563', margin: '4px 0 8px', lineHeight: 1.5, background: '#f0fdf4', padding: '8px 12px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                      {aiResult.explanation}
+                    </p>
+                  )}
                   <div className="wizard-plan-meta">
+                    {aiResult && (
+                      <span className="wizard-risk-badge risk-low" style={{ background: '#fef3eb', color: '#c05d1e' }}>
+                        <Cpu size={12} /> AI Generated
+                      </span>
+                    )}
                     {riskBadge(plan.riskAssessment)}
                     <span className="wizard-plan-duration">
                       <Clock size={12} /> ~{plan.estimatedTotalDuration}
@@ -537,8 +623,8 @@ export function AgentSetupWizard({ onClose, onDeploy, isDeploying }: AgentSetupW
 
                 <div className="wizard-confirm-summary">
                   <div className="wizard-confirm-stat">
-                    <span className="wizard-confirm-stat-val">{plan.steps.length}</span>
-                    <span className="wizard-confirm-stat-label">Steps</span>
+                    <span className="wizard-confirm-stat-val">{aiResult ? aiResult.workflow.nodes.length : plan.steps.length}</span>
+                    <span className="wizard-confirm-stat-label">{aiResult ? 'Nodes' : 'Steps'}</span>
                   </div>
                   <div className="wizard-confirm-stat">
                     <span className="wizard-confirm-stat-val">{plan.steps.filter((s) => s.requiresConfirmation).length}</span>
@@ -548,6 +634,12 @@ export function AgentSetupWizard({ onClose, onDeploy, isDeploying }: AgentSetupW
                     <span className="wizard-confirm-stat-val">{plan.estimatedTotalDuration}</span>
                     <span className="wizard-confirm-stat-label">Est. Duration</span>
                   </div>
+                  {aiResult && (
+                    <div className="wizard-confirm-stat">
+                      <span className="wizard-confirm-stat-val" style={{ color: '#e07a3a' }}>{aiResult.triggerType}</span>
+                      <span className="wizard-confirm-stat-label">Trigger</span>
+                    </div>
+                  )}
                 </div>
 
                 {plan.requiresBrowser && (

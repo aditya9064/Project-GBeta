@@ -37,7 +37,7 @@ export function DayView({
     return {
       top: `${startHour * 60}px`,
       height: `${Math.max(duration * 60, 40)}px`,
-      backgroundColor: event.color || '#7C3AED',
+      backgroundColor: event.color || '#e07a3a',
     };
   };
 

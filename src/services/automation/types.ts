@@ -1,6 +1,6 @@
 // Automation Agent Types - Inspired by n8n and Zapier
 
-export type NodeType = 'trigger' | 'action' | 'app' | 'knowledge' | 'condition' | 'ai' | 'filter' | 'delay' | 'memory' | 'agent_call' | 'browser_task';
+export type NodeType = 'trigger' | 'action' | 'app' | 'knowledge' | 'condition' | 'ai' | 'filter' | 'delay' | 'memory' | 'agent_call' | 'browser_task' | 'vision_browse' | 'desktop_task';
 
 export type AgentStatus = 'draft' | 'active' | 'paused' | 'error' | 'archived';
 

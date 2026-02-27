@@ -159,12 +159,12 @@ const Icons = {
 // EXPERT ROLES CONFIG
 // ============================================
 const expertRoles: { id: ExpertRole; label: string; icon: React.FC; color: string; description: string }[] = [
-  { id: 'strategist', label: 'Strategist', icon: Icons.Target, color: '#8B5CF6', description: 'Strategic planning & vision' },
+  { id: 'strategist', label: 'Strategist', icon: Icons.Target, color: '#e07a3a', description: 'Strategic planning & vision' },
   { id: 'ceo', label: 'CEO', icon: Icons.Shield, color: '#EC4899', description: 'Executive leadership & decisions' },
   { id: 'cfo', label: 'CFO', icon: Icons.DollarSign, color: '#10B981', description: 'Financial planning & analysis' },
   { id: 'cmo', label: 'CMO', icon: Icons.Megaphone, color: '#F59E0B', description: 'Marketing & brand strategy' },
   { id: 'programmer', label: 'Tech Lead', icon: Icons.Code, color: '#3B82F6', description: 'Technical architecture & solutions' },
-  { id: 'manager', label: 'Manager', icon: Icons.User, color: '#6366F1', description: 'Operations & team coordination' },
+  { id: 'manager', label: 'Manager', icon: Icons.User, color: '#d46b2c', description: 'Operations & team coordination' },
   { id: 'analyst', label: 'Analyst', icon: Icons.TrendingUp, color: '#14B8A6', description: 'Data insights & market analysis' },
 ];
 
@@ -435,16 +435,16 @@ export function AIBrainstormPanel({
   };
 
   const getRoleColor = (role: ExpertRole) => {
-    return expertRoles.find(r => r.id === role)?.color || '#8B5CF6';
+    return expertRoles.find(r => r.id === role)?.color || '#e07a3a';
   };
 
   const getCategoryColor = (category: IdeaCategory): string => {
     const colors: Record<IdeaCategory, string> = {
-      strategy: '#8B5CF6',
+      strategy: '#e07a3a',
       technical: '#3B82F6',
       financial: '#10B981',
       marketing: '#F59E0B',
-      operations: '#6366F1',
+      operations: '#d46b2c',
       design: '#EC4899',
       risk: '#EF4444',
       growth: '#14B8A6',

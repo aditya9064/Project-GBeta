@@ -1,14 +1,20 @@
 // Plan Generator — Converts natural language prompts into structured step-by-step plans
 //
+// Two-tier approach:
+//   1. AI-powered (when backend is available): Sends prompt to server which uses
+//      OpenAI to generate a complete, validated workflow
+//   2. Keyword-based fallback (offline/demo): Pattern matching for common tasks
+//
 // This is the "AI understanding" layer between user intent and workflow execution.
 // It produces an editable plan that the user reviews before deployment.
 
 import type { BrowserAction } from './types';
+import type { WorkflowDefinition } from './types';
 
 export interface PlanStep {
   id: string;
   order: number;
-  type: 'browser_task' | 'ai' | 'app' | 'action' | 'trigger' | 'memory' | 'condition' | 'delay';
+  type: 'browser_task' | 'ai' | 'app' | 'action' | 'trigger' | 'memory' | 'condition' | 'delay' | 'vision_browse' | 'desktop_task';
   action: string;
   description: string;
   details: Record<string, any>;
@@ -568,4 +574,101 @@ export function generatePlan(prompt: string): GeneratedPlan {
     requiresBrowser: partial.requiresBrowser || false,
     riskAssessment: partial.riskAssessment || 'low',
   };
+}
+
+// ─── AI-Powered Generation ──────────────────────────────
+
+const BACKEND_URL = 'http://localhost:3001';
+
+export interface AIGeneratedAgent {
+  success: boolean;
+  name: string;
+  description: string;
+  workflow: WorkflowDefinition;
+  triggerType: string;
+  requiresBrowser: boolean;
+  estimatedDuration: string;
+  riskAssessment: 'low' | 'medium' | 'high';
+  warnings: string[];
+  requiredInputs: PlanInputField[];
+  explanation: string;
+  error?: string;
+}
+
+/**
+ * Generate an agent using the AI backend.
+ * Falls back to keyword-based plan generation if the backend is unavailable.
+ */
+export async function generateAgentFromPrompt(prompt: string): Promise<AIGeneratedAgent> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/agents/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => null);
+      throw new Error(errData?.error || `Server error: ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (!data.success || !data.data) {
+      throw new Error(data.error || 'Generation failed');
+    }
+
+    const result = data.data;
+    return {
+      success: true,
+      name: result.name,
+      description: result.description,
+      workflow: result.workflow,
+      triggerType: result.triggerType,
+      requiresBrowser: result.requiresBrowser,
+      estimatedDuration: result.estimatedDuration,
+      riskAssessment: result.riskAssessment,
+      warnings: result.warnings || [],
+      requiredInputs: (result.requiredInputs || []).map((inp: any) => ({
+        key: inp.key,
+        label: inp.label,
+        type: inp.type || 'text',
+        placeholder: inp.placeholder,
+        required: inp.required !== false,
+        options: inp.options,
+      })),
+      explanation: result.explanation || '',
+    };
+  } catch (err: any) {
+    console.warn('[PlanGenerator] AI generation unavailable, falling back to keyword matching:', err.message);
+
+    // Fallback: generate plan using keyword matching, then convert
+    const plan = generatePlan(prompt);
+    const { planToWorkflow } = await import('./planConverter');
+    const workflow = planToWorkflow(plan);
+
+    return {
+      success: true,
+      name: plan.title,
+      description: plan.description,
+      workflow,
+      triggerType: detectTriggerType(prompt),
+      requiresBrowser: plan.requiresBrowser,
+      estimatedDuration: plan.estimatedTotalDuration,
+      riskAssessment: plan.riskAssessment,
+      warnings: [
+        ...plan.warnings,
+        'Generated using offline mode (keyword matching). For better results, ensure the backend server is running.',
+      ],
+      requiredInputs: plan.requiredInputs,
+      explanation: `This agent was generated using pattern matching. It has ${plan.steps.length} steps.`,
+    };
+  }
+}
+
+function detectTriggerType(prompt: string): string {
+  const lower = prompt.toLowerCase();
+  if (containsAny(lower, ['every', 'daily', 'weekly', 'hourly', 'schedule', 'morning', 'cron'])) return 'schedule';
+  if (containsAny(lower, ['when email', 'new email', 'receive email', 'incoming email'])) return 'email';
+  if (containsAny(lower, ['webhook', 'api call', 'http trigger'])) return 'webhook';
+  return 'manual';
 }

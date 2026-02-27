@@ -361,7 +361,7 @@ export function createEventFromIntent(intent: ParsedEventIntent): CalendarEvent 
 // Get color for event type
 function getEventColor(type: EventType): string {
   const colors: Record<EventType, string> = {
-    meeting: '#7C3AED',
+    meeting: '#e07a3a',
     call: '#3B82F6',
     focus: '#10B981',
     reminder: '#F59E0B',

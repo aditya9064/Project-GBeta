@@ -370,7 +370,7 @@ const templates: { id: string; name: string; description: string; icon: DocIconT
     name: 'Meeting Notes', 
     description: 'Capture an agenda, notes, and action it...',
     icon: 'edit',
-    color: '#8b5cf6'
+    color: '#e07a3a'
   },
   { 
     id: 'template-3', 

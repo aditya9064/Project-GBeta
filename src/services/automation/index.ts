@@ -15,6 +15,7 @@ export {
 export type { AutomationStatus, BrowserActionResult } from './automationApi';
 export { AgentMemoryService } from './memoryService';
 export { AgentBus } from './agentBus';
-export { generatePlan } from './planGenerator';
+export { generatePlan, generateAgentFromPrompt } from './planGenerator';
+export type { AIGeneratedAgent } from './planGenerator';
 export { planToWorkflow } from './planConverter';
 

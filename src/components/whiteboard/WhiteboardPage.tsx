@@ -4098,7 +4098,7 @@ stream
       technical: '#DBEAFE',     // Light blue
       financial: '#D1FAE5',     // Light green
       marketing: '#FEF3C7',     // Light amber
-      operations: '#EDE9FE',    // Light violet
+      operations: '#fef3eb',    // Light orange
       design: '#FCE7F3',        // Light pink
       risk: '#FEE2E2',          // Light red
       growth: '#CCFBF1',        // Light teal

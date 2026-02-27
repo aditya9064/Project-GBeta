@@ -425,7 +425,7 @@
 }
 
 .create-team-btn:hover {
-  background: var(--accent-purple-hover, #6D28D9);
+  background: var(--accent-purple-hover, #c05d1e);
 }
 
 /* ============================================
@@ -643,7 +643,7 @@
 }
 
 .add-member-btn:hover {
-  background: var(--accent-purple-hover, #6D28D9);
+  background: var(--accent-purple-hover, #c05d1e);
 }
 
 /* Detail Tabs */
@@ -1478,7 +1478,7 @@
 }
 
 .btn-primary:hover {
-  background: var(--accent-purple-hover, #6D28D9);
+  background: var(--accent-purple-hover, #c05d1e);
 }
 
 /* ============================================

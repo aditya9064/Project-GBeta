@@ -16,7 +16,7 @@
   padding: 60px;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #7B68EE 0%, #49CCF9 50%, #FFB347 100%);
+  background: linear-gradient(135deg, #e07a3a 0%, #49CCF9 50%, #FFB347 100%);
 }
 
 .auth-brand-panel::before {
@@ -341,7 +341,7 @@
 
 .form-group input:focus {
   outline: none;
-  border-color: #7B68EE;
+  border-color: #e07a3a;
   box-shadow: 0 0 0 3px rgba(123, 104, 238, 0.15);
 }
 
@@ -378,7 +378,7 @@
 /* Submit Button */
 .auth-submit {
   padding: 14px 24px;
-  background: linear-gradient(135deg, #7B68EE 0%, #6366F1 100%);
+  background: linear-gradient(135deg, #e07a3a 0%, #d46b2c 100%);
   color: white;
   border: none;
   border-radius: 8px;
@@ -438,7 +438,7 @@
 .auth-switch {
   background: none;
   border: none;
-  color: #7B68EE;
+  color: #e07a3a;
   font-weight: 600;
   cursor: pointer;
   margin-left: 4px;
@@ -459,7 +459,7 @@
 
 .forgot-password a,
 .forgot-password-link {
-  color: #7B68EE;
+  color: #e07a3a;
   font-size: 13px;
   font-weight: 500;
   text-decoration: none;
@@ -491,7 +491,7 @@
 }
 
 .auth-terms a:hover {
-  color: #7B68EE;
+  color: #e07a3a;
 }
 
 /* Demo Login */
@@ -671,7 +671,7 @@
 }
 
 [data-theme="dark"] .form-group input:focus {
-  border-color: #7B68EE;
+  border-color: #e07a3a;
   box-shadow: 0 0 0 3px rgba(123, 104, 238, 0.25);
 }
 

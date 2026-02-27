@@ -51,7 +51,7 @@ export function WeekView({
     return {
       top: `${startHour * 60}px`,
       height: `${Math.max(duration * 60, 30)}px`,
-      backgroundColor: event.color || '#7C3AED',
+      backgroundColor: event.color || '#e07a3a',
     };
   };
 

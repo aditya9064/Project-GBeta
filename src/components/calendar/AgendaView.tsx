@@ -122,7 +122,7 @@ export function AgendaView({
               <div
                 key={event.id}
                 className={`agenda-event ${selectedEventId === event.id ? 'selected' : ''}`}
-                style={{ borderLeftColor: event.color || '#7C3AED' }}
+                style={{ borderLeftColor: event.color || '#e07a3a' }}
                 onClick={() => onEventClick(event)}
               >
                 <div className="agenda-event-time">
@@ -148,7 +148,7 @@ export function AgendaView({
                 
                 <div 
                   className="agenda-event-type"
-                  style={{ backgroundColor: event.color || '#7C3AED' }}
+                  style={{ backgroundColor: event.color || '#e07a3a' }}
                 >
                   {EventIcons[event.eventType]}
                 </div>

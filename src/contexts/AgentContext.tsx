@@ -14,8 +14,10 @@ import {
   isBackendAvailable,
   AgentMemoryService,
   AgentBus,
+  generateAgentFromPrompt,
 } from '../services/automation';
 import type { AutomationStatus, ExecutionLog } from '../services/automation';
+import type { AIGeneratedAgent } from '../services/automation/planGenerator';
 import type { AgentRegistryEntry, AgentBusEvent } from '../services/automation/types';
 import { ExecutionEngine } from '../services/automation/executionEngine';
 
@@ -58,6 +60,8 @@ interface AgentContextType {
   // Scheduling
   scheduleAgent: (agentId: string, schedule: AgentSchedule) => void;
   getScheduleInfo: (agentId: string) => AgentSchedule | null;
+  // Prompt-to-Agent
+  createAgentFromPrompt: (prompt: string) => Promise<{ success: boolean; agent?: DeployedAgent; error?: string }>;
 }
 
 const defaultAgentContext: AgentContextType = {
@@ -86,6 +90,7 @@ const defaultAgentContext: AgentContextType = {
   callAgent: async () => ({ success: false, error: 'AgentProvider not available' }),
   scheduleAgent: () => {},
   getScheduleInfo: () => null,
+  createAgentFromPrompt: async () => ({ success: false, error: 'AgentProvider not available' }),
 };
 
 const AgentContext = createContext<AgentContextType>(defaultAgentContext);
@@ -211,7 +216,7 @@ const DEFAULT_AGENT: DeployedAgent = {
   name: '(G) - Email Classification',
   description: 'Classifies incoming emails automatically',
   icon: '📧',
-  color: '#6366f1',
+  color: '#e07a3a',
   workflow: {
     nodes: [
       { id: 'trigger-1', type: 'trigger', label: 'Email Received', config: { triggerType: 'email' }, position: { x: 400, y: 60 } },
@@ -378,6 +383,12 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         const merged = [...loaded, ...remote];
         saveAgentsToStorage(merged);
         setAgents(merged);
+        
+        // Sync full agent definitions to backend for scheduler access
+        // This ensures the backend has complete agent data including workflow, status, triggerType
+        for (const agent of loaded) {
+          apiPost('/api/agents', serializeAgent(agent)).catch(() => {});
+        }
       } else {
         setAgents(loaded);
       }
@@ -414,7 +425,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       name,
       description,
       icon: icon || 'Zap',
-      color: color || '#8b5cf6',
+      color: color || '#e07a3a',
       workflow,
       status: 'active',
       triggerType,
@@ -720,6 +731,30 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     });
   }, [agents]);
 
+  // ─── Prompt-to-Agent ──────────────────────────────────────
+
+  const createAgentFromPrompt = useCallback(async (prompt: string): Promise<{ success: boolean; agent?: DeployedAgent; error?: string }> => {
+    try {
+      const result: AIGeneratedAgent = await generateAgentFromPrompt(prompt);
+
+      if (!result.success || !result.workflow?.nodes?.length) {
+        return { success: false, error: result.error || 'Failed to generate workflow from prompt' };
+      }
+
+      const agent = await deployNewAgent(
+        result.name,
+        result.description,
+        result.workflow,
+        'Sparkles',
+        '#e07a3a',
+      );
+
+      return { success: true, agent };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to create agent from prompt' };
+    }
+  }, [deployNewAgent]);
+
   // ─── Scheduling ──────────────────────────────────────────
 
   const scheduleAgentFn = useCallback((agentId: string, schedule: AgentSchedule) => {
@@ -780,6 +815,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       callAgent: callAgentHandler,
       scheduleAgent: scheduleAgentFn,
       getScheduleInfo: getScheduleInfoFn,
+      createAgentFromPrompt,
     }}>
       {children}
     </AgentContext.Provider>

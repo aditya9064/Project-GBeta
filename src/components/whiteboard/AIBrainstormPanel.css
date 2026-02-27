@@ -44,7 +44,7 @@
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #8B5CF6, #EC4899);
+  background: linear-gradient(135deg, #e07a3a, #d46b2c);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -117,7 +117,7 @@
 }
 
 .role-selector-trigger:hover {
-  border-color: #8B5CF6;
+  border-color: #e07a3a;
 }
 
 .role-label {
@@ -177,7 +177,7 @@
 
 .role-icon.all-experts {
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(236, 72, 153, 0.15));
-  color: #8B5CF6;
+  color: #e07a3a;
 }
 
 .role-info {
@@ -248,7 +248,7 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 16px;
-  color: #8B5CF6;
+  color: #e07a3a;
 }
 
 .empty-icon svg {
@@ -306,8 +306,8 @@
 
 .template-chip:hover {
   background: var(--bg-hover);
-  border-color: #8B5CF6;
-  color: #8B5CF6;
+  border-color: #e07a3a;
+  color: #e07a3a;
 }
 
 /* ============================================
@@ -324,7 +324,7 @@
 }
 
 .message.user .message-content {
-  background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+  background: linear-gradient(135deg, #e07a3a, #d46b2c);
   color: white;
   border-radius: 16px 16px 4px 16px;
 }
@@ -337,7 +337,7 @@
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #8B5CF6, #EC4899);
+  background: linear-gradient(135deg, #e07a3a, #d46b2c);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -411,7 +411,7 @@
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  background: linear-gradient(135deg, #8B5CF6, #EC4899);
+  background: linear-gradient(135deg, #e07a3a, #d46b2c);
   border: none;
   border-radius: 8px;
   font-size: 11px;
@@ -528,8 +528,8 @@
 }
 
 .add-idea-btn:hover:not(:disabled) {
-  background: #8B5CF6;
-  border-color: #8B5CF6;
+  background: #e07a3a;
+  border-color: #e07a3a;
   color: white;
 }
 
@@ -569,7 +569,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #8B5CF6;
+  background: #e07a3a;
   animation: bounce 1.4s infinite ease-in-out both;
 }
 
@@ -603,7 +603,7 @@
 }
 
 .input-wrapper:focus-within {
-  border-color: #8B5CF6;
+  border-color: #e07a3a;
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
 }
 
@@ -629,7 +629,7 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #8B5CF6, #EC4899);
+  background: linear-gradient(135deg, #e07a3a, #d46b2c);
   border: none;
   color: white;
   cursor: pointer;

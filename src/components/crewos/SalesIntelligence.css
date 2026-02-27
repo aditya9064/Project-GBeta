@@ -477,7 +477,7 @@
 }
 
 .sales-forecast-bar-fill.pipeline {
-  background: #7C3AED;
+  background: #e07a3a;
 }
 
 .sales-forecast-bar-value {
@@ -1253,8 +1253,8 @@
 }
 
 .sales-detail-tag.source {
-  background: rgba(124,58,237,0.08);
-  color: #7C3AED;
+  background: rgba(224,122,58,0.08);
+  color: #e07a3a;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1632,8 +1632,8 @@
 }
 
 .sales-model-type-forecast {
-  background: rgba(124,58,237,0.08);
-  color: #7C3AED;
+  background: rgba(224,122,58,0.08);
+  color: #e07a3a;
 }
 
 .sales-model-type-engagement {

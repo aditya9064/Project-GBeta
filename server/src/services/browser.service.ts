@@ -66,11 +66,12 @@ class BrowserServiceImpl {
       this.sessions.delete(sessionId);
     }
 
-    const userDataDir = path.join(os.tmpdir(), 'gbeta-browser-sessions', sessionId);
-    fs.mkdirSync(userDataDir, { recursive: true });
-
     const width = options?.width || 1280;
     const height = options?.height || 900;
+
+    // For headless sessions, use a fresh temp dir to avoid lock conflicts
+    const userDataDir = path.join(os.tmpdir(), 'gbeta-browser-sessions', `${sessionId}-${Date.now()}`);
+    fs.mkdirSync(userDataDir, { recursive: true });
 
     const launchOptions: LaunchOptions = {
       headless: options?.headless ?? false,
@@ -83,16 +84,22 @@ class BrowserServiceImpl {
         '--disable-infobars',
         '--disable-extensions',
         '--disable-popup-blocking',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
       ],
     };
 
+    console.log(`[Browser] Launching Puppeteer (headless: ${launchOptions.headless}, userDataDir: ${userDataDir})...`);
     const browser = await puppeteer.launch(launchOptions);
+    console.log(`[Browser] Puppeteer launched, getting page...`);
     const pages = await browser.pages();
     const page = pages[0] || await browser.newPage();
 
     await page.setViewport({ width, height });
 
-    const session: BrowserSession = {
+    const session: BrowserSession & { userDataDir?: string } = {
       id: sessionId,
       browser,
       page,
@@ -100,7 +107,8 @@ class BrowserServiceImpl {
       lastActivityAt: new Date(),
       status: 'active',
       currentUrl: 'about:blank',
-    };
+      userDataDir,
+    } as BrowserSession;
 
     this.sessions.set(sessionId, session);
     console.log(`[Browser] Session "${sessionId}" created (headless: ${options?.headless ?? false})`);
@@ -142,7 +150,7 @@ class BrowserServiceImpl {
     try {
       await session.page.goto(url, {
         waitUntil: opts?.waitUntil || 'domcontentloaded',
-        timeout: 30_000,
+        timeout: 15_000,
       });
       session.currentUrl = session.page.url();
       session.lastActivityAt = new Date();
@@ -233,12 +241,14 @@ class BrowserServiceImpl {
     }
   }
 
-  async screenshot(sessionId: string, opts?: { fullPage?: boolean }): Promise<BrowserActionResult> {
+  async screenshot(sessionId: string, opts?: { fullPage?: boolean; quality?: number }): Promise<BrowserActionResult> {
     const session = await this.ensureSession(sessionId);
     try {
       const buffer = await session.page.screenshot({
         encoding: 'base64',
         fullPage: opts?.fullPage || false,
+        type: 'jpeg',
+        quality: opts?.quality ?? 60,
       });
       session.lastActivityAt = new Date();
       return this.ok('screenshot', { screenshot: buffer as string });
@@ -309,6 +319,61 @@ class BrowserServiceImpl {
       return this.ok('page_info', { url, title, cookieCount: cookies.length });
     } catch (err: any) {
       return this.fail('page_info', err);
+    }
+  }
+
+  /* ─── Coordinate-based actions (for AI vision agent) ── */
+
+  async clickAt(sessionId: string, x: number, y: number): Promise<BrowserActionResult> {
+    const session = await this.ensureSession(sessionId);
+    try {
+      await session.page.mouse.click(x, y);
+      await new Promise(r => setTimeout(r, 500));
+      session.currentUrl = session.page.url();
+      session.lastActivityAt = new Date();
+      return this.ok('click_at', { x, y, url: session.currentUrl });
+    } catch (err: any) {
+      return this.fail('click_at', err);
+    }
+  }
+
+  async typeText(sessionId: string, text: string, opts?: { pressEnter?: boolean }): Promise<BrowserActionResult> {
+    const session = await this.ensureSession(sessionId);
+    try {
+      await session.page.keyboard.type(text, { delay: 30 });
+      if (opts?.pressEnter) {
+        await session.page.keyboard.press('Enter');
+      }
+      session.lastActivityAt = new Date();
+      return this.ok('type_text', { textLength: text.length, pressedEnter: opts?.pressEnter || false });
+    } catch (err: any) {
+      return this.fail('type_text', err);
+    }
+  }
+
+  async pressKey(sessionId: string, key: string): Promise<BrowserActionResult> {
+    const session = await this.ensureSession(sessionId);
+    try {
+      await session.page.keyboard.press(key as any);
+      session.lastActivityAt = new Date();
+      return this.ok('press_key', { key });
+    } catch (err: any) {
+      return this.fail('press_key', err);
+    }
+  }
+
+  async getPageText(sessionId: string): Promise<BrowserActionResult> {
+    const session = await this.ensureSession(sessionId);
+    try {
+      const text = await session.page.evaluate(() => {
+        return document.body.innerText.substring(0, 8000);
+      });
+      const url = session.page.url();
+      const title = await session.page.title();
+      session.lastActivityAt = new Date();
+      return this.ok('page_text', { text, url, title });
+    } catch (err: any) {
+      return this.fail('page_text', err);
     }
   }
 

@@ -626,7 +626,11 @@ async function executeNode(
 
     case 'browser_task':
       return executeBrowserTask(resolvedNode, input, context, useRealBackend);
-      
+
+    case 'vision_browse':
+    case 'desktop_task':
+      return executeVisionTask(resolvedNode, input, useRealBackend);
+
     default:
       // For any unknown/n8n-specific node type, pass through with metadata
       return executeGenericN8nNode(resolvedNode, input, useRealBackend);
@@ -700,14 +704,21 @@ async function executeGmail(config: AppConfig, input: any, useRealBackend: boole
   if (!gmail) {
     return { error: 'Gmail configuration missing' };
   }
+  
+  // Helper to resolve n8n expressions in Gmail config values
+  const resolve = (value: any, fallback: string = ''): string => {
+    if (value === undefined || value === null) return fallback;
+    const resolved = resolveN8nExpression(String(value), input);
+    return resolved !== value ? String(resolved) : (input?.[value] || String(value) || fallback);
+  };
 
   // ── REAL BACKEND EXECUTION ──
   if (useRealBackend) {
     switch (gmail.action) {
       case 'send': {
-        const to = gmail.to || input.to || input.email || '';
-        const subject = gmail.subject || input.subject || 'Automated Email';
-        const body = gmail.body || input.body || input.message || '';
+        const to = resolve(gmail.to, input.to || input.email || '');
+        const subject = resolve(gmail.subject, input.subject || 'Automated Email');
+        const body = resolve(gmail.body, input.body || input.message || '');
         
         // Validate email address before sending
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -725,7 +736,7 @@ async function executeGmail(config: AppConfig, input: any, useRealBackend: boole
       
       case 'reply': {
         const messageId = input.messageId || input.id;
-        const body = gmail.body || input.body || input.message || '';
+        const body = resolve(gmail.body, input.body || input.message || '');
         
         if (!messageId) throw new Error('No messageId provided for Gmail reply');
         
@@ -747,9 +758,9 @@ async function executeGmail(config: AppConfig, input: any, useRealBackend: boole
       case 'draft': {
         // Draft action: prepare email content without sending
         // Returns the draft that would be sent, allowing review or further processing
-        const to = gmail.to || input.to || input.email || '';
-        const subject = gmail.subject || input.subject || 'Draft Email';
-        const body = gmail.body || input.body || input.message || '';
+        const to = resolve(gmail.to, input.to || input.email || input.fromEmail || '');
+        const subject = resolve(gmail.subject, input.subject || 'Draft Email');
+        const body = resolve(gmail.body, input.body || input.message || input.response || '');
         
         console.log(`[Gmail] Created draft for: ${to}`);
         return {
@@ -1373,33 +1384,85 @@ function evaluateN8nConditions(conditions: any, input: any): boolean {
 function resolveN8nExpression(value: any, input: any): any {
   if (typeof value !== 'string') return value;
   
-  // Handle n8n expression syntax: ={{$json["field"]}} or ={{$json.field}}
-  const exprMatch = value.match(/^=\{\{(.+)\}\}$/);
-  if (exprMatch) {
-    const expr = exprMatch[1].trim();
-    
-    // $json["field"] or $json.field
-    const jsonFieldMatch = expr.match(/\$json\["([^"]+)"\]|\$json\.(\w+)/);
-    if (jsonFieldMatch) {
-      const field = jsonFieldMatch[1] || jsonFieldMatch[2];
-      return input?.[field];
+  // Handle both =expression and ={{expression}} syntax
+  let expr = '';
+  
+  // Check for ={{expression}} syntax
+  const bracketMatch = value.match(/^=\{\{(.+)\}\}$/);
+  if (bracketMatch) {
+    expr = bracketMatch[1].trim();
+  } 
+  // Check for =expression syntax (without braces)
+  else if (value.startsWith('=') && !value.startsWith('={{')) {
+    expr = value.slice(1).trim();
+    // Also handle {{ }} inside
+    const innerMatch = expr.match(/^\{\{(.+)\}\}$/);
+    if (innerMatch) {
+      expr = innerMatch[1].trim();
     }
-    
-    // Nested access: $json["a"]["b"]
-    const nestedMatch = expr.match(/\$json(?:\["([^"]+)"\])+/g);
-    if (nestedMatch) {
-      let result = input;
-      const fields = [...expr.matchAll(/\["([^"]+)"\]/g)].map(m => m[1]);
-      for (const f of fields) {
-        result = result?.[f];
-      }
-      return result;
+  }
+  
+  if (!expr) return value;
+  
+  // Handle $('NodeName').item.json.field syntax (n8n node references)
+  const nodeRefMatch = expr.match(/\$\(['"]([^'"]+)['"]\)\.item\.json\.(.+)/);
+  if (nodeRefMatch) {
+    const [, _nodeName, fieldPath] = nodeRefMatch;
+    // Map n8n field paths to our input data
+    return resolveN8nFieldPath(fieldPath, input);
+  }
+  
+  // $json["field"] or $json.field
+  const jsonFieldMatch = expr.match(/\$json\["([^"]+)"\]|\$json\.(\w+)/);
+  if (jsonFieldMatch) {
+    const field = jsonFieldMatch[1] || jsonFieldMatch[2];
+    return input?.[field];
+  }
+  
+  // Nested access: $json["a"]["b"]
+  const nestedMatch = expr.match(/\$json(?:\["([^"]+)"\])+/g);
+  if (nestedMatch) {
+    let result = input;
+    const fields = [...expr.matchAll(/\["([^"]+)"\]/g)].map(m => m[1]);
+    for (const f of fields) {
+      result = result?.[f];
     }
-    
-    return value;
+    return result;
   }
   
   return value;
+}
+
+/**
+ * Resolve n8n-style field paths like 'headers.subject' to our data structure.
+ */
+function resolveN8nFieldPath(fieldPath: string, data: any): any {
+  const fieldMappings: Record<string, string[]> = {
+    'headers.subject': ['subject', 'email.subject'],
+    'headers.from': ['from', 'fromEmail', 'email.from', 'email.fromEmail'],
+    'headers.to': ['to', 'email.to'],
+    'subject': ['subject', 'email.subject'],
+    'from': ['from', 'fromEmail', 'email.from'],
+    'body': ['body', 'fullMessage', 'email.body', 'email.fullMessage'],
+    'text': ['body', 'fullMessage', 'email.body'],
+    'html': ['body', 'fullMessage', 'email.body'],
+    'id': ['messageId', 'id', 'email.id'],
+    'threadId': ['threadId', 'email.threadId'],
+  };
+  
+  // Try mapped fields first
+  const mappings = fieldMappings[fieldPath];
+  if (mappings) {
+    for (const mapping of mappings) {
+      const val = getNestedValue(data, mapping);
+      if (val !== undefined && val !== null) {
+        return val;
+      }
+    }
+  }
+  
+  // Fall back to direct field access
+  return getNestedValue(data, fieldPath);
 }
 
 /* ═══ GENERIC N8N NODE EXECUTOR ══════════════════════════ */
@@ -1786,6 +1849,62 @@ async function executeAgentCall(
   };
 }
 
+/* ═══ VISION BROWSE / DESKTOP TASK NODE ══════════════════ */
+
+const BACKEND_URL_VISION = 'http://localhost:3001';
+
+async function executeVisionTask(
+  node: WorkflowNodeData,
+  input: any,
+  useRealBackend: boolean,
+): Promise<any> {
+  const config = node.config as Record<string, any>;
+  const task = config.task || config.description || node.label;
+  const url = config.url || input.url;
+  const appName = config.appName || config.app;
+  const isDesktop = node.type === 'desktop_task' || !!appName;
+
+  console.log(`[Vision] ${isDesktop ? 'Desktop' : 'Browser'}: ${task}`);
+
+  if (useRealBackend) {
+    try {
+      const endpoint = isDesktop ? '/api/browser/vision/desktop' : '/api/browser/vision/task';
+      const body = isDesktop ? { task, appName } : { task, url };
+
+      const res = await fetch(`${BACKEND_URL_VISION}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (data.success && data.data) {
+        return {
+          ...data.data,
+          _executionMode: 'vision_agent',
+        };
+      }
+      console.warn('[Vision] Backend returned failure:', data.error);
+    } catch (err: any) {
+      console.warn(`[Vision] Backend error: ${err.message}`);
+    }
+  }
+
+  // Simulated fallback
+  await new Promise(r => setTimeout(r, 2000));
+  return {
+    success: true,
+    task,
+    url,
+    extractedData: { note: 'Vision agent requires the backend server to be running' },
+    totalSteps: 0,
+    durationMs: 0,
+    _simulated: true,
+    _executionMode: 'demo',
+    timestamp: new Date().toISOString(),
+  };
+}
+
 /* ═══ BROWSER TASK NODE ══════════════════════════════════ */
 
 async function executeBrowserTask(
@@ -1802,8 +1921,8 @@ async function executeBrowserTask(
   // ── REAL BACKEND (Puppeteer) ──
   if (useRealBackend) {
     try {
-      // Ensure a browser session exists for this agent
-      await AutomationBrowserAPI.createSession(sessionId);
+      // Ensure a headless browser session exists for this agent
+      await AutomationBrowserAPI.createSession(sessionId, { headless: true });
 
       const params = buildBrowserParams(config, input);
       const result = await AutomationBrowserAPI.action(sessionId, config.action, params);

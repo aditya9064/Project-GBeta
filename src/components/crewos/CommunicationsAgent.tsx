@@ -112,7 +112,7 @@ const categoryLabels: Record<EmailCategory, string> = {
 const categoryColors: Record<EmailCategory, string> = {
   work: '#10B981',
   promotional: '#F59E0B',
-  newsletter: '#8B5CF6',
+  newsletter: '#e07a3a',
   notification: '#6B7280',
   spam: '#EF4444',
 };
@@ -608,7 +608,7 @@ export function CommunicationsAgent() {
 
           <div className="comms-ai-pipeline">
             <div className="comms-ai-stage">
-              <div className="comms-ai-stage-icon" style={{ background: '#EDE9FE', color: '#7C3AED' }}>
+              <div className="comms-ai-stage-icon" style={{ background: '#fef3eb', color: '#e07a3a' }}>
                 <Target size={16} />
               </div>
               <div className="comms-ai-stage-info">

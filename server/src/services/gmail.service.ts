@@ -462,5 +462,159 @@ export const GmailService = {
     // Remove tokens from Firestore
     TokenStore.delete('gmail').catch(() => {});
   },
+
+  /**
+   * Set up Gmail push notifications via Pub/Sub (production only).
+   * This enables real-time email triggers without polling.
+   * Requires: Cloud Pub/Sub topic and service account with pubsub.publisher role.
+   */
+  async setupWatch(topicName: string): Promise<{ historyId: string; expiration: string } | null> {
+    if (!gmailClient) throw new Error('Gmail not connected');
+    
+    try {
+      const result = await gmailClient.users.watch({
+        userId: 'me',
+        requestBody: {
+          topicName,
+          labelIds: ['INBOX'],
+          labelFilterAction: 'include',
+        },
+      });
+      
+      console.log('📬 Gmail watch established:', result.data);
+      return {
+        historyId: result.data.historyId || '',
+        expiration: result.data.expiration || '',
+      };
+    } catch (err: any) {
+      console.error('❌ Gmail watch setup failed:', err.message);
+      return null;
+    }
+  },
+
+  /** Stop Gmail push notifications */
+  async stopWatch(): Promise<void> {
+    if (!gmailClient) return;
+    
+    try {
+      await gmailClient.users.stop({ userId: 'me' });
+      console.log('📬 Gmail watch stopped');
+    } catch (err: any) {
+      console.error('❌ Gmail watch stop failed:', err.message);
+    }
+  },
+
+  /**
+   * Get emails since a specific history ID (for incremental sync after push notification).
+   * This is more efficient than fetching all inbox messages.
+   */
+  async getMessagesSinceHistory(historyId: string): Promise<UnifiedMessage[]> {
+    if (!gmailClient) throw new Error('Gmail not connected');
+
+    try {
+      const historyRes = await gmailClient.users.history.list({
+        userId: 'me',
+        startHistoryId: historyId,
+        historyTypes: ['messageAdded'],
+        labelId: 'INBOX',
+      });
+
+      if (!historyRes.data.history) {
+        return []; // No new messages
+      }
+
+      // Extract new message IDs
+      const messageIds = new Set<string>();
+      for (const h of historyRes.data.history) {
+        if (h.messagesAdded) {
+          for (const m of h.messagesAdded) {
+            if (m.message?.id) {
+              messageIds.add(m.message.id);
+            }
+          }
+        }
+      }
+
+      if (messageIds.size === 0) return [];
+
+      // Fetch full message details
+      const messages: UnifiedMessage[] = [];
+      for (const msgId of messageIds) {
+        try {
+          const msgRes = await gmailClient.users.messages.get({
+            userId: 'me',
+            id: msgId,
+            format: 'full',
+          });
+
+          const headers = msgRes.data.payload?.headers;
+          const from = getHeaderValue(headers, 'From');
+          const to = getHeaderValue(headers, 'To');
+          const subject = getHeaderValue(headers, 'Subject');
+          const date = getHeaderValue(headers, 'Date');
+
+          const nameMatch = from.match(/^"?([^"<]+)"?\s*<?/);
+          const senderName = nameMatch ? nameMatch[1].trim() : from.split('@')[0];
+
+          const body = msgRes.data.payload ? extractEmailBody(msgRes.data.payload) : '';
+          const attachments = msgRes.data.payload ? extractAttachments(msgRes.data.payload) : [];
+          const receivedDate = date ? new Date(date) : new Date();
+
+          messages.push({
+            id: `gmail-${msgId}`,
+            externalId: msgId,
+            channel: 'email',
+            from: senderName,
+            fromEmail: from,
+            fromInitial: getInitials(senderName),
+            fromColor: generateColor(senderName),
+            subject: subject || '(No Subject)',
+            preview: body.slice(0, 200).replace(/\n/g, ' '),
+            fullMessage: body,
+            receivedAt: receivedDate,
+            receivedTime: receivedDate.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            }),
+            relativeTime: getRelativeTime(receivedDate),
+            priority: msgRes.data.labelIds?.includes('IMPORTANT') ? 'high' : 'medium',
+            status: 'pending',
+            starred: msgRes.data.labelIds?.includes('STARRED') || false,
+            attachments: attachments.length > 0 ? attachments : undefined,
+            isFromUser: false,
+            metadata: {
+              threadId: msgRes.data.threadId,
+              labelIds: msgRes.data.labelIds,
+              snippet: msgRes.data.snippet,
+            },
+          });
+        } catch (err) {
+          console.error(`Error fetching Gmail message ${msgId}:`, err);
+        }
+      }
+
+      return messages;
+    } catch (err: any) {
+      // History ID might be too old
+      if (err.code === 404) {
+        console.log('📬 Gmail history ID expired, falling back to full fetch');
+        return this.fetchMessages(20);
+      }
+      throw err;
+    }
+  },
+
+  /** Get the current history ID for tracking new messages */
+  async getCurrentHistoryId(): Promise<string | null> {
+    if (!gmailClient) return null;
+    
+    try {
+      const profile = await gmailClient.users.getProfile({ userId: 'me' });
+      return profile.data.historyId || null;
+    } catch (err) {
+      return null;
+    }
+  },
 };
 

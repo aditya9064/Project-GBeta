@@ -110,7 +110,7 @@ export function EventPanel({ event, onClose, onDelete }: EventPanelProps) {
       <div className="event-panel-content">
         <div 
           className="event-color-bar" 
-          style={{ backgroundColor: event.color || '#7C3AED' }}
+          style={{ backgroundColor: event.color || '#e07a3a' }}
         />
         
         <h2 className="event-title">{event.title}</h2>

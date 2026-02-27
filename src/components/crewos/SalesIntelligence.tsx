@@ -197,7 +197,7 @@ const sampleLeads: Lead[] = [
   {
     id: 'l5', name: 'Emily Watson', company: 'Creative Dynamics', title: 'Marketing Director',
     email: 'emily.w@creativedyn.com', location: 'Los Angeles, CA',
-    avatar: 'EW', avatarColor: '#7C3AED', score: 62, scoreChange: -2, scoreTrend: 'down',
+    avatar: 'EW', avatarColor: '#e07a3a', score: 62, scoreChange: -2, scoreTrend: 'down',
     stage: 'qualified', dealValue: 85000, probability: 30, expectedClose: 'May 1, 2026',
     lastActivity: '5 days ago', lastActivityType: 'website', engagementScore: 35,
     signals: [
@@ -350,7 +350,7 @@ const getInsightColor = (type: AIInsight['type']) => {
     case 'risk': return { bg: '#FEE2E2', color: '#DC2626', border: 'rgba(220,38,38,0.15)' };
     case 'opportunity': return { bg: '#D1FAE5', color: '#059669', border: 'rgba(5,150,105,0.15)' };
     case 'action': return { bg: '#FEF3C7', color: '#D97706', border: 'rgba(217,119,6,0.15)' };
-    case 'trend': return { bg: '#EDE9FE', color: '#7C3AED', border: 'rgba(124,58,237,0.15)' };
+    case 'trend': return { bg: '#fef3eb', color: '#e07a3a', border: 'rgba(224,122,58,0.15)' };
     default: return { bg: '#f0f0f6', color: '#3a3a52', border: 'rgba(0,0,0,0.06)' };
   }
 };
@@ -608,7 +608,7 @@ export function SalesIntelligence() {
           </div>
         </div>
         <div className="sales-kpi-card">
-          <div className="sales-kpi-icon" style={{ background: 'rgba(124,58,237,0.08)', color: '#7C3AED' }}>
+          <div className="sales-kpi-icon" style={{ background: 'rgba(224,122,58,0.08)', color: '#e07a3a' }}>
             <Brain size={22} />
           </div>
           <div className="sales-kpi-content">
@@ -1079,7 +1079,7 @@ export function SalesIntelligence() {
             </div>
           </div>
           <div className="sales-health-card">
-            <div className="sales-health-icon" style={{ background: '#EDE9FE', color: '#7C3AED' }}>
+            <div className="sales-health-icon" style={{ background: '#fef3eb', color: '#e07a3a' }}>
               <Percent size={20} />
             </div>
             <div className="sales-health-content">

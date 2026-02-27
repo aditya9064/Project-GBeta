@@ -94,8 +94,8 @@
 .node-config-input:focus,
 .node-config-textarea:focus,
 .node-config-select:focus {
-  border-color: #8B5CF6 !important;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  border-color: #e07a3a !important;
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.1);
   background: #ffffff !important;
 }
 
@@ -138,7 +138,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #8B5CF6;
+  background: #e07a3a;
   cursor: pointer;
   border: 2px solid #ffffff;
   box-shadow: 0 1px 3px rgba(0,0,0,0.15);
@@ -184,9 +184,9 @@
 }
 
 .connection-badge.checking {
-  background: rgba(139, 92, 246, 0.06);
-  border: 1px solid rgba(139, 92, 246, 0.15);
-  color: #7c3aed;
+  background: rgba(224, 122, 58, 0.06);
+  border: 1px solid rgba(224, 122, 58, 0.15);
+  color: #d46b2c;
 }
 
 .connect-btn {
@@ -197,7 +197,7 @@
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
-  background: #8B5CF6 !important;
+  background: #e07a3a !important;
   color: white !important;
   border: none;
   cursor: pointer;
@@ -206,7 +206,7 @@
 }
 
 .connect-btn:hover {
-  background: #7c3aed !important;
+  background: #d46b2c !important;
 }
 
 .refresh-status-btn {
@@ -288,13 +288,13 @@
 }
 
 .node-config-btn-primary {
-  background: #8B5CF6 !important;
+  background: #e07a3a !important;
   color: white !important;
   flex: 1;
 }
 
 .node-config-btn-primary:hover {
-  background: #7c3aed !important;
+  background: #d46b2c !important;
 }
 
 .node-config-btn-danger {

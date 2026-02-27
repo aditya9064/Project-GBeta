@@ -17,9 +17,9 @@
   right: 0;
   bottom: 0;
 
-  --wf-accent: #7c3aed;
-  --wf-accent-hover: #6d28d9;
-  --wf-accent-light: #ede9fe;
+  --wf-accent: #e07a3a;
+  --wf-accent-hover: #d46b2c;
+  --wf-accent-light: #fef3eb;
   --wf-bg: #ffffff;
   --wf-canvas: #fafafa;
   --wf-border: #e5e7eb;
@@ -357,14 +357,14 @@
   background: var(--wf-accent);
   color: #ffffff;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 2px 8px rgba(224, 122, 58, 0.3);
   transition: all 0.2s;
 }
 
 .workflow-sidebar-btn:hover {
   background: var(--wf-accent-hover);
   transform: scale(1.08);
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 4px 14px rgba(224, 122, 58, 0.4);
 }
 
 /* ─── Canvas ─── */
@@ -467,8 +467,8 @@
    ═══════════════════════════════════════════════════════ */
 
 .custom-node {
-  background: #1a1a2e !important;
-  border: 1px solid #2a2a40;
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
   border-left: 4px solid;
   border-radius: 12px;
   padding: 0;
@@ -487,8 +487,8 @@
 }
 
 .custom-node.selected {
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.5), 0 8px 30px rgba(0, 0, 0, 0.4);
-  border-color: #5b21b6;
+  box-shadow: 0 0 0 2px rgba(224, 122, 58, 0.5), 0 8px 30px rgba(0, 0, 0, 0.1);
+  border-color: #e07a3a;
 }
 
 .custom-node-header {
@@ -496,8 +496,8 @@
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  border-bottom: 1px solid #2a2a40;
-  background: #16162a;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fafbfc;
 }
 
 .custom-node-icon {
@@ -533,7 +533,7 @@
 .custom-node-label {
   font-size: 13px;
   font-weight: 600;
-  color: #f1f5f9 !important;
+  color: #0f172a !important;
   line-height: 1.3;
   margin-bottom: 0;
   white-space: nowrap;
@@ -543,7 +543,7 @@
 
 .custom-node-description {
   font-size: 11px;
-  color: #9ca3af !important;
+  color: #64748b !important;
   line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
@@ -577,10 +577,10 @@
 .cn-textarea,
 .cn-select {
   width: 100%;
-  background: #0f0f1e;
-  border: 1px solid #2a2a40;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
   border-radius: 6px;
-  color: #e2e8f0;
+  color: #0f172a;
   font-size: 12px;
   font-family: inherit;
   padding: 6px 8px;
@@ -592,13 +592,13 @@
 .cn-input:focus,
 .cn-textarea:focus,
 .cn-select:focus {
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.2);
+  border-color: #e07a3a;
+  box-shadow: 0 0 0 1px rgba(224, 122, 58, 0.2);
 }
 
 .cn-input::placeholder,
 .cn-textarea::placeholder {
-  color: #4a4a6a;
+  color: #94a3b8;
 }
 
 .cn-textarea {
@@ -627,7 +627,7 @@
 
 .cn-range {
   width: 100%;
-  accent-color: #7c3aed;
+  accent-color: #e07a3a;
   height: 4px;
   cursor: pointer;
 }
@@ -644,8 +644,8 @@
 .node-handle {
   width: 10px;
   height: 10px;
-  background: #4a4a6a !important;
-  border: 2px solid #1a1a2e !important;
+  background: #94a3b8 !important;
+  border: 2px solid #ffffff !important;
   border-radius: 50%;
   transition: all 0.15s;
 }
@@ -654,7 +654,7 @@
   background: var(--wf-accent) !important;
   width: 12px;
   height: 12px;
-  box-shadow: 0 0 8px rgba(124, 58, 237, 0.5);
+  box-shadow: 0 0 8px rgba(224, 122, 58, 0.5);
 }
 
 /* ─── React Flow Overrides — Light Theme ─── */
@@ -678,7 +678,7 @@
 
 /* Animated flowing connection lines */
 .react-flow__edge-path {
-  stroke: #8B5CF6 !important;
+  stroke: #e07a3a !important;
   stroke-width: 1.5 !important;
 }
 
@@ -702,16 +702,16 @@
 /* Arrow markers — purple to match lines */
 .react-flow__arrowhead polyline,
 .react-flow__arrowhead polygon {
-  fill: #8B5CF6 !important;
-  stroke: #8B5CF6 !important;
+  fill: #e07a3a !important;
+  stroke: #e07a3a !important;
 }
 
 .react-flow__edge marker path {
-  fill: #8B5CF6 !important;
+  fill: #e07a3a !important;
 }
 
 marker[id*="arrowclosed"] path {
-  fill: #8B5CF6 !important;
+  fill: #e07a3a !important;
 }
 
 /* Hide default controls — we have custom bottom toolbar */
@@ -913,7 +913,7 @@ marker[id*="arrowclosed"] path {
 .deploy-form-group input:focus,
 .deploy-form-group textarea:focus {
   border-color: var(--wf-accent);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.1);
 }
 
 .deploy-form-group input:disabled,

@@ -43,7 +43,7 @@
 }
 
 .wizard-header-icon {
-  color: #8b5cf6;
+  color: #e07a3a;
 }
 
 .wizard-title {
@@ -105,7 +105,7 @@
 }
 
 .wizard-progress-step.done:not(:last-child)::after {
-  background: #8b5cf6;
+  background: #e07a3a;
 }
 
 .wizard-progress-dot {
@@ -125,12 +125,12 @@
 }
 
 .wizard-progress-step.active .wizard-progress-dot {
-  background: #8b5cf6;
+  background: #e07a3a;
   color: #fff;
 }
 
 .wizard-progress-step.done .wizard-progress-dot {
-  background: #8b5cf6;
+  background: #e07a3a;
   color: #fff;
 }
 
@@ -142,12 +142,12 @@
 }
 
 .wizard-progress-step.active .wizard-progress-label {
-  color: #8b5cf6;
+  color: #e07a3a;
   font-weight: 600;
 }
 
 .wizard-progress-step.done .wizard-progress-label {
-  color: #7c3aed;
+  color: #d46b2c;
 }
 
 /* ─── Content ───────────────────────────────────────────── */
@@ -195,9 +195,9 @@
 }
 
 .wizard-example-btn:hover {
-  background: #ede9fe;
-  border-color: #c4b5fd;
-  color: #5b21b6;
+  background: #fef3eb;
+  border-color: #f0a060;
+  color: #c05d1e;
 }
 
 .wizard-prompt-input-wrap {
@@ -220,7 +220,7 @@
 
 .wizard-prompt-input:focus {
   outline: none;
-  border-color: #8b5cf6;
+  border-color: #e07a3a;
 }
 
 .wizard-generate-btn {
@@ -229,7 +229,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  background: #8b5cf6;
+  background: #e07a3a;
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -240,7 +240,7 @@
 }
 
 .wizard-generate-btn:hover:not(:disabled) {
-  background: #7c3aed;
+  background: #d46b2c;
 }
 
 .wizard-generate-btn:disabled {
@@ -371,12 +371,12 @@
 }
 
 .wizard-step-card:hover {
-  border-color: #c4b5fd;
+  border-color: #f0a060;
   box-shadow: 0 1px 4px rgba(139, 92, 246, 0.08);
 }
 
 .wizard-step-card.editing {
-  border-color: #8b5cf6;
+  border-color: #e07a3a;
 }
 
 .wizard-step-card[draggable="true"] {
@@ -453,7 +453,7 @@
 
 .wizard-step-edit-input {
   width: 100%;
-  border: 1px solid #8b5cf6;
+  border: 1px solid #e07a3a;
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 13px;
@@ -481,8 +481,8 @@
 }
 
 .wizard-badge-confirm {
-  background: #ede9fe;
-  color: #6d28d9;
+  background: #fef3eb;
+  color: #c05d1e;
 }
 
 .wizard-badge-risk {
@@ -560,7 +560,7 @@
 }
 
 .wizard-detail-checkbox input[type="checkbox"] {
-  accent-color: #8b5cf6;
+  accent-color: #e07a3a;
 }
 
 /* ─── Add Step Trigger ──────────────────────────────────── */
@@ -583,8 +583,8 @@
 }
 
 .wizard-add-step-trigger:hover {
-  color: #8b5cf6;
-  border-color: #c4b5fd;
+  color: #e07a3a;
+  border-color: #f0a060;
   background: #faf5ff;
 }
 
@@ -595,7 +595,7 @@
   padding: 8px;
   margin: 4px 0;
   background: #faf5ff;
-  border: 1px solid #c4b5fd;
+  border: 1px solid #f0a060;
   border-radius: 8px;
 }
 
@@ -617,7 +617,7 @@
 
 .wizard-add-step-input:focus {
   outline: none;
-  border-color: #8b5cf6;
+  border-color: #e07a3a;
 }
 
 .wizard-add-step-confirm {
@@ -625,7 +625,7 @@
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  background: #8b5cf6;
+  background: #e07a3a;
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -702,7 +702,7 @@
 
 .wizard-input-field:focus {
   outline: none;
-  border-color: #8b5cf6;
+  border-color: #e07a3a;
 }
 
 /* ─── Confirm Step ──────────────────────────────────────── */
@@ -719,7 +719,7 @@
 }
 
 .wizard-confirm-icon {
-  color: #8b5cf6;
+  color: #e07a3a;
   margin-bottom: 16px;
 }
 
@@ -733,7 +733,7 @@
 .wizard-confirm-name {
   font-size: 15px;
   font-weight: 600;
-  color: #7c3aed;
+  color: #d46b2c;
   margin: 0 0 4px;
 }
 
@@ -830,12 +830,12 @@
 }
 
 .wizard-btn-next {
-  background: #8b5cf6;
+  background: #e07a3a;
   color: #fff;
 }
 
 .wizard-btn-next:hover:not(:disabled) {
-  background: #7c3aed;
+  background: #d46b2c;
 }
 
 .wizard-btn-next:disabled {

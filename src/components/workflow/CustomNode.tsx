@@ -49,11 +49,11 @@ export const CustomNode = memo(({ id, data, selected }: CustomNodeProps) => {
 
   const getNodeColor = () => {
     switch (data.type) {
-      case 'trigger': return '#7c3aed';
-      case 'app': return '#3b82f6';
+      case 'trigger': return '#d46b2c';
+      case 'app': return '#0ea5e9';
       case 'knowledge': return '#e07a3a';
       case 'action': return '#f59e0b';
-      case 'ai': return '#8b5cf6';
+      case 'ai': return '#e07a3a';
       case 'memory': return '#06b6d4';
       case 'agent_call': return '#ec4899';
       case 'browser_task': return '#14b8a6';

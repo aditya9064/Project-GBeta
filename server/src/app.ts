@@ -24,6 +24,7 @@ const allowedOrigins = [
   'https://gbeta-a7ea6.web.app',
   'https://gbeta-a7ea6.firebaseapp.com',
   'http://localhost:5173',
+  'http://localhost:5174',
   'http://localhost:4173',
   'http://localhost:3000',
   'http://localhost:5001', // Firebase emulator

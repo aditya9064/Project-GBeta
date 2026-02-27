@@ -15,6 +15,7 @@
 
 import { Router, Request, Response } from 'express';
 import { BrowserService } from '../services/browser.service.js';
+import { VisionAgent, getSessionState, getLatestScreenshot } from '../services/visionAgent.js';
 
 const router = Router();
 
@@ -155,6 +156,22 @@ router.post('/action', async (req: Request, res: Response) => {
         result = await BrowserService.getPageInfo(sessionId);
         break;
 
+      case 'click_at':
+        result = await BrowserService.clickAt(sessionId, params.x, params.y);
+        break;
+
+      case 'type_text':
+        result = await BrowserService.typeText(sessionId, params.text || params.value || '', { pressEnter: params.pressEnter });
+        break;
+
+      case 'press_key':
+        result = await BrowserService.pressKey(sessionId, params.key);
+        break;
+
+      case 'page_text':
+        result = await BrowserService.getPageText(sessionId);
+        break;
+
       default:
         res.status(400).json({ success: false, error: `Unknown browser action: "${action}"` });
         return;
@@ -203,6 +220,98 @@ router.get('/status', (_req: Request, res: Response) => {
       activeSessions: sessions.length,
       sessions,
     },
+  });
+});
+
+/* ═══ VISION AGENT ═══════════════════════════════════════ */
+
+/**
+ * GET /api/browser/vision/screenshot/:sessionId — poll latest screenshot
+ */
+router.get('/vision/screenshot/:sessionId', (req: Request, res: Response) => {
+  const screenshot = getLatestScreenshot(String(req.params.sessionId));
+  if (screenshot) {
+    res.json({ success: true, screenshot });
+  } else {
+    res.json({ success: false, screenshot: null });
+  }
+});
+
+/**
+ * POST /api/browser/vision/task  — non-streaming (for server-side executor)
+ */
+router.post('/vision/task', async (req: Request, res: Response) => {
+  try {
+    const { task, url, sessionId } = req.body;
+    if (!task) { res.status(400).json({ success: false, error: 'Missing "task"' }); return; }
+    if (!url) { res.status(400).json({ success: false, error: 'Missing "url"' }); return; }
+
+    const result = await VisionAgent.executeTask(task, url, sessionId);
+    res.json({
+      success: result.success,
+      data: { ...result, steps: result.steps.map(s => ({ ...s, screenshot: undefined })) },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Vision task failed' });
+  }
+});
+
+router.post('/vision/desktop', async (req: Request, res: Response) => {
+  try {
+    const { task, appName } = req.body;
+    if (!task) { res.status(400).json({ success: false, error: 'Missing "task"' }); return; }
+
+    const result = await VisionAgent.executeDesktopTask(task, appName);
+    res.json({
+      success: result.success,
+      data: { ...result, steps: result.steps.map(s => ({ ...s, screenshot: undefined })) },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Desktop task failed' });
+  }
+});
+
+/**
+ * POST /api/browser/vision/start — Start a vision task (returns immediately)
+ */
+router.post('/vision/start', (req: Request, res: Response) => {
+  const { task, url, appName, sessionId } = req.body;
+  if (!task) { res.status(400).json({ success: false, error: 'Missing "task"' }); return; }
+  if (!url && !appName) { res.status(400).json({ success: false, error: 'Missing "url" or "appName"' }); return; }
+
+  const sid = sessionId || `vision-${Date.now()}`;
+  console.log(`[Vision] Starting task: "${task}" url="${url || 'desktop'}" session="${sid}"`);
+
+  VisionAgent.startTask(task, url, sid);
+
+  res.json({ success: true, sessionId: sid });
+});
+
+/**
+ * GET /api/browser/vision/poll/:sessionId — Poll session state (logs, status, url)
+ * Query param: ?since=<logIndex> to get only new logs
+ */
+router.get('/vision/poll/:sessionId', (req: Request, res: Response) => {
+  const state = getSessionState(String(req.params.sessionId));
+  if (!state) {
+    res.json({ success: false, error: 'Session not found' });
+    return;
+  }
+
+  const since = parseInt(req.query.since as string) || 0;
+
+  res.json({
+    success: true,
+    status: state.status,
+    progress: state.progress,
+    totalSteps: state.totalSteps,
+    currentUrl: state.currentUrl,
+    currentTitle: state.currentTitle,
+    extractedData: state.extractedData,
+    error: state.error,
+    logs: state.logs.slice(since),
+    logOffset: since,
+    totalLogs: state.logs.length,
   });
 });
 

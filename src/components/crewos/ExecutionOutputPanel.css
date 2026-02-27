@@ -395,7 +395,7 @@
 }
 
 .eop-node.selected .eop-node-arrow {
-  color: #6366f1;
+  color: #e07a3a;
 }
 
 /* View full logs */
@@ -408,7 +408,7 @@
   border: none;
   border-top: 1px solid #e5e7eb;
   background: none;
-  color: #6366f1;
+  color: #e07a3a;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -692,7 +692,7 @@
 .eop-table-key {
   font-family: 'JetBrains Mono', 'SF Mono', monospace;
   font-size: 12px;
-  color: #6366f1;
+  color: #e07a3a;
   font-weight: 500;
   white-space: nowrap;
   width: 140px;
@@ -742,8 +742,8 @@
 }
 
 .eop-type-badge.boolean {
-  background: rgba(168, 85, 247, 0.08);
-  color: #7c3aed;
+  background: rgba(224, 122, 58, 0.08);
+  color: #d46b2c;
 }
 
 .eop-type-badge.object {

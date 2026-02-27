@@ -42,7 +42,17 @@ function getEmailAgents(agents: StoredAgent[]): StoredAgent[] {
     const triggerNode = a.workflow?.nodes?.find((n: any) => n.type === 'trigger');
     if (!triggerNode) return false;
     const cfg = triggerNode.config as any;
-    return cfg?.triggerType === 'email' || a.triggerType === 'email';
+    // Check for various email trigger configurations:
+    // - triggerType: 'email' (standard)
+    // - triggerType: 'gmail' (n8n import)
+    // - appType: 'gmail' (app node as trigger)
+    const isEmailTrigger = 
+      cfg?.triggerType === 'email' ||
+      cfg?.triggerType === 'gmail' ||
+      cfg?.appType === 'gmail' ||
+      a.triggerType === 'email' ||
+      a.triggerType === 'gmail';
+    return isEmailTrigger;
   });
 }
 

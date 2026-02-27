@@ -85,7 +85,7 @@ export function MonthView({
                   <div
                     key={event.id}
                     className={`event-block ${selectedEventId === event.id ? 'selected' : ''}`}
-                    style={{ backgroundColor: event.color || '#7C3AED' }}
+                    style={{ backgroundColor: event.color || '#e07a3a' }}
                     onClick={(e) => {
                       e.stopPropagation();
                       onEventClick(event);

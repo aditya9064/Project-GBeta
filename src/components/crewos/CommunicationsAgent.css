@@ -561,12 +561,12 @@
 }
 
 .comms-status-badge.status-ai_drafted {
-  background: #EDE9FE;
-  color: #7C3AED;
+  background: #fef3eb;
+  color: #e07a3a;
 }
 
 .comms-status-badge.status-approved {
-  background: #DBEAFE;
+  background: #fde8d8;
   color: #2563EB;
 }
 
@@ -896,13 +896,13 @@
 /* ─── AI SECTION ─────────────────────────────────────────── */
 
 .comms-ai-section {
-  border-color: rgba(139, 92, 246, 0.15);
+  border-color: rgba(224, 122, 58, 0.15);
 }
 
 .comms-ai-section .comms-detail-section-header {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.06) 0%, rgba(224, 122, 58, 0.04) 100%);
-  border-bottom-color: rgba(139, 92, 246, 0.08);
-  color: #7C3AED;
+  background: linear-gradient(135deg, rgba(224, 122, 58, 0.06) 0%, rgba(224, 122, 58, 0.04) 100%);
+  border-bottom-color: rgba(224, 122, 58, 0.08);
+  color: #e07a3a;
 }
 
 .comms-ai-confidence {
@@ -939,14 +939,14 @@
   padding: 48px 20px;
   font-size: 14px;
   font-weight: 500;
-  color: #7C3AED;
+  color: #e07a3a;
 }
 
 .comms-ai-spinner {
   width: 24px;
   height: 24px;
-  border: 3px solid rgba(139, 92, 246, 0.15);
-  border-top-color: #7C3AED;
+  border: 3px solid rgba(224, 122, 58, 0.15);
+  border-top-color: #e07a3a;
   border-radius: 50%;
   animation: comms-spin 0.8s linear infinite;
 }
@@ -962,7 +962,7 @@
   font-size: 14px;
   line-height: 1.75;
   color: #3a3a52;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.02) 0%, rgba(224, 122, 58, 0.01) 100%);
+  background: linear-gradient(135deg, rgba(224, 122, 58, 0.02) 0%, rgba(224, 122, 58, 0.01) 100%);
 }
 
 .comms-ai-draft p {
@@ -977,7 +977,7 @@
 .comms-ai-textarea {
   width: 100%;
   padding: 16px;
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(224, 122, 58, 0.2);
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.75;
@@ -990,8 +990,8 @@
 }
 
 .comms-ai-textarea:focus {
-  border-color: rgba(139, 92, 246, 0.4);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08);
+  border-color: rgba(224, 122, 58, 0.4);
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.08);
 }
 
 .comms-ai-editor-actions {
@@ -1059,7 +1059,7 @@
 }
 
 .comms-ai-action-btn.approve {
-  background: #DBEAFE;
+  background: #fde8d8;
   color: #2563EB;
 }
 
@@ -1403,15 +1403,15 @@
 
 .comms-ai-rule svg {
   flex-shrink: 0;
-  color: #7C3AED;
+  color: #e07a3a;
 }
 
 .comms-ai-last-analysis {
   margin: 0 24px 16px;
   padding: 14px 16px;
-  border: 1px solid rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(224, 122, 58, 0.12);
   border-radius: 10px;
-  background: rgba(139, 92, 246, 0.03);
+  background: rgba(224, 122, 58, 0.03);
 }
 
 .comms-ai-last-analysis h4 {
@@ -1420,7 +1420,7 @@
   gap: 6px;
   font-size: 12px;
   font-weight: 650;
-  color: #7C3AED;
+  color: #e07a3a;
   margin-bottom: 8px;
 }
 
@@ -1715,7 +1715,7 @@
   gap: 16px;
   padding: 18px 24px;
   background: #ffffff;
-  border: 1px solid rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(224, 122, 58, 0.12);
   border-radius: 14px;
   margin-bottom: 0;
 }
@@ -1724,8 +1724,8 @@
   width: 42px;
   height: 42px;
   border-radius: 10px;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(224, 122, 58, 0.08));
-  color: #7C3AED;
+  background: linear-gradient(135deg, rgba(224, 122, 58, 0.1), rgba(224, 122, 58, 0.08));
+  color: #e07a3a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1751,7 +1751,7 @@
 }
 
 .comms-style-banner-info strong {
-  color: #7C3AED;
+  color: #e07a3a;
   font-weight: 600;
 }
 
@@ -1761,14 +1761,14 @@
   gap: 14px;
   padding: 18px 24px;
   background: #ffffff;
-  border: 1px solid rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(224, 122, 58, 0.12);
   border-radius: 14px;
 }
 
 .comms-style-analyzing h4 {
   font-size: 14px;
   font-weight: 600;
-  color: #7C3AED;
+  color: #e07a3a;
   margin-bottom: 2px;
 }
 
@@ -2046,8 +2046,8 @@
 }
 
 .comms-importance-tag.ai-ready {
-  background: #EDE9FE;
-  color: #7C3AED;
+  background: #fef3eb;
+  color: #e07a3a;
 }
 
 .comms-importance-view-btn {
@@ -2164,8 +2164,8 @@
   gap: 3px;
   font-size: 10px;
   font-weight: 600;
-  color: #7C3AED;
-  background: #EDE9FE;
+  color: #e07a3a;
+  background: #fef3eb;
   padding: 2px 8px;
   border-radius: 5px;
 }
@@ -2255,8 +2255,8 @@
   width: 88px;
   height: 88px;
   border-radius: 24px;
-  background: linear-gradient(135deg, #EDE9FE 0%, #DBEAFE 100%);
-  color: #7C3AED;
+  background: linear-gradient(135deg, #fef3eb 0%, #fde8d8 100%);
+  color: #e07a3a;
   display: flex;
   align-items: center;
   justify-content: center;

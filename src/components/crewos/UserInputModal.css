@@ -2,7 +2,7 @@
 .uim-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -17,8 +17,8 @@
 }
 
 .uim-modal {
-  background: #1a1a2e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 16px;
   width: 100%;
   max-width: 480px;
@@ -45,7 +45,7 @@
   align-items: flex-start;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .uim-header-content {
@@ -58,7 +58,7 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: linear-gradient(135deg, #e07a3a 0%, #d46b2c 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -75,20 +75,20 @@
 .uim-title {
   font-size: 16px;
   font-weight: 600;
-  color: white;
+  color: #0f172a;
   margin: 0;
 }
 
 .uim-subtitle {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: #64748b;
   margin: 0;
 }
 
 .uim-close {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: #94a3b8;
   padding: 8px;
   cursor: pointer;
   border-radius: 8px;
@@ -96,8 +96,8 @@
 }
 
 .uim-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: #f1f5f9;
+  color: #475569;
 }
 
 .uim-close:disabled {
@@ -107,10 +107,10 @@
 
 .uim-message {
   padding: 14px 24px;
-  background: rgba(245, 158, 11, 0.1);
-  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+  background: rgba(224, 122, 58, 0.08);
+  border-bottom: 1px solid rgba(224, 122, 58, 0.15);
   font-size: 13px;
-  color: #fbbf24;
+  color: #c05d1e;
 }
 
 .uim-body {
@@ -137,11 +137,11 @@
   gap: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
 }
 
 .uim-label svg {
-  color: rgba(255, 255, 255, 0.5);
+  color: #94a3b8;
 }
 
 .uim-required {
@@ -151,7 +151,7 @@
 
 .uim-description {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #64748b;
   margin: 0;
   padding-left: 24px;
 }
@@ -159,22 +159,22 @@
 .uim-input {
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.05);
-  color: white;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #0f172a;
   font-size: 14px;
   transition: all 0.15s;
 }
 
 .uim-input::placeholder {
-  color: rgba(255, 255, 255, 0.35);
+  color: #94a3b8;
 }
 
 .uim-input:focus {
   outline: none;
-  border-color: #8b5cf6;
-  background: rgba(139, 92, 246, 0.1);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  border-color: #e07a3a;
+  background: rgba(224, 122, 58, 0.05);
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.12);
 }
 
 .uim-input:disabled {
@@ -184,7 +184,7 @@
 
 .uim-select {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 14px center;
   padding-right: 36px;
@@ -200,7 +200,7 @@
   border-radius: 10px;
   border: 1px solid rgba(139, 92, 246, 0.3);
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%);
-  color: #a78bfa;
+  color: #e07a3a;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -239,8 +239,8 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid #e5e7eb;
+  background: #fafbfc;
   border-radius: 0 0 16px 16px;
 }
 
@@ -264,23 +264,23 @@
 }
 
 .uim-btn-cancel {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
+  background: #f1f5f9;
+  color: #475569;
 }
 
 .uim-btn-cancel:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
+  background: #e2e8f0;
+  color: #0f172a;
 }
 
 .uim-btn-submit {
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  background: linear-gradient(135deg, #e07a3a 0%, #d46b2c 100%);
   color: white;
 }
 
 .uim-btn-submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(224, 122, 58, 0.3);
 }
 
 .uim-spin {

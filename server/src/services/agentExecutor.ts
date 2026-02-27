@@ -14,6 +14,7 @@ import { SlackService } from './slack.service.js';
 import { AIEngine } from './ai-engine.js';
 import { AgentStore, type ExecutionRecord, type ExecutionNodeLog } from './agentStore.js';
 import type { StoredAgent } from './agentStore.js';
+import { VisionAgent } from './visionAgent.js';
 
 interface WorkflowNode {
   id: string;
@@ -208,6 +209,9 @@ export class AgentExecutor {
         return this.executeCode(node, input);
       case 'set':
         return this.executeSet(node, input);
+      case 'browser_task':
+      case 'vision_browse':
+        return this.executeVisionBrowse(node, input);
       default:
         console.log(`  ⚡ Passthrough for unknown node type: ${node.type}`);
         return { ...input, _nodeType: node.type, _processed: true };
@@ -478,15 +482,136 @@ export class AgentExecutor {
     return result;
   }
 
+  // ── Vision Browse (AI-powered browser/desktop navigation) ──
+
+  private static async executeVisionBrowse(node: WorkflowNode, input: any): Promise<any> {
+    const config = node.config || {};
+    const task = this.resolveTemplate(config.task || config.description || node.label, input);
+    const url = this.resolveTemplate(config.url || input.url || '', input);
+    const appName = config.appName || config.app;
+
+    if (appName) {
+      const result = await VisionAgent.executeDesktopTask(task, appName);
+      return {
+        success: result.success,
+        task,
+        app: appName,
+        extractedData: result.extractedData,
+        totalSteps: result.totalSteps,
+        durationMs: result.durationMs,
+        error: result.error,
+        finalUrl: result.finalUrl,
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    if (!url) {
+      throw new Error('Vision browse node requires a "url" or "appName" in config');
+    }
+
+    const result = await VisionAgent.executeTask(task, url);
+    return {
+      success: result.success,
+      task,
+      url,
+      extractedData: result.extractedData,
+      totalSteps: result.totalSteps,
+      durationMs: result.durationMs,
+      error: result.error,
+      finalUrl: result.finalUrl,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   // ── Helpers ──
 
+  /**
+   * Resolve template expressions in a string.
+   * Supports multiple syntaxes:
+   * - Simple: {{field}} or {{nested.field}}
+   * - n8n style: {{ $('Node Name').item.json.field }}
+   * - Prefixed: =expression (common in n8n exports)
+   */
   private static resolveTemplate(template: string, data: any): string {
     if (!template) return template;
-    return template.replace(/\{\{(.+?)\}\}/g, (_match, path) => {
-      const trimmed = path.trim();
-      const val = this.getNestedValue(data, trimmed);
+    
+    // If the entire string starts with '=', it's an n8n expression - try to resolve it
+    if (typeof template === 'string' && template.startsWith('=')) {
+      const expression = template.slice(1);
+      const resolved = this.resolveExpression(expression, data);
+      if (resolved !== undefined && resolved !== null) {
+        return String(resolved);
+      }
+      // Fall through to try other resolution methods
+    }
+    
+    // Replace {{ expression }} patterns
+    return template.replace(/\{\{(.+?)\}\}/g, (_match, expr) => {
+      const trimmed = expr.trim();
+      const val = this.resolveExpression(trimmed, data);
       return val !== undefined && val !== null ? String(val) : '';
     });
+  }
+
+  /**
+   * Resolve a single expression.
+   * Handles n8n-style $('NodeName').item.json.field and simple dot notation.
+   */
+  private static resolveExpression(expr: string, data: any): any {
+    if (!expr) return undefined;
+    
+    // Handle n8n-style $('NodeName') or $("NodeName") expressions
+    // These reference previous node outputs - we map them to the input data
+    const n8nMatch = expr.match(/^\$\(['"]([^'"]+)['"]\)\.item\.json\.(.+)$/);
+    if (n8nMatch) {
+      const [, _nodeName, fieldPath] = n8nMatch;
+      // The data passed to this node contains the previous node's output
+      // Map common n8n fields to our input structure
+      return this.resolveN8nField(fieldPath, data);
+    }
+    
+    // Handle $json.field (shorthand for current item)
+    const jsonMatch = expr.match(/^\$json\.(.+)$/);
+    if (jsonMatch) {
+      return this.getNestedValue(data, jsonMatch[1]);
+    }
+    
+    // Handle simple field references
+    return this.getNestedValue(data, expr);
+  }
+
+  /**
+   * Resolve n8n field paths to our data structure.
+   * Maps fields like 'headers.subject' to our email data.
+   */
+  private static resolveN8nField(fieldPath: string, data: any): any {
+    // Common n8n email field mappings
+    const fieldMappings: Record<string, string[]> = {
+      'headers.subject': ['subject', 'email.subject'],
+      'headers.from': ['from', 'fromEmail', 'email.from', 'email.fromEmail'],
+      'headers.to': ['to', 'email.to'],
+      'subject': ['subject', 'email.subject'],
+      'from': ['from', 'fromEmail', 'email.from'],
+      'body': ['body', 'fullMessage', 'email.body', 'email.fullMessage'],
+      'text': ['body', 'fullMessage', 'email.body'],
+      'html': ['body', 'fullMessage', 'email.body'],
+      'id': ['messageId', 'id', 'email.id'],
+      'threadId': ['threadId', 'email.threadId'],
+    };
+    
+    // Try mapped fields first
+    const mappings = fieldMappings[fieldPath];
+    if (mappings) {
+      for (const mapping of mappings) {
+        const val = this.getNestedValue(data, mapping);
+        if (val !== undefined && val !== null) {
+          return val;
+        }
+      }
+    }
+    
+    // Fall back to direct field access
+    return this.getNestedValue(data, fieldPath);
   }
 
   private static getNestedValue(obj: any, path: string): any {

@@ -483,7 +483,7 @@
 
 .op-product-card.orange::before { background: linear-gradient(90deg, #e07a3a, #f0a060); }
 .op-product-card.blue::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-.op-product-card.purple::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+.op-product-card.purple::before { background: linear-gradient(90deg, #e07a3a, #f0a060); }
 .op-product-card.green::before { background: linear-gradient(90deg, #22c55e, #4ade80); }
 
 .op-product-info h3 {
@@ -871,7 +871,7 @@
 
 .op-test-avatar.av-1 { background: linear-gradient(135deg, #e07a3a, #d46b2c); }
 .op-test-avatar.av-2 { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-.op-test-avatar.av-3 { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.op-test-avatar.av-3 { background: linear-gradient(135deg, #e07a3a, #d46b2c); }
 .op-test-avatar.av-4 { background: linear-gradient(135deg, #22c55e, #16a34a); }
 .op-test-avatar.av-5 { background: linear-gradient(135deg, #ec4899, #db2777); }
 .op-test-avatar.av-6 { background: linear-gradient(135deg, #06b6d4, #0891b2); }
@@ -906,7 +906,7 @@
   height: 200px;
   border-radius: 50%;
   margin: 0 auto 40px;
-  background: conic-gradient(from 0deg, #e07a3a, #8b5cf6, #3b82f6, #e07a3a);
+  background: conic-gradient(from 0deg, #e07a3a, #f0a060, #d46b2c, #e07a3a);
   padding: 3px;
   animation: ring-rotate 6s linear infinite;
 }

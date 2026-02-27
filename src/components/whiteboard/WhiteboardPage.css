@@ -1255,7 +1255,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: linear-gradient(135deg, #8B5CF6, #EC4899);
+  background: linear-gradient(135deg, #e07a3a, #d46b2c);
   border: none;
   border-radius: 8px;
   font-size: 13px;
@@ -1365,7 +1365,7 @@
 }
 
 .scan-modal .modal-header h3 svg {
-  color: #8B5CF6;
+  color: #e07a3a;
 }
 
 .scan-content {
@@ -1395,7 +1395,7 @@
 .upload-icon svg {
   width: 36px;
   height: 36px;
-  color: #8B5CF6;
+  color: #e07a3a;
 }
 
 .scan-upload-area h4 {
@@ -1432,7 +1432,7 @@
 }
 
 .upload-btn.primary {
-  background: linear-gradient(135deg, #8B5CF6, #EC4899);
+  background: linear-gradient(135deg, #e07a3a, #d46b2c);
   color: white;
   border: none;
 }
@@ -1450,7 +1450,7 @@
 
 .upload-btn.secondary:hover {
   background: var(--bg-hover);
-  border-color: #8B5CF6;
+  border-color: #e07a3a;
 }
 
 .scan-tips {
@@ -1487,7 +1487,7 @@
   content: '•';
   position: absolute;
   left: 0;
-  color: #8B5CF6;
+  color: #e07a3a;
 }
 
 /* Preview Area */
@@ -1536,7 +1536,7 @@
 .processing-spinner svg {
   width: 48px;
   height: 48px;
-  color: #8B5CF6;
+  color: #e07a3a;
   animation: spin 1s linear infinite;
 }
 
@@ -1564,7 +1564,7 @@
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #8B5CF6, #EC4899);
+  background: linear-gradient(90deg, #e07a3a, #d46b2c);
   border-radius: 3px;
   transition: width 0.2s ease;
 }
@@ -1628,7 +1628,7 @@
 }
 
 .action-btn.primary {
-  background: linear-gradient(135deg, #8B5CF6, #EC4899);
+  background: linear-gradient(135deg, #e07a3a, #d46b2c);
   color: white;
   border: none;
 }
@@ -1784,7 +1784,7 @@
   appearance: none;
   width: 16px;
   height: 16px;
-  background: #8B5CF6;
+  background: #e07a3a;
   border-radius: 50%;
   cursor: pointer;
 }
@@ -1808,7 +1808,7 @@
 .enhance-checkbox input[type="checkbox"] {
   width: 16px;
   height: 16px;
-  accent-color: #8B5CF6;
+  accent-color: #e07a3a;
   cursor: pointer;
 }
 
@@ -1902,7 +1902,7 @@
 }
 
 .result-item.selected {
-  border-color: #8B5CF6;
+  border-color: #e07a3a;
   background: rgba(139, 92, 246, 0.05);
 }
 
@@ -1913,7 +1913,7 @@
 .result-checkbox input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: #8B5CF6;
+  accent-color: #e07a3a;
   cursor: pointer;
 }
 
@@ -2670,7 +2670,7 @@
   content: '';
   width: 4px;
   height: 16px;
-  background: linear-gradient(180deg, #8B5CF6 0%, #A78BFA 100%);
+  background: linear-gradient(180deg, #e07a3a 0%, #f0a060 100%);
   border-radius: 2px;
 }
 
@@ -2679,7 +2679,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+  background: linear-gradient(135deg, #e07a3a 0%, #d46b2c 100%);
   color: white;
   border: none;
   border-radius: 10px;
@@ -2691,7 +2691,7 @@
 }
 
 .library-btn:hover {
-  background: linear-gradient(135deg, #9B6DF6 0%, #8B5CF6 100%);
+  background: linear-gradient(135deg, #e88f50 0%, #e07a3a 100%);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
 }
@@ -2753,7 +2753,7 @@
 }
 
 .shape-btn.active {
-  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+  background: linear-gradient(135deg, #e07a3a 0%, #d46b2c 100%);
   color: white;
   border-color: transparent;
   box-shadow: 
@@ -2770,9 +2770,9 @@
   transform: translateX(-50%);
   width: 6px;
   height: 6px;
-  background: #8B5CF6;
+  background: #e07a3a;
   border-radius: 50%;
-  box-shadow: 0 0 8px #8B5CF6;
+  box-shadow: 0 0 8px #e07a3a;
 }
 
 .shape-btn svg {
@@ -2831,7 +2831,7 @@
 .fill-section-header svg {
   width: 18px;
   height: 18px;
-  color: #A78BFA;
+  color: #f0a060;
   filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.4));
 }
 
@@ -2873,7 +2873,7 @@
   border-color: white;
   box-shadow: 
     0 0 0 2px rgba(30, 30, 46, 0.8), 
-    0 0 0 4px #8B5CF6,
+    0 0 0 4px #e07a3a,
     0 4px 12px rgba(139, 92, 246, 0.4);
   transform: scale(1.05);
 }

@@ -50,8 +50,8 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: rgba(139, 92, 246, 0.1);
-  color: #8B5CF6;
+  background: rgba(224, 122, 58, 0.1);
+  color: #e07a3a;
 }
 
 .prompt-modal-title {
@@ -108,8 +108,8 @@
 }
 
 .prompt-input:focus {
-  border-color: #8B5CF6;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  border-color: #e07a3a;
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.1);
   background: #ffffff !important;
 }
 
@@ -165,7 +165,7 @@
 
 .prompt-example:hover {
   background: #eeeef4 !important;
-  border-color: #8B5CF6;
+  border-color: #e07a3a;
   transform: translateX(4px);
 }
 
@@ -179,7 +179,7 @@
 }
 
 .prompt-example:hover svg {
-  color: #8B5CF6;
+  color: #e07a3a;
 }
 
 .prompt-modal-footer {
@@ -206,12 +206,12 @@
 }
 
 .prompt-btn-primary {
-  background: #8B5CF6 !important;
+  background: #e07a3a !important;
   color: white !important;
 }
 
 .prompt-btn-primary:hover:not(:disabled) {
-  background: #7c3aed !important;
+  background: #d46b2c !important;
   transform: translateY(-1px);
 }
 
