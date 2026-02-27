@@ -89,10 +89,14 @@ export interface AppConfig {
   };
   // Notion
   notion?: {
-    action: 'create_page' | 'update_page' | 'query_database' | 'create_database';
+    action: 'create_page' | 'update_page' | 'query_database' | 'create_database' | 'get_page' | 'append_blocks';
     databaseId?: string;
     pageId?: string;
     properties?: Record<string, any>;
+    content?: string;
+    filter?: any;
+    sorts?: any[];
+    blocks?: any[];
   };
   // HTTP
   http?: {

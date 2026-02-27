@@ -2202,10 +2202,6 @@
 }
 
 @media (max-width: 1200px) {
-  .comms-agent {
-    margin-left: 240px;
-  }
-
   .comms-header {
     padding: 20px 28px 0;
   }
@@ -2225,10 +2221,6 @@
 }
 
 @media (max-width: 900px) {
-  .comms-agent {
-    margin-left: 230px;
-  }
-
   .comms-header {
     padding: 18px 20px 0;
   }

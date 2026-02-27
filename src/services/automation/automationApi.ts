@@ -216,6 +216,91 @@ export const AutomationHttpAPI = {
   },
 };
 
+/* ═══ NOTION ══════════════════════════════════════════════ */
+
+export interface NotionPageResult {
+  pageId: string;
+  url?: string;
+  title?: string;
+  properties?: Record<string, any>;
+  timestamp: string;
+}
+
+export interface NotionQueryResult {
+  results: any[];
+  hasMore: boolean;
+  nextCursor?: string;
+  timestamp: string;
+}
+
+export const AutomationNotionAPI = {
+  /** Create a new page in a Notion database */
+  async createPage(
+    databaseId: string,
+    properties: Record<string, any>,
+    content?: string
+  ): Promise<NotionPageResult | null> {
+    const result = await autoFetch<NotionPageResult>('/automation/notion/pages', {
+      method: 'POST',
+      body: JSON.stringify({ databaseId, properties, content }),
+    });
+    if (result.success && result.data) return result.data;
+    console.error('[AutomationAPI] Notion createPage failed:', result.error);
+    return null;
+  },
+
+  /** Update an existing Notion page */
+  async updatePage(
+    pageId: string,
+    properties: Record<string, any>
+  ): Promise<NotionPageResult | null> {
+    const result = await autoFetch<NotionPageResult>(`/automation/notion/pages/${pageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ properties }),
+    });
+    if (result.success && result.data) return result.data;
+    console.error('[AutomationAPI] Notion updatePage failed:', result.error);
+    return null;
+  },
+
+  /** Get a Notion page by ID */
+  async getPage(pageId: string): Promise<NotionPageResult | null> {
+    const result = await autoFetch<NotionPageResult>(`/automation/notion/pages/${pageId}`);
+    if (result.success && result.data) return result.data;
+    console.error('[AutomationAPI] Notion getPage failed:', result.error);
+    return null;
+  },
+
+  /** Query a Notion database */
+  async queryDatabase(
+    databaseId: string,
+    filter?: any,
+    sorts?: any[]
+  ): Promise<NotionQueryResult | null> {
+    const result = await autoFetch<NotionQueryResult>('/automation/notion/databases/query', {
+      method: 'POST',
+      body: JSON.stringify({ databaseId, filter, sorts }),
+    });
+    if (result.success && result.data) return result.data;
+    console.error('[AutomationAPI] Notion queryDatabase failed:', result.error);
+    return null;
+  },
+
+  /** Append blocks to a page */
+  async appendBlocks(
+    pageId: string,
+    blocks: any[]
+  ): Promise<{ success: boolean; blockIds?: string[] } | null> {
+    const result = await autoFetch<{ blockIds: string[] }>(`/automation/notion/blocks/${pageId}/children`, {
+      method: 'PATCH',
+      body: JSON.stringify({ children: blocks }),
+    });
+    if (result.success && result.data) return { success: true, blockIds: result.data.blockIds };
+    console.error('[AutomationAPI] Notion appendBlocks failed:', result.error);
+    return null;
+  },
+};
+
 /* ═══ BROWSER (Puppeteer) ════════════════════════════════ */
 
 export interface BrowserActionResult {

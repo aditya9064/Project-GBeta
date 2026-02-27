@@ -55,6 +55,8 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { DocumentReplicationAgent } from './documentReplication';
 
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
 /* ─── TYPES ──────────────────────────────────────────────── */
 
 interface ModelInfo {
@@ -199,18 +201,21 @@ export function DocumentIntelligence(props: DocumentIntelligenceProps = {}) {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
     (async () => {
       setHistoryLoading(true);
       try {
-        const res = await fetch('http://localhost:3001/api/documents/history');
+        const res = await fetch(`${API_BASE}/documents/history`, { signal: controller.signal });
         if (res.ok) {
           const json = await res.json();
           if (!cancelled && json.success) setDocumentHistory(json.entries || []);
         }
       } catch { /* history load non-fatal */ }
+      clearTimeout(timeout);
       if (!cancelled) setHistoryLoading(false);
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(timeout); controller.abort(); };
   }, []);
 
   // Get templates from the generation service
@@ -253,7 +258,7 @@ export function DocumentIntelligence(props: DocumentIntelligenceProps = {}) {
       setWizardStep(3);
 
       try {
-        const histRes = await fetch('http://localhost:3001/api/documents/history/save', {
+        const histRes = await fetch(`${API_BASE}/documents/history/save`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -365,7 +365,9 @@ const getStageLabel = (stage: Lead['stage']): string => {
 
 /* ─── BACKEND API ────────────────────────────────────────── */
 
-const API_BASE = 'http://localhost:3001/api/sales';
+const API_BASE = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/sales`
+  : '/api/sales';
 
 /* ─── COMPONENT ──────────────────────────────────────────── */
 
@@ -398,12 +400,15 @@ export function SalesIntelligence() {
     if (fetchedRef.current) return;
     fetchedRef.current = true;
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+
     async function fetchSalesData() {
       setSalesLoading(true);
       setSalesError(null);
 
       try {
-        const statusRes = await fetch(`${API_BASE}/status`);
+        const statusRes = await fetch(`${API_BASE}/status`, { signal: controller.signal });
         if (!statusRes.ok) throw new Error('Backend unavailable');
         const statusData = await statusRes.json();
         const configured = statusData.configured === true;
@@ -415,10 +420,10 @@ export function SalesIntelligence() {
         }
 
         const [leadsRes, pipelineRes, forecastsRes, insightsRes] = await Promise.all([
-          fetch(`${API_BASE}/leads`).catch(() => null),
-          fetch(`${API_BASE}/pipeline`).catch(() => null),
-          fetch(`${API_BASE}/forecasts`).catch(() => null),
-          fetch(`${API_BASE}/insights`).catch(() => null),
+          fetch(`${API_BASE}/leads`, { signal: controller.signal }).catch(() => null),
+          fetch(`${API_BASE}/pipeline`, { signal: controller.signal }).catch(() => null),
+          fetch(`${API_BASE}/forecasts`, { signal: controller.signal }).catch(() => null),
+          fetch(`${API_BASE}/insights`, { signal: controller.signal }).catch(() => null),
         ]);
 
         if (leadsRes?.ok) {
@@ -437,14 +442,17 @@ export function SalesIntelligence() {
           const data = await insightsRes.json();
           if (data.success && data.insights?.length > 0) setLiveInsights(data.insights);
         }
-      } catch {
-        setSalesError(null);
+      } catch (err) {
+        console.warn('[SalesIntelligence] Backend unavailable, using sample data:', err);
+        setBackendConfigured(false);
       } finally {
+        clearTimeout(timeout);
         setSalesLoading(false);
       }
     }
 
     fetchSalesData();
+    return () => { clearTimeout(timeout); controller.abort(); };
   }, []);
 
   // Re-fetch all data from backend

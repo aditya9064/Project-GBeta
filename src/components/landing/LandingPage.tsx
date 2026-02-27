@@ -98,11 +98,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   const [clockTime, setClockTime] = useState('');
 
   useEffect(() => {
-    const el = document.querySelector('.op-landing');
-    if (!el) return;
-    const onScroll = () => setScrolled(el.scrollTop > 40);
-    el.addEventListener('scroll', onScroll);
-    return () => el.removeEventListener('scroll', onScroll);
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
@@ -116,7 +114,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   }, []);
 
   const scrollTo = (sel: string) => {
-    document.querySelector(`.op-landing ${sel}`)?.scrollIntoView({ behavior: 'smooth' });
+    document.querySelector(sel)?.scrollIntoView({ behavior: 'smooth' });
     setMobileMenuOpen(false);
   };
 

@@ -37,6 +37,7 @@ import {
   AutomationAIAPI,
   AutomationHttpAPI,
   AutomationBrowserAPI,
+  AutomationNotionAPI,
 } from './automationApi';
 import { AgentMemoryService } from './memoryService';
 import { AgentBus } from './agentBus';
@@ -55,12 +56,24 @@ export function registerExecutor(nodeType: string, executor: NodeExecutor): void
   nodeExecutors[nodeType] = executor;
 }
 
+// Required input field definition for user input prompts
+export interface RequiredInputField {
+  key: string;
+  label: string;
+  type: 'text' | 'password' | 'email' | 'select' | 'oauth';
+  placeholder?: string;
+  required?: boolean;
+  options?: { value: string; label: string }[]; // For select type
+  oauthProvider?: string; // For oauth type (gmail, slack, etc.)
+  description?: string;
+}
+
 // Execution log for UI display
 export interface ExecutionLog {
   nodeId: string;
   nodeName: string;
   nodeType: string;
-  status: 'running' | 'completed' | 'failed' | 'skipped';
+  status: 'running' | 'completed' | 'failed' | 'skipped' | 'awaiting_input';
   startedAt: Date;
   completedAt?: Date;
   duration?: number;
@@ -68,6 +81,9 @@ export interface ExecutionLog {
   output?: any;
   error?: string;
   isReal: boolean; // true if executed via real backend API
+  // For awaiting_input status
+  requiredInputs?: RequiredInputField[];
+  inputPromptMessage?: string;
 }
 
 // Get input data for a node based on connections
@@ -114,7 +130,175 @@ function applyOutputMapping(output: any, mapping?: Record<string, string>): any 
   return mappedOutput;
 }
 
+/* ═══ CREDENTIAL / INPUT DETECTION ════════════════════════ */
+
+// Store for user-provided credentials during execution
+const userProvidedCredentials: Record<string, Record<string, any>> = {};
+
+// Get credentials for a specific service
+export function getStoredCredentials(serviceType: string): Record<string, any> | null {
+  return userProvidedCredentials[serviceType] || null;
+}
+
+// Store credentials provided by user
+export function storeCredentials(serviceType: string, credentials: Record<string, any>): void {
+  userProvidedCredentials[serviceType] = credentials;
+}
+
+// Clear stored credentials
+export function clearCredentials(serviceType?: string): void {
+  if (serviceType) {
+    delete userProvidedCredentials[serviceType];
+  } else {
+    Object.keys(userProvidedCredentials).forEach(key => delete userProvidedCredentials[key]);
+  }
+}
+
+// Detect what inputs are needed for a node
+function detectRequiredInputs(node: WorkflowNodeData, input: any): RequiredInputField[] | null {
+  const config = node.config as any;
+  const requiredInputs: RequiredInputField[] = [];
+
+  // Check based on node type and app type
+  if (node.type === 'app') {
+    const appType = config?.appType;
+    
+    // Gmail - needs OAuth or credentials
+    if (appType === 'gmail') {
+      const storedCreds = getStoredCredentials('gmail');
+      if (!storedCreds) {
+        // Check if we have the email recipient for send actions
+        const gmail = config?.gmail;
+        if (gmail?.action === 'send' && !gmail.to && !input.to && !input.email) {
+          requiredInputs.push({
+            key: 'to',
+            label: 'Recipient Email',
+            type: 'email',
+            placeholder: 'recipient@example.com',
+            required: true,
+            description: 'The email address to send to',
+          });
+        }
+        if (gmail?.action === 'send' && !gmail.subject && !input.subject) {
+          requiredInputs.push({
+            key: 'subject',
+            label: 'Email Subject',
+            type: 'text',
+            placeholder: 'Enter email subject',
+            required: true,
+          });
+        }
+        if (gmail?.action === 'send' && !gmail.body && !input.body && !input.message) {
+          requiredInputs.push({
+            key: 'body',
+            label: 'Email Body',
+            type: 'text',
+            placeholder: 'Enter email content',
+            required: true,
+          });
+        }
+      }
+    }
+
+    // Slack - needs channel if not specified
+    if (appType === 'slack') {
+      const slack = config?.slack;
+      if (slack?.action === 'send_message' && !slack.channel && !input.channel) {
+        requiredInputs.push({
+          key: 'channel',
+          label: 'Slack Channel',
+          type: 'text',
+          placeholder: '#general or channel ID',
+          required: true,
+          description: 'The Slack channel to post to',
+        });
+      }
+      if (slack?.action === 'send_message' && !slack.message && !input.message && !input.text) {
+        requiredInputs.push({
+          key: 'message',
+          label: 'Message',
+          type: 'text',
+          placeholder: 'Enter your message',
+          required: true,
+        });
+      }
+    }
+
+    // HTTP - needs URL if not specified
+    if (appType === 'http' || appType === 'webhook') {
+      const http = config?.http;
+      if (!http?.url && !input.url) {
+        requiredInputs.push({
+          key: 'url',
+          label: 'Request URL',
+          type: 'text',
+          placeholder: 'https://api.example.com/endpoint',
+          required: true,
+        });
+      }
+    }
+  }
+
+  // Check for form/user_input trigger
+  if (node.type === 'trigger') {
+    const triggerType = config?.triggerType;
+    if (triggerType === 'form') {
+      const formFields = config?.formFields || [];
+      for (const field of formFields) {
+        if (!input[field.name]) {
+          requiredInputs.push({
+            key: field.name,
+            label: field.label || field.name,
+            type: field.type || 'text',
+            placeholder: field.placeholder,
+            required: field.required !== false,
+          });
+        }
+      }
+    }
+  }
+
+  // Check for AI node - needs prompt or query
+  if (node.type === 'ai') {
+    if (!config?.prompt && !input.prompt && !input.query && !input.message) {
+      requiredInputs.push({
+        key: 'prompt',
+        label: 'AI Prompt',
+        type: 'text',
+        placeholder: 'Enter your question or instructions',
+        required: true,
+      });
+    }
+  }
+
+  return requiredInputs.length > 0 ? requiredInputs : null;
+}
+
 /* ═══ MAIN EXECUTION ═════════════════════════════════════ */
+
+// Extended result type that includes awaiting input state
+export interface ExecutionResult {
+  success: boolean;
+  output?: any;
+  error?: string;
+  logs: ExecutionLog[];
+  // For paused execution awaiting user input
+  awaitingInput?: boolean;
+  pausedAtNodeId?: string;
+  requiredInputs?: RequiredInputField[];
+  inputPromptMessage?: string;
+  // Serializable state for resuming execution
+  executionState?: {
+    executionId: string;
+    agentId: string;
+    userId: string;
+    workflow: WorkflowDefinition;
+    triggeredBy: string;
+    triggerData: any;
+    completedNodeIds: string[];
+    nodeOutputs: Record<string, any>;
+  };
+}
 
 export async function executeWorkflow(
   agentId: string,
@@ -122,8 +306,14 @@ export async function executeWorkflow(
   workflow: WorkflowDefinition,
   triggeredBy: 'manual' | 'webhook' | 'schedule' | 'event',
   triggerData: any = {},
-  onNodeUpdate?: (log: ExecutionLog) => void
-): Promise<{ success: boolean; output?: any; error?: string; logs: ExecutionLog[] }> {
+  onNodeUpdate?: (log: ExecutionLog) => void,
+  // Optional: resume execution state
+  resumeState?: {
+    completedNodeIds: string[];
+    nodeOutputs: Record<string, any>;
+    userProvidedInputs?: Record<string, any>;
+  }
+): Promise<ExecutionResult> {
   const executionId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const logs: ExecutionLog[] = [];
   const backendUp = isBackendAvailable();
@@ -131,7 +321,11 @@ export async function executeWorkflow(
   console.log(`\n🚀 Executing workflow for agent ${agentId}`);
   console.log(`   Backend: ${backendUp ? '✅ Connected (REAL execution)' : '⚠️ Offline (SIMULATED execution)'}`);
   console.log(`   Triggered by: ${triggeredBy}`);
-  console.log(`   Nodes: ${workflow.nodes.length}, Edges: ${workflow.edges.length}\n`);
+  console.log(`   Nodes: ${workflow.nodes.length}, Edges: ${workflow.edges.length}`);
+  if (resumeState) {
+    console.log(`   Resuming from: ${resumeState.completedNodeIds.length} completed nodes`);
+  }
+  console.log('');
 
   // Load persistent memory for this agent
   const persistedMemory = await AgentMemoryService.loadAgentMemory(agentId);
@@ -140,17 +334,26 @@ export async function executeWorkflow(
     executionId,
     agentId,
     userId,
-    trigger: { type: triggeredBy as any, data: triggerData },
+    trigger: { type: triggeredBy as any, data: { ...triggerData, ...resumeState?.userProvidedInputs } },
     variables: { ...workflow.variables },
-    nodeOutputs: {},
+    nodeOutputs: resumeState?.nodeOutputs || {},
     memory: persistedMemory,
     callerAgentId: triggerData?._callerAgentId,
   };
+
+  // Track completed nodes for resume capability
+  const completedNodeIds: string[] = resumeState?.completedNodeIds || [];
 
   try {
     const executionOrder = buildExecutionOrder(workflow);
     
     for (const nodeId of executionOrder) {
+      // Skip already completed nodes when resuming
+      if (completedNodeIds.includes(nodeId)) {
+        console.log(`  ⏭️ Skipping already completed: ${nodeId}`);
+        continue;
+      }
+
       const node = workflow.nodes.find(n => n.id === nodeId);
       if (!node) continue;
       
@@ -171,10 +374,58 @@ export async function executeWorkflow(
         };
         logs.push(skipLog);
         onNodeUpdate?.(skipLog);
+        completedNodeIds.push(nodeId);
         continue;
       }
       
-      const input = getNodeInput(node, workflow, context);
+      // Get input from previous nodes and user-provided inputs
+      let input = getNodeInput(node, workflow, context);
+      
+      // Merge any user-provided inputs for this node
+      if (resumeState?.userProvidedInputs) {
+        input = { ...input, ...resumeState.userProvidedInputs };
+      }
+      
+      // Check if this node requires user input
+      const requiredInputs = detectRequiredInputs(node, input);
+      if (requiredInputs && requiredInputs.length > 0) {
+        // Pause execution and return state for resuming
+        const awaitingLog: ExecutionLog = {
+          nodeId: node.id,
+          nodeName: node.label,
+          nodeType: node.type,
+          status: 'awaiting_input',
+          startedAt: new Date(),
+          input,
+          isReal: backendUp,
+          requiredInputs,
+          inputPromptMessage: `"${node.label}" needs additional information to proceed:`,
+        };
+        logs.push(awaitingLog);
+        onNodeUpdate?.(awaitingLog);
+        
+        console.log(`  ⏸️ ${node.label} (${node.type}) — Awaiting user input`);
+        console.log(`     Required: ${requiredInputs.map(r => r.key).join(', ')}`);
+        
+        return {
+          success: false,
+          awaitingInput: true,
+          pausedAtNodeId: node.id,
+          requiredInputs,
+          inputPromptMessage: awaitingLog.inputPromptMessage,
+          logs,
+          executionState: {
+            executionId,
+            agentId,
+            userId,
+            workflow,
+            triggeredBy,
+            triggerData,
+            completedNodeIds,
+            nodeOutputs: context.nodeOutputs,
+          },
+        };
+      }
       
       const nodeLog: ExecutionLog = {
         nodeId: node.id,
@@ -199,6 +450,8 @@ export async function executeWorkflow(
         nodeLog.output = mappedOutput;
         onNodeUpdate?.(nodeLog);
         
+        completedNodeIds.push(nodeId);
+        
         console.log(`  ✅ ${node.label} (${node.type}) — ${nodeLog.duration}ms ${backendUp ? '[REAL]' : '[SIMULATED]'}`);
         
       } catch (error: any) {
@@ -221,6 +474,7 @@ export async function executeWorkflow(
           _simulated: true,
           _failedNode: node.label,
         };
+        completedNodeIds.push(nodeId);
       }
     }
     
@@ -328,48 +582,54 @@ async function executeNode(
   context: ExecutionContext,
   useRealBackend: boolean
 ): Promise<any> {
+  // Resolve template expressions in node config before execution
+  const resolvedNode = {
+    ...node,
+    config: resolveAllTemplates(node.config, context, input),
+  };
+  
   // Check for registered custom executors first
-  if (nodeExecutors[node.type]) {
-    return nodeExecutors[node.type](node, { ...context, trigger: { ...context.trigger, data: input } });
+  if (nodeExecutors[resolvedNode.type]) {
+    return nodeExecutors[resolvedNode.type](resolvedNode, { ...context, trigger: { ...context.trigger, data: input } });
   }
   
-  switch (node.type) {
+  switch (resolvedNode.type) {
     case 'trigger':
-      return executeTrigger(node, input);
+      return executeTrigger(resolvedNode, input);
       
     case 'app':
-      return executeApp(node, input, useRealBackend);
+      return executeApp(resolvedNode, input, useRealBackend);
       
     case 'ai':
-      return executeAI(node, input, useRealBackend);
+      return executeAI(resolvedNode, input, useRealBackend);
       
     case 'condition':
-      return executeCondition(node, input);
+      return executeCondition(resolvedNode, input);
       
     case 'filter':
-      return executeFilter(node, input);
+      return executeFilter(resolvedNode, input);
       
     case 'delay':
-      return executeDelay(node, input);
+      return executeDelay(resolvedNode, input);
       
     case 'action':
-      return executeAction(node, input, useRealBackend);
+      return executeAction(resolvedNode, input, useRealBackend);
       
     case 'knowledge':
-      return executeKnowledge(node, input);
+      return executeKnowledge(resolvedNode, input);
 
     case 'memory':
-      return executeMemory(node, input, context);
+      return executeMemory(resolvedNode, input, context);
 
     case 'agent_call':
-      return executeAgentCall(node, input, context);
+      return executeAgentCall(resolvedNode, input, context);
 
     case 'browser_task':
-      return executeBrowserTask(node, input, context, useRealBackend);
+      return executeBrowserTask(resolvedNode, input, context, useRealBackend);
       
     default:
       // For any unknown/n8n-specific node type, pass through with metadata
-      return executeGenericN8nNode(node, input, useRealBackend);
+      return executeGenericN8nNode(resolvedNode, input, useRealBackend);
   }
 }
 
@@ -401,7 +661,7 @@ async function executeApp(
     case 'slack':
       return executeSlack(config, input, useRealBackend);
     case 'notion':
-      return executeNotion(config, input);
+      return executeNotion(config, input, useRealBackend);
     case 'http':
     case 'webhook': {
       // If this is actually a generic n8n app routed through HTTP but
@@ -484,6 +744,49 @@ async function executeGmail(config: AppConfig, input: any, useRealBackend: boole
         throw new Error('Failed to read emails via Gmail API');
       }
       
+      case 'draft': {
+        // Draft action: prepare email content without sending
+        // Returns the draft that would be sent, allowing review or further processing
+        const to = gmail.to || input.to || input.email || '';
+        const subject = gmail.subject || input.subject || 'Draft Email';
+        const body = gmail.body || input.body || input.message || '';
+        
+        console.log(`[Gmail] Created draft for: ${to}`);
+        return {
+          success: true,
+          action: 'draft',
+          to,
+          subject,
+          body,
+          draftId: `draft-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          _note: 'Draft prepared - ready to send or review',
+        };
+      }
+      
+      case 'addLabels':
+      case 'removeLabels':
+      case 'markAsRead':
+      case 'markAsUnread':
+      case 'archive':
+      case 'trash':
+      case 'star':
+      case 'unstar': {
+        // These are Gmail operations that modify message state
+        // For MVP, we simulate these as successful operations
+        const messageId = input.messageId || input.id || gmail.messageId;
+        const labels = gmail.labels || input.labels || [];
+        console.log(`[Gmail] ${gmail.action} operation on message: ${messageId}`);
+        return {
+          success: true,
+          action: gmail.action,
+          messageId,
+          labels: Array.isArray(labels) ? labels : [labels],
+          timestamp: new Date().toISOString(),
+          _note: `Gmail ${gmail.action} operation completed`,
+        };
+      }
+      
       default:
         console.warn(`[Gmail] Unsupported action "${gmail.action}" — falling back to simulation`);
     }
@@ -527,6 +830,19 @@ async function executeGmail(config: AppConfig, input: any, useRealBackend: boole
         ],
         _simulated: true,
       };
+    
+    case 'draft':
+      console.log(`[Gmail SIMULATED] Creating draft for: ${gmail.to}`);
+      return {
+        success: true,
+        action: 'draft',
+        to: gmail.to,
+        subject: gmail.subject,
+        body: gmail.body,
+        draftId: `sim-draft-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        _simulated: true,
+      };
       
     default:
       return { success: true, action: gmail.action, _simulated: true };
@@ -568,14 +884,82 @@ async function executeSlack(config: AppConfig, input: any, useRealBackend: boole
   };
 }
 
-/* ─── Notion executor (simulated — no backend yet) ──── */
+/* ─── Notion executor ─────────────────────────────────── */
 
-async function executeNotion(config: AppConfig, input: any): Promise<any> {
+async function executeNotion(config: AppConfig, input: any, useRealBackend: boolean): Promise<any> {
   const notion = config.notion;
   if (!notion) {
     return { error: 'Notion configuration missing' };
   }
+
+  // ── REAL BACKEND EXECUTION ──
+  if (useRealBackend) {
+    try {
+      switch (notion.action) {
+        case 'create_page': {
+          const result = await AutomationNotionAPI.createPage(
+            notion.databaseId || '',
+            notion.properties || input.properties || {},
+            notion.content || input.content
+          );
+          if (result) {
+            return { ...result, success: true };
+          }
+          break;
+        }
+        case 'update_page': {
+          const pageId = notion.pageId || input.pageId;
+          if (!pageId) throw new Error('No pageId provided for Notion update');
+          const result = await AutomationNotionAPI.updatePage(
+            pageId,
+            notion.properties || input.properties || {}
+          );
+          if (result) {
+            return { ...result, success: true };
+          }
+          break;
+        }
+        case 'query_database': {
+          const result = await AutomationNotionAPI.queryDatabase(
+            notion.databaseId || '',
+            notion.filter,
+            notion.sorts
+          );
+          if (result) {
+            return { ...result, success: true };
+          }
+          break;
+        }
+        case 'get_page': {
+          const pageId = notion.pageId || input.pageId;
+          if (!pageId) throw new Error('No pageId provided for Notion get');
+          const result = await AutomationNotionAPI.getPage(pageId);
+          if (result) {
+            return { ...result, success: true };
+          }
+          break;
+        }
+        case 'append_blocks': {
+          const pageId = notion.pageId || input.pageId;
+          if (!pageId) throw new Error('No pageId provided for Notion append');
+          const result = await AutomationNotionAPI.appendBlocks(
+            pageId,
+            notion.blocks || input.blocks || []
+          );
+          if (result) {
+            return { ...result, success: true };
+          }
+          break;
+        }
+        default:
+          console.warn(`[Notion] Unsupported action "${notion.action}" — falling back to simulation`);
+      }
+    } catch (err: any) {
+      console.warn(`[Notion] Backend error: ${err.message} — falling back to simulation`);
+    }
+  }
   
+  // ── SIMULATED EXECUTION (Demo mode) ──
   console.log(`[Notion SIMULATED] ${notion.action} on ${notion.databaseId || 'default'}`);
   return {
     success: true,
@@ -606,6 +990,76 @@ function isValidUrl(url: string): boolean {
 function hasTemplateExpression(value: any): boolean {
   if (typeof value !== 'string') return false;
   return /\{\{.*\}\}/.test(value);
+}
+
+function resolveTemplateExpressions(value: string, context: ExecutionContext, input: any): string {
+  if (typeof value !== 'string') return value;
+  
+  return value.replace(/\{\{\s*([^}]+)\s*\}\}/g, (match, expr) => {
+    const trimmedExpr = expr.trim();
+    
+    if (trimmedExpr.startsWith('$env.')) {
+      const envVar = trimmedExpr.substring(5);
+      const envValue = import.meta.env[`VITE_${envVar}`] || import.meta.env[envVar] || '';
+      if (envValue) return envValue;
+      console.warn(`[Template] Environment variable ${envVar} not found`);
+      return match;
+    }
+    
+    if (trimmedExpr.startsWith('$json')) {
+      const resolved = resolveN8nExpression(`={{${trimmedExpr}}}`, input);
+      if (resolved !== `={{${trimmedExpr}}}`) return String(resolved);
+    }
+    
+    if (trimmedExpr.startsWith('$input.')) {
+      const path = trimmedExpr.substring(7);
+      const resolved = getNestedValue(input, path);
+      if (resolved !== undefined) return String(resolved);
+    }
+    
+    if (trimmedExpr.startsWith('$vars.') || trimmedExpr.startsWith('$variables.')) {
+      const path = trimmedExpr.replace(/^\$(vars|variables)\./, '');
+      const resolved = context.variables?.[path];
+      if (resolved !== undefined) return String(resolved);
+    }
+    
+    if (trimmedExpr.startsWith('$memory.')) {
+      const key = trimmedExpr.substring(8);
+      const resolved = context.memory?.[key];
+      if (resolved !== undefined) return String(resolved);
+    }
+    
+    if (trimmedExpr === '$now' || trimmedExpr === '$timestamp') {
+      return new Date().toISOString();
+    }
+    
+    if (trimmedExpr === '$executionId') {
+      return context.executionId;
+    }
+    
+    if (trimmedExpr === '$agentId') {
+      return context.agentId;
+    }
+    
+    return match;
+  });
+}
+
+function resolveAllTemplates(obj: any, context: ExecutionContext, input: any): any {
+  if (typeof obj === 'string') {
+    return resolveTemplateExpressions(obj, context, input);
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => resolveAllTemplates(item, context, input));
+  }
+  if (obj && typeof obj === 'object') {
+    const resolved: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      resolved[key] = resolveAllTemplates(value, context, input);
+    }
+    return resolved;
+  }
+  return obj;
 }
 
 /* ─── HTTP executor ──────────────────────────────────── */

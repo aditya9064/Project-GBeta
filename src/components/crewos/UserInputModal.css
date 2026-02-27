@@ -1,0 +1,293 @@
+/* User Input Modal */
+.uim-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: uim-fade-in 0.2s ease-out;
+}
+
+@keyframes uim-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.uim-modal {
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  animation: uim-slide-up 0.25s ease-out;
+}
+
+@keyframes uim-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.uim-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.uim-header-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.uim-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.uim-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.uim-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+}
+
+.uim-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+.uim-close {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.15s;
+}
+
+.uim-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.uim-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.uim-message {
+  padding: 14px 24px;
+  background: rgba(245, 158, 11, 0.1);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+  font-size: 13px;
+  color: #fbbf24;
+}
+
+.uim-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.uim-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.uim-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.uim-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.uim-label svg {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.uim-required {
+  color: #ef4444;
+  font-size: 14px;
+}
+
+.uim-description {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+  padding-left: 24px;
+}
+
+.uim-input {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+
+.uim-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.uim-input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.uim-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.uim-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+.uim-oauth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%);
+  color: #a78bfa;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.uim-oauth-btn:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(59, 130, 246, 0.25) 100%);
+  border-color: rgba(139, 92, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+.uim-oauth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.uim-field.error .uim-input {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.uim-field.error .uim-input:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.uim-error {
+  font-size: 12px;
+  color: #f87171;
+  padding-left: 24px;
+}
+
+.uim-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 0 0 16px 16px;
+}
+
+.uim-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.uim-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.uim-btn-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.uim-btn-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+.uim-btn-submit {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+}
+
+.uim-btn-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.uim-spin {
+  animation: uim-spin 1s linear infinite;
+}
+
+@keyframes uim-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

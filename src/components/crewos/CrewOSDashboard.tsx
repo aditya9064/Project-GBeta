@@ -14,6 +14,8 @@ import {
   Zap,
   Share2,
   SlidersHorizontal,
+  UserPlus,
+  MoreHorizontal,
   User,
   Eye,
   Bot,
@@ -66,7 +68,8 @@ import { WorkflowBuilder } from '../workflow';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAgents } from '../../contexts/AgentContext';
 import { WorkflowDefinition, DeployedAgent as AutomationAgent } from '../../services/automation';
-import type { ExecutionLog } from '../../services/automation/executionEngine';
+import type { ExecutionLog, RequiredInputField, ExecutionResult } from '../../services/automation/executionEngine';
+import { executeWorkflow } from '../../services/automation/executionEngine';
 import {
   searchTemplates,
   importTemplate,
@@ -74,6 +77,7 @@ import {
   type WorkflowTemplate,
   type TemplateSearchResult,
 } from '../../services/n8n';
+import { UserInputModal } from './UserInputModal';
 
 /* ─── TYPES ────────────────────────────────────────────────── */
 
@@ -504,6 +508,24 @@ export function CrewOSDashboard() {
   const [editWorkflow, setEditWorkflow] = useState<{ nodes: any[]; edges: any[] } | null>(null);
   const [editWorkflowName, setEditWorkflowName] = useState<string | undefined>(undefined);
   const [editWorkflowKey, setEditWorkflowKey] = useState(0);
+  
+  // Toast notification state for general feedback
+  const [toastNotification, setToastNotification] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
+
+  // Paused execution state for user input modal
+  const [pausedExecution, setPausedExecution] = useState<{
+    agentId: string;
+    agentName: string;
+    nodeName: string;
+    requiredInputs: RequiredInputField[];
+    inputPromptMessage?: string;
+    executionState: NonNullable<ExecutionResult['executionState']>;
+    currentLogs: ExecutionLog[];
+  } | null>(null);
+  const [isResumingExecution, setIsResumingExecution] = useState(false);
 
   // Handle OAuth callback redirect — auto-switch to Communications page
   useEffect(() => {
@@ -590,19 +612,45 @@ export function CrewOSDashboard() {
     }
   }, [setActiveNav, navigate]);
 
+  /* Show toast notification helper */
+  const showToast = useCallback((type: 'success' | 'error' | 'info', message: string) => {
+    setToastNotification({ type, message });
+    setTimeout(() => setToastNotification(null), 5000);
+  }, []);
+
+  /* Handle saving workflow draft to localStorage */
+  const handleWorkflowSave = useCallback((workflow: { nodes: any[]; edges: any[] }) => {
+    try {
+      const draftId = editWorkflowName || `draft-${Date.now()}`;
+      const drafts = JSON.parse(localStorage.getItem('workflow_drafts') || '{}');
+      drafts[draftId] = {
+        workflow,
+        name: editWorkflowName || 'Untitled Workflow',
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem('workflow_drafts', JSON.stringify(drafts));
+      showToast('success', `Workflow "${editWorkflowName || 'Draft'}" saved successfully`);
+    } catch (error) {
+      console.error('Failed to save workflow draft:', error);
+      showToast('error', 'Failed to save workflow draft');
+    }
+  }, [editWorkflowName, showToast]);
+
   /* Handle deploying from Workflow Builder */
   const handleWorkflowDeploy = useCallback(async (name: string, description: string, workflow: WorkflowDefinition) => {
     setIsDeploying(true);
     try {
       await deployNewAgent(name, description, workflow, 'Zap', '#8b5cf6');
+      showToast('success', `Agent "${name}" deployed successfully!`);
       // Navigate back to agents page after successful deploy
       setActiveNav('agents');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Deploy error:', error);
+      showToast('error', `Failed to deploy agent: ${error.message || 'Unknown error'}`);
     } finally {
       setIsDeploying(false);
     }
-  }, [deployNewAgent, setActiveNav]);
+  }, [deployNewAgent, setActiveNav, showToast]);
 
   /* Handle prompt submission for creating agents */
   const handlePromptSubmit = useCallback((e: React.FormEvent) => {
@@ -621,7 +669,11 @@ export function CrewOSDashboard() {
   }, [agentPrompt, isCreatingFromPrompt, setActiveNav]);
 
   /* Handle running an automation agent with feedback */
-  const handleRunAgent = useCallback(async (agentId: string) => {
+  const handleRunAgent = useCallback(async (agentId: string, resumeState?: {
+    completedNodeIds: string[];
+    nodeOutputs: Record<string, any>;
+    userProvidedInputs?: Record<string, any>;
+  }) => {
     const agent = automationAgents.find(a => a.id === agentId);
     if (!agent) return;
     
@@ -629,7 +681,33 @@ export function CrewOSDashboard() {
     setExecutionResult(null);
     
     try {
-      const result = await runAgent(agentId);
+      // Execute workflow directly with optional resume state
+      const result = await executeWorkflow(
+        agentId,
+        'local-user',
+        agent.workflow,
+        'manual',
+        {},
+        undefined,
+        resumeState
+      );
+
+      // Check if execution is paused awaiting user input
+      if (result.awaitingInput && result.executionState && result.requiredInputs) {
+        const pausedNode = agent.workflow.nodes.find(n => n.id === result.pausedAtNodeId);
+        setPausedExecution({
+          agentId: agent.id,
+          agentName: agent.name,
+          nodeName: pausedNode?.label || 'Unknown Node',
+          requiredInputs: result.requiredInputs,
+          inputPromptMessage: result.inputPromptMessage,
+          executionState: result.executionState,
+          currentLogs: result.logs,
+        });
+        setRunningAgentId(null);
+        return;
+      }
+
       const hasRealExecution = result.logs?.some(l => l.isReal) || false;
       const allSimulated = result.logs?.every(l => !l.isReal) ?? true;
       const completedCount = result.logs?.filter(l => l.status === 'completed').length || 0;
@@ -686,7 +764,35 @@ export function CrewOSDashboard() {
     } finally {
       setRunningAgentId(null);
     }
-  }, [automationAgents, runAgent]);
+  }, [automationAgents]);
+
+  /* Handle resuming execution after user provides input */
+  const handleResumeExecution = useCallback(async (userInputs: Record<string, any>) => {
+    if (!pausedExecution) return;
+    
+    setIsResumingExecution(true);
+    
+    try {
+      // Resume with user-provided inputs
+      await handleRunAgent(pausedExecution.agentId, {
+        completedNodeIds: pausedExecution.executionState.completedNodeIds,
+        nodeOutputs: pausedExecution.executionState.nodeOutputs,
+        userProvidedInputs: userInputs,
+      });
+      
+      setPausedExecution(null);
+    } catch (err: any) {
+      showToast('error', `Failed to resume execution: ${err.message}`);
+    } finally {
+      setIsResumingExecution(false);
+    }
+  }, [pausedExecution, handleRunAgent, showToast]);
+
+  /* Cancel paused execution */
+  const handleCancelExecution = useCallback(() => {
+    setPausedExecution(null);
+    showToast('info', 'Execution cancelled');
+  }, [showToast]);
 
   /* ─── n8n Automation Template helpers ──────────────────── */
 
@@ -1082,9 +1188,7 @@ export function CrewOSDashboard() {
         {isWorkflow && (
           <WorkflowBuilder
             key={editWorkflowKey}
-            onSave={(workflow) => {
-              console.log('Workflow saved:', workflow);
-            }}
+            onSave={handleWorkflowSave}
             onClose={() => {
               setActiveNav('agents');
               setSidebarVisibleInWorkflow(false);
@@ -1116,7 +1220,7 @@ export function CrewOSDashboard() {
               <h1 className="aw-title">Agent Workforce</h1>
               <p className="aw-subtitle">Manage and monitor your deployed AI agents</p>
             </div>
-            <button className="aw-new-agent-btn" onClick={() => setActiveNav('workflow')}>
+            <button className="aw-new-agent-btn" onClick={() => setShowCatalog(true)}>
               <Plus size={16} />
               New agent
             </button>
@@ -1153,11 +1257,15 @@ export function CrewOSDashboard() {
                 <Search size={15} />
                 <input type="text" placeholder="Search agent" />
               </div>
-              <button className="aw-toolbar-icon-btn" title="Settings">
+              <button className="aw-toolbar-icon-btn" title="Filter">
                 <SlidersHorizontal size={16} />
               </button>
-              <button className="aw-toolbar-icon-btn" title="Share">
-                <Share2 size={16} />
+              <button className="aw-toolbar-btn-text" title="Invite team members">
+                <UserPlus size={16} />
+                <span>Invite team members</span>
+              </button>
+              <button className="aw-toolbar-icon-btn" title="More options">
+                <MoreHorizontal size={16} />
               </button>
             </div>
           </div>
@@ -1247,6 +1355,27 @@ export function CrewOSDashboard() {
             </div>
           )}
 
+          {/* General toast notification */}
+          {toastNotification && (
+            <div className={`operonai-execution-toast ${toastNotification.type}`}>
+              <div className="operonai-execution-toast-icon">
+                {toastNotification.type === 'success' ? (
+                  <CheckCircle2 size={18} />
+                ) : toastNotification.type === 'error' ? (
+                  <AlertCircle size={18} />
+                ) : (
+                  <AlertTriangle size={18} />
+                )}
+              </div>
+              <div className="operonai-execution-toast-content">
+                <span className="operonai-execution-toast-message">{toastNotification.message}</span>
+              </div>
+              <button className="operonai-execution-toast-close" onClick={() => setToastNotification(null)}>
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
           {/* My Agents Section */}
           <div className="aw-agents-section">
             <div className="aw-agents-section-header">
@@ -1259,7 +1388,7 @@ export function CrewOSDashboard() {
                 <div className="aw-empty-icon"><Bot size={32} /></div>
                 <h3>No agents deployed yet</h3>
                 <p>Create your first agent to get started with automation.</p>
-                <button className="aw-new-agent-btn" onClick={() => setActiveNav('workflow')}>
+                <button className="aw-new-agent-btn" onClick={() => setShowCatalog(true)}>
                   <Plus size={16} /> New agent
                 </button>
               </div>
@@ -1323,6 +1452,25 @@ export function CrewOSDashboard() {
                       {/* Actions */}
                       <div className="aw-agent-card-actions">
                         <button
+                          className="aw-agent-action-btn more"
+                          title="More options"
+                        >
+                          <MoreHorizontal size={13} />
+                        </button>
+                        <button
+                          className="aw-agent-action-btn run"
+                          onClick={() => handleRunAgent(agent.id)}
+                          disabled={runningAgentId === agent.id}
+                          title="Run agent"
+                        >
+                          {runningAgentId === agent.id ? (
+                            <Loader2 size={13} className="spinning" />
+                          ) : (
+                            <Play size={13} />
+                          )}
+                          {runningAgentId === agent.id ? 'Running...' : 'Run'}
+                        </button>
+                        <button
                           className="aw-agent-action-btn logs"
                           onClick={() => { setLogsAgentId(agent.id); setActiveNav('logs'); }}
                           title="View logs"
@@ -1331,13 +1479,19 @@ export function CrewOSDashboard() {
                           Logs
                         </button>
                         <button
-                          className="aw-agent-action-btn delete"
-                          onClick={() => {
-                            if (confirm('Delete this agent?')) deleteAutomationAgent(agent.id);
-                          }}
-                          title="Delete"
+                          className="aw-agent-action-btn edit"
+                          onClick={() => navigate(`/automation-builder/${agent.id}`)}
+                          title="Edit"
                         >
-                          <X size={13} />
+                          <PenTool size={13} />
+                          Edit
+                        </button>
+                        <button
+                          className="aw-agent-action-btn pause"
+                          onClick={() => agent.status === 'active' ? pauseAgent(agent.id) : resumeAgent(agent.id)}
+                          title={agent.status === 'active' ? 'Pause' : 'Resume'}
+                        >
+                          {agent.status === 'active' ? '⏸' : '▶'}
                         </button>
                       </div>
                     </div>
@@ -1760,6 +1914,18 @@ export function CrewOSDashboard() {
             setActiveNav('logs');
             setExecutionOutputPanel(null);
           }}
+        />
+      )}
+
+      {/* User Input Modal - shown when execution pauses for required input */}
+      {pausedExecution && (
+        <UserInputModal
+          nodeName={pausedExecution.nodeName}
+          message={pausedExecution.inputPromptMessage}
+          requiredInputs={pausedExecution.requiredInputs}
+          onSubmit={handleResumeExecution}
+          onCancel={handleCancelExecution}
+          isSubmitting={isResumingExecution}
         />
       )}
     </div>

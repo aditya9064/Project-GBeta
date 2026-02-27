@@ -9,6 +9,8 @@ import { uploadDocument } from '../../../services/documentReplication/api';
 import type { DetectedField } from '../../../services/documentReplication/types';
 import './DocumentReplication.css';
 
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
 type Step = 'upload' | 'map' | 'data' | 'generate';
 
 interface DocumentReplicationAgentProps {
@@ -38,7 +40,7 @@ export function DocumentReplicationAgent({ userId, onBack }: DocumentReplication
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`http://localhost:3001/api/documents/templates?userId=${encodeURIComponent(userId)}`);
+        const res = await fetch(`${API_BASE}/documents/templates?userId=${encodeURIComponent(userId)}`);
         if (res.ok) {
           const json = await res.json();
           if (!cancelled && json.success) setSavedTemplates(json.templates || []);
@@ -56,7 +58,7 @@ export function DocumentReplicationAgent({ userId, onBack }: DocumentReplication
       setStep('map');
 
       try {
-        const res = await fetch('http://localhost:3001/api/documents/templates/save', {
+        const res = await fetch(`${API_BASE}/documents/templates/save`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

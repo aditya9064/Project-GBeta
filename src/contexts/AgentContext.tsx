@@ -90,7 +90,7 @@ const defaultAgentContext: AgentContextType = {
 
 const AgentContext = createContext<AgentContextType>(defaultAgentContext);
 
-// ─── Backend API helpers (fire-and-forget with silent fallback) ───
+// ─── Backend API helpers with better error logging ───
 
 async function apiPost(path: string, body: any): Promise<any> {
   try {
@@ -99,8 +99,13 @@ async function apiPost(path: string, body: any): Promise<any> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    return await res.json();
-  } catch {
+    const data = await res.json();
+    if (!res.ok) {
+      console.warn(`[API POST] ${path} failed:`, data.error || res.statusText);
+    }
+    return data;
+  } catch (err) {
+    console.warn(`[API POST] ${path} error:`, err instanceof Error ? err.message : 'Network error');
     return null;
   }
 }
@@ -112,8 +117,13 @@ async function apiPut(path: string, body: any): Promise<any> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    return await res.json();
-  } catch {
+    const data = await res.json();
+    if (!res.ok) {
+      console.warn(`[API PUT] ${path} failed:`, data.error || res.statusText);
+    }
+    return data;
+  } catch (err) {
+    console.warn(`[API PUT] ${path} error:`, err instanceof Error ? err.message : 'Network error');
     return null;
   }
 }
@@ -121,8 +131,13 @@ async function apiPut(path: string, body: any): Promise<any> {
 async function apiDelete(path: string): Promise<any> {
   try {
     const res = await fetch(`${BACKEND_URL}${path}`, { method: 'DELETE' });
-    return await res.json();
-  } catch {
+    const data = await res.json();
+    if (!res.ok) {
+      console.warn(`[API DELETE] ${path} failed:`, data.error || res.statusText);
+    }
+    return data;
+  } catch (err) {
+    console.warn(`[API DELETE] ${path} error:`, err instanceof Error ? err.message : 'Network error');
     return null;
   }
 }
@@ -130,8 +145,13 @@ async function apiDelete(path: string): Promise<any> {
 async function apiGet(path: string): Promise<any> {
   try {
     const res = await fetch(`${BACKEND_URL}${path}`);
-    return await res.json();
-  } catch {
+    const data = await res.json();
+    if (!res.ok) {
+      console.warn(`[API GET] ${path} failed:`, data.error || res.statusText);
+    }
+    return data;
+  } catch (err) {
+    console.warn(`[API GET] ${path} error:`, err instanceof Error ? err.message : 'Network error');
     return null;
   }
 }
@@ -184,24 +204,52 @@ function isAgentDue(schedule: AgentSchedule): boolean {
   }
 }
 
+// Default agent that matches the Firebase deployment UI
+const DEFAULT_AGENT: DeployedAgent = {
+  id: 'default-email-classification',
+  userId: 'demo-user-123',
+  name: '(G) - Email Classification',
+  description: 'Classifies incoming emails automatically',
+  icon: '📧',
+  color: '#6366f1',
+  workflow: {
+    nodes: [
+      { id: 'trigger-1', type: 'trigger', label: 'Email Received', config: { triggerType: 'email' }, position: { x: 400, y: 60 } },
+      { id: 'ai-1', type: 'ai', label: 'Classify Email', config: { model: 'gpt-4', prompt: 'Classify this email' }, position: { x: 400, y: 200 } },
+    ],
+    edges: [
+      { id: 'e1', source: 'trigger-1', target: 'ai-1' }
+    ]
+  },
+  status: 'active' as AgentStatus,
+  triggerType: 'email',
+  totalExecutions: 0,
+  successfulExecutions: 0,
+  failedExecutions: 0,
+  createdAt: new Date('2024-01-15'),
+  updatedAt: new Date('2024-01-15'),
+  version: 1,
+};
+
 // Helper to load agents from localStorage
 function loadAgentsFromStorage(): DeployedAgent[] {
   try {
     const stored = localStorage.getItem('demo_agents');
     if (stored) {
       const parsed = JSON.parse(stored);
-      return parsed.map((a: any) => ({
+      const agents = parsed.map((a: any) => ({
         ...a,
         createdAt: new Date(a.createdAt),
         updatedAt: new Date(a.updatedAt),
         deployedAt: a.deployedAt ? new Date(a.deployedAt) : undefined,
         lastExecutedAt: a.lastExecutedAt ? new Date(a.lastExecutedAt) : undefined,
       }));
+      if (agents.length > 0) return agents;
     }
   } catch (e) {
     console.error('Error loading agents from storage:', e);
   }
-  return [];
+  return [DEFAULT_AGENT];
 }
 
 // Helper to save agents to localStorage

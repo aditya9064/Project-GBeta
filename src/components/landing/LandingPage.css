@@ -17,15 +17,12 @@
 
 /* ─── Container ─── */
 .op-landing {
-  position: fixed;
-  inset: 0;
+  min-height: 100vh;
   background: var(--op-bg);
   color: var(--op-text);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   line-height: 1.6;
   overflow-x: hidden;
-  overflow-y: auto;
-  z-index: 1000;
 }
 
 .op-landing * { box-sizing: border-box; margin: 0; padding: 0; }
