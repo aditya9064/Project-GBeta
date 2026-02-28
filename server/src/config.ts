@@ -3,8 +3,8 @@ import 'dotenv/config';
 // Auto-detect production (Firebase Cloud Functions) vs local development
 // K_SERVICE is set by Cloud Run (which Firebase Functions v2 uses under the hood)
 const isProduction = !!process.env.K_SERVICE;
-const PROD_URL = 'https://gbeta-a7ea6.web.app';
-const LOCAL_URL = 'http://localhost:3001';
+const PROD_URL = process.env.PROD_URL || 'https://gbeta-a7ea6.web.app';
+const LOCAL_URL = process.env.LOCAL_URL || 'http://localhost:3001';
 
 // In production, always use the Firebase Hosting URL for redirects
 // In development, use .env values or fall back to localhost
@@ -90,7 +90,7 @@ export const config = {
 
   // Firebase (project ID is auto-detected in Cloud Functions runtime)
   firebase: {
-    projectId: process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'gbeta-a7ea6',
+    projectId: process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || process.env.FIREBASE_PROJECT_ID || 'gbeta-a7ea6',
   },
 
   // Frontend URL (for CORS & redirects)

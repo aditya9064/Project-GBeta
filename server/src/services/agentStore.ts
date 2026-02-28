@@ -10,6 +10,7 @@
 
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { logger } from './logger.js';
 
 const AGENTS_COLLECTION = 'agents';
 const EXECUTIONS_COLLECTION = 'agent_executions';
@@ -33,7 +34,7 @@ async function isFirestoreAvailable(): Promise<boolean> {
     firestoreAvailable = true;
     return true;
   } catch (err) {
-    console.warn('⚠️  AgentStore: Firestore unavailable, using in-memory fallback');
+    logger.warn('⚠️  AgentStore: Firestore unavailable, using in-memory fallback');
     firestoreAvailable = false;
     return false;
   }
@@ -92,7 +93,7 @@ function getDb(): Firestore {
     // Check if any Firebase app exists
     if (getApps().length === 0) {
       firebaseApp = initializeApp();
-      console.log('🔥 AgentStore: Firebase Admin initialized');
+      logger.info('🔥 AgentStore: Firebase Admin initialized');
     } else {
       firebaseApp = getApps()[0];
     }
@@ -114,7 +115,7 @@ export const AgentStore = {
       const db = getDb();
       await db.collection(AGENTS_COLLECTION).doc(agent.id).set(agent, { merge: true });
     }
-    console.log(`✅ Agent saved: ${agent.name} (${agent.id})`);
+    logger.info(`✅ Agent saved: ${agent.name} (${agent.id})`);
   },
 
   /** Get an agent by ID */
@@ -224,13 +225,15 @@ export const AgentStore = {
     if (await isFirestoreAvailable()) {
       const db = getDb();
       const ref = db.collection(AGENTS_COLLECTION).doc(agentId);
-      const doc = await ref.get();
-      if (doc.exists) {
-        const data = doc.data()!;
-        update.executionCount = (data.executionCount || 0) + 1;
-        if (!success) update.errorCount = (data.errorCount || 0) + 1;
-      }
-      await ref.update(update);
+      await db.runTransaction(async (txn) => {
+        const doc = await txn.get(ref);
+        if (doc.exists) {
+          const data = doc.data()!;
+          update.executionCount = (data.executionCount || 0) + 1;
+          if (!success) update.errorCount = (data.errorCount || 0) + 1;
+        }
+        txn.update(ref, update);
+      });
     }
   },
 
@@ -242,7 +245,7 @@ export const AgentStore = {
       const db = getDb();
       await db.collection(AGENTS_COLLECTION).doc(agentId).delete();
     }
-    console.log(`🗑️ Agent deleted: ${agentId}`);
+    logger.info(`🗑️ Agent deleted: ${agentId}`);
   },
   
   /** Add agent to memory (called when agents are synced from frontend via /api/agents) */

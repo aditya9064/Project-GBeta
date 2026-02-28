@@ -15,6 +15,7 @@ import { GmailService } from '../services/gmail.service.js';
 import { SlackService } from '../services/slack.service.js';
 import { TeamsService } from '../services/teams.service.js';
 import { AIEngine } from '../services/ai-engine.js';
+import { logger } from '../services/logger.js';
 import type { UnifiedMessage, APIResponse, MessagesResponse, Channel } from '../types.js';
 
 const router = Router();
@@ -30,18 +31,24 @@ router.use(async (_req: Request, _res: Response, next: Function) => {
   next();
 });
 
-/* ─── In-memory message store ──────────────────────────── */
+/* ─── In-memory message cache ─────────────────────────────
+   Messages are fetched live from Gmail/Slack/Teams APIs and
+   cached in memory for fast reads. On cold start (Cloud
+   Functions), the cache is rebuilt from the connected services.
+   This is intentional — the source of truth is the provider. */
 
 let messageStore: UnifiedMessage[] = [];
 let lastSyncTime: Date | null = null;
+const CACHE_TTL_MS = 5 * 60 * 1000; // Re-sync after 5 minutes
 
 /**
  * Auto-sync helper — fetches messages from all connected services.
- * Called automatically when the in-memory store is empty (cold start)
- * so that GET /api/messages always returns real data.
+ * Called automatically when the cache is empty or stale so that
+ * GET /api/messages always returns fresh data.
  */
 async function autoSyncIfEmpty(): Promise<void> {
-  if (messageStore.length > 0) return; // Already have messages in memory
+  const cacheStale = lastSyncTime && (Date.now() - lastSyncTime.getTime() > CACHE_TTL_MS);
+  if (messageStore.length > 0 && !cacheStale) return;
 
   const hasConnected =
     GmailService.getConnection().status === 'connected' ||
@@ -50,7 +57,7 @@ async function autoSyncIfEmpty(): Promise<void> {
 
   if (!hasConnected) return; // No connected services
 
-  console.log('📬 Auto-syncing messages (cold start detected)...');
+  logger.info('📬 Auto-syncing messages (cold start detected)...');
   const newMessages: UnifiedMessage[] = [];
 
   // Fetch from Gmail
@@ -59,7 +66,7 @@ async function autoSyncIfEmpty(): Promise<void> {
       const emails = await GmailService.fetchMessages();
       newMessages.push(...emails);
     } catch (err) {
-      console.error('Auto-sync Gmail error:', err);
+      logger.error('Auto-sync Gmail error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -69,7 +76,7 @@ async function autoSyncIfEmpty(): Promise<void> {
       const slackMsgs = await SlackService.fetchMessages();
       newMessages.push(...slackMsgs);
     } catch (err) {
-      console.error('Auto-sync Slack error:', err);
+      logger.error('Auto-sync Slack error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -79,14 +86,14 @@ async function autoSyncIfEmpty(): Promise<void> {
       const teamsMsgs = await TeamsService.fetchMessages();
       newMessages.push(...teamsMsgs);
     } catch (err) {
-      console.error('Auto-sync Teams error:', err);
+      logger.error('Auto-sync Teams error', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
   messageStore = newMessages;
   messageStore.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
   lastSyncTime = new Date();
-  console.log(`📬 Auto-synced ${messageStore.length} messages`);
+  logger.info(`📬 Auto-synced ${messageStore.length} messages`);
 }
 
 /* ─── GET /api/messages ────────────────────────────────── */

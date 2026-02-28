@@ -14,6 +14,8 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { Router, Request, Response } from 'express';
+import { validate } from '../middleware/validate.js';
+import { visionStartSchema } from '../middleware/schemas.js';
 import { BrowserService } from '../services/browser.service.js';
 import { VisionAgent, getSessionState, getLatestScreenshot } from '../services/visionAgent.js';
 
@@ -274,9 +276,8 @@ router.post('/vision/desktop', async (req: Request, res: Response) => {
 /**
  * POST /api/browser/vision/start — Start a vision task (returns immediately)
  */
-router.post('/vision/start', (req: Request, res: Response) => {
+router.post('/vision/start', validate(visionStartSchema), (req: Request, res: Response) => {
   const { task, url, appName, sessionId } = req.body;
-  if (!task) { res.status(400).json({ success: false, error: 'Missing "task"' }); return; }
   if (!url && !appName) { res.status(400).json({ success: false, error: 'Missing "url" or "appName"' }); return; }
 
   const sid = sessionId || `vision-${Date.now()}`;

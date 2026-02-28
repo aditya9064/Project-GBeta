@@ -8,6 +8,7 @@
 import OpenAI from 'openai';
 import { config } from '../config.js';
 import { BrowserService } from './browser.service.js';
+import { logger } from './logger.js';
 
 /* ─── Types ──────────────────────────────────────────────── */
 
@@ -71,6 +72,7 @@ export interface VisionSessionState {
   lastUpdated: number;
 }
 
+const MAX_VISION_SESSIONS = 20;
 const sessionStates = new Map<string, VisionSessionState>();
 
 export function getSessionState(sessionId: string): VisionSessionState | null {
@@ -84,6 +86,12 @@ export function getLatestScreenshot(sessionId: string): string | null {
 function getOrCreateState(sid: string): VisionSessionState {
   let state = sessionStates.get(sid);
   if (!state) {
+    if (sessionStates.size >= MAX_VISION_SESSIONS) {
+      const oldest = Array.from(sessionStates.entries()).reduce((a, b) =>
+        a[1].lastUpdated < b[1].lastUpdated ? a : b
+      );
+      sessionStates.delete(oldest[0]);
+    }
     state = {
       screenshot: null,
       logs: [],
@@ -193,7 +201,7 @@ export class VisionAgent {
 
     // Run in background (don't await)
     this.runTask(sid, task, startUrl).catch(err => {
-      console.error(`[VisionAgent] Background task error:`, err);
+      logger.error('[VisionAgent] Background task error', { error: err instanceof Error ? err.message : String(err) });
       const state = sessionStates.get(sid);
       if (state) {
         state.status = 'error';
@@ -210,8 +218,8 @@ export class VisionAgent {
     const state = sessionStates.get(sid)!;
     const steps: VisionStep[] = [];
 
-    console.log(`\n[VisionAgent] Starting task: "${task}"`);
-    console.log(`   URL: ${startUrl}`);
+    logger.info(`\n[VisionAgent] Starting task: "${task}"`);
+    logger.info(`   URL: ${startUrl}`);
 
     try {
       await BrowserService.createSession(sid, { headless: true, width: 1280, height: 900 });
@@ -223,7 +231,7 @@ export class VisionAgent {
 
       state.currentUrl = navResult.url || startUrl;
       state.currentTitle = navResult.title || '';
-      console.log(`   Navigated to: ${navResult.url}`);
+      logger.info(`   Navigated to: ${navResult.url}`);
 
       await new Promise(r => setTimeout(r, 3000));
 
@@ -268,7 +276,7 @@ export class VisionAgent {
 
         // Code-level stuck recovery: if 4+ clicks haven't changed the URL, force a navigate
         if (consecutiveSameUrl >= 4 && action.action === 'click') {
-          console.log(`   [Recovery] Agent stuck on ${currentPageUrl} after ${consecutiveSameUrl} clicks — forcing navigate`);
+          logger.info(`   [Recovery] Agent stuck on ${currentPageUrl} after ${consecutiveSameUrl} clicks — forcing navigate`);
           log(sid, { type: 'status', step, message: `Auto-recovery: clicks not navigating, trying direct URL...` });
 
           // Ask GPT-4o specifically for a navigate action
@@ -276,7 +284,7 @@ export class VisionAgent {
         }
 
         steps.push({ step, action, url: currentPageUrl, title: pageText.data?.title, timestamp: new Date().toISOString() });
-        console.log(`   Step ${step}: ${action.action} — ${action.reason}`);
+        logger.info(`   Step ${step}: ${action.action} — ${action.reason}`);
 
         log(sid, { type: 'step', step, action, message: action.reason || action.action, url: currentPageUrl, title: pageText.data?.title });
 
@@ -284,7 +292,7 @@ export class VisionAgent {
           state.extractedData = action.extractedData || null;
           state.status = 'done';
           log(sid, { type: 'done', step, message: `Task completed in ${step} steps` });
-          console.log(`   Task complete in ${step} steps`);
+          logger.info(`   Task complete in ${step} steps`);
           break;
         }
 
@@ -310,7 +318,7 @@ export class VisionAgent {
       }
 
     } catch (err: any) {
-      console.error(`   [VisionAgent] Error: ${err.message}`);
+      logger.error(`   [VisionAgent] Error: ${err.message}`);
       state.status = 'error';
       state.error = err.message;
       log(sid, { type: 'error', message: err.message });
@@ -409,7 +417,7 @@ export class VisionAgent {
       const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       return JSON.parse(cleaned) as VisionAction;
     } catch (err: any) {
-      console.error(`   [VisionAgent] AI error at step ${currentStep}:`, err.message);
+      logger.error(`   [VisionAgent] AI error at step ${currentStep}: ${err.message}`);
       return { action: 'fail', reason: `AI analysis failed: ${err.message}` };
     }
   }

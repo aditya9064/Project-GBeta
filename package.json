@@ -8,6 +8,8 @@
     "dev:source": "vite",
     "build": "vite build --outDir dist-build",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview --outDir dist-firebase"
   },
   "dependencies": {
@@ -42,6 +44,7 @@
     "globals": "^16.5.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
   }
 }

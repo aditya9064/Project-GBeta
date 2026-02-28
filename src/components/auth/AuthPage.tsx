@@ -17,28 +17,64 @@ export function AuthPage({ onBack }: AuthPageProps) {
 
   const { signIn, signUp, signInWithGoogle, demoSignIn, resetPassword } = useAuth();
 
+  const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+  const validateEmail = (value: string): string | null => {
+    if (!value.trim()) return 'Please enter your email';
+    if (!EMAIL_REGEX.test(value.trim())) return 'Please enter a valid email address';
+    return null;
+  };
+
+  const validatePassword = (value: string): string | null => {
+    if (value.length < 8) return 'Password must be at least 8 characters';
+    if (!/[A-Z]/.test(value)) return 'Password must contain at least one uppercase letter';
+    if (!/[0-9]/.test(value)) return 'Password must contain at least one number';
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
     setLoading(true);
 
-    try {
-      if (mode === 'reset') {
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setError(emailError);
+      setLoading(false);
+      return;
+    }
+
+    if (mode === 'reset') {
+      try {
         await resetPassword(email);
         setSuccess('Password reset email sent! Check your inbox.');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    if (mode === 'signup') {
+      if (!fullName.trim()) {
+        setError('Please enter your full name');
         setLoading(false);
         return;
       }
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        setError(passwordError);
+        setLoading(false);
+        return;
+      }
+    }
 
+    try {
       if (mode === 'login') {
         await signIn(email, password);
       } else {
-        if (!fullName.trim()) {
-          setError('Please enter your full name');
-          setLoading(false);
-          return;
-        }
         await signUp(email, password, fullName.trim());
       }
     } catch (err) {
@@ -176,9 +212,9 @@ export function AuthPage({ onBack }: AuthPageProps) {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === 'signup' ? 'Create a password (min 6 chars)' : 'Enter your password'}
+                  placeholder={mode === 'signup' ? 'Create a password (8+ chars, 1 uppercase, 1 number)' : 'Enter your password'}
                   required
-                  minLength={6}
+                  minLength={mode === 'signup' ? 8 : 6}
                 />
               </div>
             )}

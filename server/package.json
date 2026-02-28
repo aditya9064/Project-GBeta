@@ -12,7 +12,8 @@
     "start": "node dist/index.js",
     "serve": "npm run build && firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "test": "vitest run"
   },
   "dependencies": {
     "@azure/msal-node": "^2.16.3",
@@ -21,6 +22,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^5.0.1",
+    "express-rate-limit": "^8.2.1",
     "firebase-admin": "^13.6.1",
     "firebase-functions": "^6.3.0",
     "formdata-node": "^4.4.1",
@@ -31,13 +33,15 @@
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.4",
     "pdfjs-dist": "^4.4.168",
-    "puppeteer": "^24.37.5"
+    "puppeteer": "^24.37.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
     "tsx": "^4.21.0",
-    "typescript": "~5.7.2"
+    "typescript": "~5.7.2",
+    "vitest": "^4.0.18"
   }
 }

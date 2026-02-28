@@ -16,6 +16,8 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { Router, Request, Response } from 'express';
+import { validate } from '../middleware/validate.js';
+import { gmailSendSchema, gmailReplySchema, slackSendSchema, aiProcessSchema, httpRequestSchema, agentCreateSchema, agentGenerateSchema } from '../middleware/schemas.js';
 import { GmailService } from '../services/gmail.service.js';
 import { SlackService } from '../services/slack.service.js';
 import { AIEngine } from '../services/ai-engine.js';
@@ -23,6 +25,7 @@ import { AgentStore } from '../services/agentStore.js';
 import { AgentExecutor } from '../services/agentExecutor.js';
 import { PromptToAgentService } from '../services/promptToAgent.js';
 import { config } from '../config.js';
+import { logger } from '../services/logger.js';
 
 const router = Router();
 
@@ -68,23 +71,9 @@ router.get('/status', (_req: Request, res: Response) => {
 /* ═══ GMAIL ═══════════════════════════════════════════════ */
 
 /** Send a new email */
-router.post('/gmail/send', async (req: Request, res: Response) => {
+router.post('/gmail/send', validate(gmailSendSchema), async (req: Request, res: Response) => {
   try {
     const { to, subject, body } = req.body;
-
-    if (!to || !to.trim()) {
-      res.status(400).json({ success: false, error: 'Missing "to" field — provide a valid email address' });
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(to.trim())) {
-      res.status(400).json({ success: false, error: `Invalid To header: "${to}". Provide a valid email address (e.g. user@example.com)` });
-      return;
-    }
-    if (!subject) {
-      res.status(400).json({ success: false, error: 'Missing "subject" field' });
-      return;
-    }
 
     const gmailConn = GmailService.getConnection();
     if (gmailConn.status !== 'connected') {
@@ -104,7 +93,7 @@ router.post('/gmail/send', async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('Automation Gmail send error:', err);
+    logger.error('Automation Gmail send error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to send email',
@@ -113,18 +102,9 @@ router.post('/gmail/send', async (req: Request, res: Response) => {
 });
 
 /** Reply to an existing email */
-router.post('/gmail/reply', async (req: Request, res: Response) => {
+router.post('/gmail/reply', validate(gmailReplySchema), async (req: Request, res: Response) => {
   try {
     const { messageId, body } = req.body;
-
-    if (!messageId) {
-      res.status(400).json({ success: false, error: 'Missing "messageId" field' });
-      return;
-    }
-    if (!body) {
-      res.status(400).json({ success: false, error: 'Missing "body" field' });
-      return;
-    }
 
     const gmailConn = GmailService.getConnection();
     if (gmailConn.status !== 'connected') {
@@ -142,7 +122,7 @@ router.post('/gmail/reply', async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('Automation Gmail reply error:', err);
+    logger.error('Automation Gmail reply error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to reply to email',
@@ -180,7 +160,7 @@ router.get('/gmail/read', async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('Automation Gmail read error:', err);
+    logger.error('Automation Gmail read error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to read emails',
@@ -208,32 +188,32 @@ router.get('/gmail/read', async (req: Request, res: Response) => {
  */
 router.post('/gmail/webhook', async (req: Request, res: Response) => {
   try {
-    console.log('📬 Gmail webhook received');
+    logger.info('📬 Gmail webhook received');
     
     // Parse Pub/Sub message
     const message = req.body.message;
     if (!message?.data) {
-      console.log('📬 Gmail webhook: No message data');
+      logger.info('📬 Gmail webhook: No message data');
       res.status(200).send('OK'); // Always acknowledge to prevent retries
       return;
     }
 
     const data = JSON.parse(Buffer.from(message.data, 'base64').toString());
     const { emailAddress, historyId } = data;
-    console.log(`📬 Gmail webhook: New mail for ${emailAddress}, historyId: ${historyId}`);
+    logger.info(`📬 Gmail webhook: New mail for ${emailAddress}, historyId: ${historyId}`);
 
     // Restore Gmail connection
     await GmailService.restoreFromStore();
     const gmailConn = GmailService.getConnection();
     if (gmailConn.status !== 'connected') {
-      console.log('📬 Gmail webhook: Gmail not connected');
+      logger.info('📬 Gmail webhook: Gmail not connected');
       res.status(200).send('OK');
       return;
     }
 
     // Get new messages since the history ID
     const newMessages = await GmailService.getMessagesSinceHistory(historyId);
-    console.log(`📬 Gmail webhook: Found ${newMessages.length} new message(s)`);
+    logger.info(`📬 Gmail webhook: Found ${newMessages.length} new message(s)`);
 
     if (newMessages.length === 0) {
       res.status(200).send('OK');
@@ -258,7 +238,7 @@ router.post('/gmail/webhook', async (req: Request, res: Response) => {
         if (emailFilter?.from && !email.fromEmail?.toLowerCase().includes(emailFilter.from.toLowerCase())) continue;
         if (emailFilter?.subject && !email.subject?.toLowerCase().includes(emailFilter.subject.toLowerCase())) continue;
 
-        console.log(`🤖 Gmail webhook: Triggering "${agent.name}" for email from ${email.from}`);
+        logger.info(`🤖 Gmail webhook: Triggering "${agent.name}" for email from ${email.from}`);
         
         // Execute agent with email data
         try {
@@ -280,14 +260,14 @@ router.post('/gmail/webhook', async (req: Request, res: Response) => {
             receivedAt: email.receivedAt,
           });
         } catch (err: any) {
-          console.error(`❌ Gmail webhook: Agent "${agent.name}" failed:`, err.message);
+          logger.error(`❌ Gmail webhook: Agent "${agent.name}" failed: ${err.message}`);
         }
       }
     }
 
     res.status(200).send('OK');
   } catch (err) {
-    console.error('Gmail webhook error:', err);
+    logger.error('Gmail webhook error', { error: err instanceof Error ? err.message : String(err) });
     res.status(200).send('OK'); // Always acknowledge to prevent infinite retries
   }
 });
@@ -295,18 +275,9 @@ router.post('/gmail/webhook', async (req: Request, res: Response) => {
 /* ═══ SLACK ═══════════════════════════════════════════════ */
 
 /** Send a message to a Slack channel */
-router.post('/slack/send', async (req: Request, res: Response) => {
+router.post('/slack/send', validate(slackSendSchema), async (req: Request, res: Response) => {
   try {
     const { channel, message, threadTs } = req.body;
-
-    if (!channel) {
-      res.status(400).json({ success: false, error: 'Missing "channel" field' });
-      return;
-    }
-    if (!message) {
-      res.status(400).json({ success: false, error: 'Missing "message" field' });
-      return;
-    }
 
     const slackConn = SlackService.getConnection();
     if (slackConn.status !== 'connected') {
@@ -325,7 +296,7 @@ router.post('/slack/send', async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('Automation Slack send error:', err);
+    logger.error('Automation Slack send error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to send Slack message',
@@ -336,14 +307,9 @@ router.post('/slack/send', async (req: Request, res: Response) => {
 /* ═══ AI (OpenAI) ═════════════════════════════════════════ */
 
 /** Process input with AI */
-router.post('/ai/process', async (req: Request, res: Response) => {
+router.post('/ai/process', validate(aiProcessSchema), async (req: Request, res: Response) => {
   try {
     const { prompt, systemPrompt, model, temperature, maxTokens, input } = req.body;
-
-    if (!prompt) {
-      res.status(400).json({ success: false, error: 'Missing "prompt" field' });
-      return;
-    }
 
     const result = await AIEngine.processAutomation(
       prompt,
@@ -360,7 +326,7 @@ router.post('/ai/process', async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('Automation AI process error:', err);
+    logger.error('Automation AI process error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'AI processing failed',
@@ -371,14 +337,9 @@ router.post('/ai/process', async (req: Request, res: Response) => {
 /* ═══ HTTP (Generic Request) ═════════════════════════════ */
 
 /** Make an HTTP request (proxy through backend) */
-router.post('/http', async (req: Request, res: Response) => {
+router.post('/http', validate(httpRequestSchema), async (req: Request, res: Response) => {
   try {
     const { url, method, headers, body } = req.body;
-
-    if (!url) {
-      res.status(400).json({ success: false, error: 'Missing "url" field' });
-      return;
-    }
 
     // Reject n8n template expressions (e.g. {{ $env.WEBHOOK_URL }})
     if (/\{\{.*\}\}/.test(url)) {
@@ -433,7 +394,7 @@ router.post('/http', async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('Automation HTTP request error:', err);
+    logger.error('Automation HTTP request error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'HTTP request failed',
@@ -472,7 +433,7 @@ try {
   agentsDb = getFirestore();
   agentsFirestoreOk = true;
 } catch {
-  console.warn('⚠️  Firestore unavailable for agents — using in-memory store');
+  logger.warn('⚠️  Firestore unavailable for agents — using in-memory store');
 }
 
 const AGENTS_COL = 'agents';
@@ -510,19 +471,19 @@ agentsRouter.post('/generate', async (req: Request, res: Response) => {
       return;
     }
 
-    console.log(`\n🧠 [PromptToAgent] Generating workflow for: "${prompt.slice(0, 80)}..."`);
+    logger.info(`\n🧠 [PromptToAgent] Generating workflow for: "${prompt.slice(0, 80)}..."`);
     const result = await PromptToAgentService.generate(prompt);
 
     if (!result.success) {
-      console.error(`❌ [PromptToAgent] Generation failed: ${result.error}`);
+      logger.error(`❌ [PromptToAgent] Generation failed: ${result.error}`);
       res.status(422).json({ success: false, error: result.error });
       return;
     }
 
-    console.log(`✅ [PromptToAgent] Generated "${result.name}" — ${result.workflow.nodes.length} nodes, trigger: ${result.triggerType}`);
+    logger.info(`✅ [PromptToAgent] Generated "${result.name}" — ${result.workflow.nodes.length} nodes, trigger: ${result.triggerType}`);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('[PromptToAgent] Route error:', err);
+    logger.error('[PromptToAgent] Route error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to generate agent from prompt',
@@ -558,20 +519,16 @@ agentsRouter.get('/', async (req: Request, res: Response) => {
     if (userId) agents = agents.filter((a: any) => a.userId === userId);
     res.json({ success: true, data: agents });
   } catch (err) {
-    console.error('GET /api/agents error:', err);
+    logger.error('GET /api/agents error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed to list agents' });
   }
 });
 
 /* ─── POST /api/agents ───────────────────────────────────── */
 
-agentsRouter.post('/', async (req: Request, res: Response) => {
+agentsRouter.post('/', validate(agentCreateSchema), async (req: Request, res: Response) => {
   try {
     const agent = req.body;
-    if (!agent || !agent.id) {
-      res.status(400).json({ success: false, error: 'Missing agent data or agent.id' });
-      return;
-    }
 
     memAgents.set(agent.id, agent);
     
@@ -584,7 +541,7 @@ agentsRouter.post('/', async (req: Request, res: Response) => {
 
     res.json({ success: true, data: agent });
   } catch (err) {
-    console.error('POST /api/agents error:', err);
+    logger.error('POST /api/agents error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed to create agent' });
   }
 });
@@ -609,7 +566,7 @@ agentsRouter.put('/:id', async (req: Request, res: Response) => {
 
     res.json({ success: true, data: merged });
   } catch (err) {
-    console.error('PUT /api/agents/:id error:', err);
+    logger.error('PUT /api/agents/:id error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed to update agent' });
   }
 });
@@ -632,7 +589,7 @@ agentsRouter.delete('/:id', async (req: Request, res: Response) => {
 
     res.json({ success: true });
   } catch (err) {
-    console.error('DELETE /api/agents/:id error:', err);
+    logger.error('DELETE /api/agents/:id error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed to delete agent' });
   }
 });
@@ -658,7 +615,7 @@ agentsRouter.get('/:id/logs', async (req: Request, res: Response) => {
 
     res.json({ success: true, data: memLogs.get(id) || [] });
   } catch (err) {
-    console.error('GET /api/agents/:id/logs error:', err);
+    logger.error('GET /api/agents/:id/logs error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed to get logs' });
   }
 });
@@ -688,7 +645,7 @@ agentsRouter.post('/:id/logs', async (req: Request, res: Response) => {
 
     res.json({ success: true, data: entry });
   } catch (err) {
-    console.error('POST /api/agents/:id/logs error:', err);
+    logger.error('POST /api/agents/:id/logs error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Failed to save log' });
   }
 });

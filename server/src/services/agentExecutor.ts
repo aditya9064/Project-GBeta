@@ -15,6 +15,7 @@ import { AIEngine } from './ai-engine.js';
 import { AgentStore, type ExecutionRecord, type ExecutionNodeLog } from './agentStore.js';
 import type { StoredAgent } from './agentStore.js';
 import { VisionAgent } from './visionAgent.js';
+import { ComputerService } from './computer/index.js';
 
 interface WorkflowNode {
   id: string;
@@ -212,6 +213,8 @@ export class AgentExecutor {
       case 'browser_task':
       case 'vision_browse':
         return this.executeVisionBrowse(node, input);
+      case 'computer_task':
+        return this.executeComputerTask(node, input);
       default:
         console.log(`  ⚡ Passthrough for unknown node type: ${node.type}`);
         return { ...input, _nodeType: node.type, _processed: true };
@@ -519,6 +522,34 @@ export class AgentExecutor {
       durationMs: result.durationMs,
       error: result.error,
       finalUrl: result.finalUrl,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  // ── Computer Task (meta-orchestration) ──
+
+  private static async executeComputerTask(node: WorkflowNode, input: any): Promise<any> {
+    const config = node.config || {};
+    const goal = this.resolveTemplate(config.goal || config.task || node.label, input);
+
+    if (!goal) {
+      throw new Error('Computer task node requires a "goal" in config');
+    }
+
+    const context = {
+      ...input,
+      ...config.context,
+    };
+
+    const result = await ComputerService.runTask(goal, context);
+
+    return {
+      success: result.success,
+      goal,
+      result: result.result,
+      subtasks: result.subtasks,
+      durationMs: result.durationMs,
+      error: result.error,
       timestamp: new Date().toISOString(),
     };
   }

@@ -18,6 +18,7 @@ import puppeteer, { Browser, Page, type LaunchOptions } from 'puppeteer';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import { logger } from './logger.js';
 
 export interface BrowserSession {
   id: string;
@@ -41,6 +42,7 @@ export interface BrowserActionResult {
 }
 
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes idle → auto-close
+const MAX_SESSIONS = 10;
 
 class BrowserServiceImpl {
   private sessions = new Map<string, BrowserSession>();
@@ -64,6 +66,13 @@ class BrowserServiceImpl {
         return existing;
       }
       this.sessions.delete(sessionId);
+    }
+
+    if (this.sessions.size >= MAX_SESSIONS) {
+      const oldest = Array.from(this.sessions.entries()).reduce((a, b) =>
+        a[1].createdAt < b[1].createdAt ? a : b
+      );
+      await this.closeSession(oldest[0]);
     }
 
     const width = options?.width || 1280;
@@ -91,9 +100,9 @@ class BrowserServiceImpl {
       ],
     };
 
-    console.log(`[Browser] Launching Puppeteer (headless: ${launchOptions.headless}, userDataDir: ${userDataDir})...`);
+    logger.info(`[Browser] Launching Puppeteer (headless: ${launchOptions.headless}, userDataDir: ${userDataDir})...`);
     const browser = await puppeteer.launch(launchOptions);
-    console.log(`[Browser] Puppeteer launched, getting page...`);
+    logger.info(`[Browser] Puppeteer launched, getting page...`);
     const pages = await browser.pages();
     const page = pages[0] || await browser.newPage();
 
@@ -111,7 +120,7 @@ class BrowserServiceImpl {
     } as BrowserSession;
 
     this.sessions.set(sessionId, session);
-    console.log(`[Browser] Session "${sessionId}" created (headless: ${options?.headless ?? false})`);
+    logger.info(`[Browser] Session "${sessionId}" created (headless: ${options?.headless ?? false})`);
     return session;
   }
 
@@ -126,7 +135,7 @@ class BrowserServiceImpl {
       // browser may already be closed
     }
     this.sessions.delete(sessionId);
-    console.log(`[Browser] Session "${sessionId}" closed`);
+    logger.info(`[Browser] Session "${sessionId}" closed`);
   }
 
   getSession(sessionId: string): BrowserSession | undefined {
@@ -478,7 +487,7 @@ class BrowserServiceImpl {
         continue;
       }
       if (now - session.lastActivityAt.getTime() > SESSION_TIMEOUT_MS) {
-        console.log(`[Browser] Auto-closing idle session "${id}"`);
+        logger.info(`[Browser] Auto-closing idle session "${id}"`);
         await this.closeSession(id);
       }
     }

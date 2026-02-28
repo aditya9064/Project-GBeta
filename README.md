@@ -1,73 +1,105 @@
-# React + TypeScript + Vite
+# OperonAI — CrewOS Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+AI-powered business automation platform that converts natural language prompts into executable agents. Built with React, TypeScript, Firebase, and OpenAI.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **AI Agent Builder** — Create automation agents from natural language prompts
+- **Visual Workflow Editor** — Drag-and-drop workflow builder with node-based editor
+- **Communications Agent** — Unified inbox for Gmail, Slack, and Teams with AI-drafted responses
+- **Document Intelligence** — AI-powered document analysis, generation, and replication
+- **Sales Intelligence** — CRM integration with deal tracking and lead scoring
+- **Browser Automation** — AI Vision Agent that navigates websites using GPT-4o
+- **Whiteboard** — Collaborative canvas with AI brainstorming
+- **Calendar & Tasks** — Team scheduling and task management
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, TypeScript, Vite, React Router |
+| Backend | Express 5, Firebase Functions, Node.js 22 |
+| Database | Firestore |
+| Auth | Firebase Authentication |
+| AI | OpenAI GPT-4o |
+| Browser | Puppeteer |
+| Integrations | Gmail, Slack, Teams, HubSpot |
+| Deployment | Firebase Hosting, Docker |
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Node.js 22+
+- npm
+- Firebase project (optional for local dev)
+- OpenAI API key
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Installation
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# Install frontend dependencies
+npm install
+
+# Install server dependencies
+cd server && npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Environment Setup
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Copy the example environment file and fill in your keys:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cp .env.example .env
+cp server/.env.example server/.env
 ```
+
+Required variables:
+- `OPENAI_API_KEY` — OpenAI API key for AI features
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Gmail OAuth (optional)
+- `SLACK_BOT_TOKEN` — Slack integration (optional)
+
+### Development
+
+```bash
+# Start frontend dev server
+npm run dev:source
+
+# Start backend server (in another terminal)
+cd server && npm run dev
+```
+
+Frontend runs on `http://localhost:5173`, backend on `http://localhost:3001`.
+
+### Build & Deploy
+
+```bash
+# Build frontend
+npm run build
+
+# Deploy to Firebase
+firebase deploy --only hosting,functions
+```
+
+## Project Structure
+
+```
+├── src/                    # Frontend React app
+│   ├── components/         # UI components by feature
+│   ├── contexts/           # React contexts (Auth, Agent)
+│   ├── hooks/              # Custom React hooks
+│   ├── services/           # Frontend services
+│   ├── styles/             # Global styles & design tokens
+│   └── utils/              # Utility functions
+├── server/                 # Backend Express server
+│   └── src/
+│       ├── routes/         # API route handlers
+│       ├── services/       # Business logic services
+│       └── middleware/     # Validation & middleware
+├── public/                 # Static assets
+└── docs/                   # Documentation
+```
+
+## License
+
+Private — All rights reserved.

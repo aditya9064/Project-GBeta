@@ -103,6 +103,8 @@ NODE TYPES:
 - "action": Generic action. Config: { actionType: "send_email" | "send_message" | "http_request" | "ai_process", ... }
 - "code": Run JavaScript code. Config: { code: "..." }
 - "set": Set variables. Config: { assignments: [{ field: "...", value: "..." }] }
+- "computer_task": Meta-orchestration for complex multi-step goals. Uses the Computer engine to dynamically plan and execute subtasks. Config: { goal: "detailed description of what to accomplish", context?: {} }
+  USE THIS for complex goals that require multiple research steps, browsing multiple sites, gathering and synthesizing information, AND taking actions. computer_task handles the planning automatically.
 
 TEMPLATE EXPRESSIONS:
 Use template expressions to pass data between nodes:
@@ -124,6 +126,11 @@ RULES:
 11. Keep workflows focused and practical — no unnecessary nodes
 12. For controlling native desktop apps (Finder, Notes, Calendar, etc.), use desktop_task nodes with the appName in config
 13. vision_browse nodes should have a detailed, specific "task" field describing what to do on the page (e.g., "Find MacBook Pro pricing, navigate to the MacBook Pro page, and extract all model names and prices")
+14. For COMPLEX goals that involve multiple research steps, browsing multiple websites, gathering information from various sources, synthesizing it, AND taking actions (like sending emails), use a single "computer_task" node. This node dynamically plans and executes subtasks. Examples:
+    - "Research top 3 competitors, get their pricing, and email a summary" → computer_task
+    - "Find the best laptop deals, compare them, and create a report" → computer_task
+    - "Monitor a website for changes and alert me" → vision_browse (simpler, single site)
+    - "Send an email when I get an email from X" → regular workflow (simple automation)
 
 IMPORTANT: Return ONLY valid JSON matching the schema below. No markdown, no explanation outside the JSON.
 
@@ -134,6 +141,7 @@ JSON SCHEMA:
   "triggerType": "manual" | "email" | "schedule" | "webhook",
   "requiresBrowser": boolean,  // true if workflow uses vision_browse or browser_task
   "requiresDesktop": boolean, // true if workflow uses desktop_task
+  "requiresComputer": boolean, // true if workflow uses computer_task (complex orchestration)
   "estimatedDuration": "e.g. 5-10s",
   "riskAssessment": "low" | "medium" | "high",
   "warnings": ["array of user-facing warnings if any"],
@@ -145,11 +153,54 @@ JSON SCHEMA:
   }
 }`;
 
+/* ─── Complexity Analysis ─────────────────────────────────── */
+
+interface ComplexityAnalysis {
+  isComplex: boolean;
+  reason: string;
+  suggestComputer: boolean;
+}
+
+async function analyzeComplexity(prompt: string): Promise<ComplexityAnalysis> {
+  const complexPatterns = [
+    { pattern: /research.*(and|then).*(compare|summarize|email|send|report)/i, reason: 'research + synthesis + action' },
+    { pattern: /find.*multiple.*sites/i, reason: 'multi-site research' },
+    { pattern: /gather.*from.*different/i, reason: 'multi-source gathering' },
+    { pattern: /compare.*(pricing|prices|features|options).*across/i, reason: 'cross-site comparison' },
+    { pattern: /(analyze|research|investigate).*and.*(send|email|notify|alert)/i, reason: 'research + communication' },
+    { pattern: /top\s*\d+.*competitors/i, reason: 'competitive research' },
+    { pattern: /monitor.*multiple/i, reason: 'multi-target monitoring' },
+    { pattern: /search.*web.*and.*summarize/i, reason: 'web search + synthesis' },
+  ];
+
+  for (const { pattern, reason } of complexPatterns) {
+    if (pattern.test(prompt)) {
+      return { isComplex: true, reason, suggestComputer: true };
+    }
+  }
+
+  const actionIndicators = (prompt.match(/\band\b|\bthen\b|\bafter\b|\bfinally\b/gi) || []).length;
+  if (actionIndicators >= 3) {
+    return { isComplex: true, reason: 'multi-step sequence', suggestComputer: true };
+  }
+
+  return { isComplex: false, reason: '', suggestComputer: false };
+}
+
 /* ─── Main Generator ─────────────────────────────────────── */
 
 export class PromptToAgentService {
   /**
+   * Analyze prompt complexity to determine if Computer orchestration is recommended.
+   */
+  static async analyzePrompt(prompt: string): Promise<ComplexityAnalysis> {
+    return analyzeComplexity(prompt);
+  }
+
+  /**
    * Generate a complete, validated workflow from a natural language prompt.
+   * For complex prompts, this may generate a single computer_task node that
+   * handles the orchestration dynamically.
    */
   static async generate(prompt: string): Promise<GeneratedAgentResult> {
     const openai = getOpenAI();

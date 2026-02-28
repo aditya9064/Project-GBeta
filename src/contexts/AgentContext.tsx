@@ -21,6 +21,7 @@ import type { AIGeneratedAgent } from '../services/automation/planGenerator';
 import type { AgentRegistryEntry, AgentBusEvent } from '../services/automation/types';
 import { ExecutionEngine } from '../services/automation/executionEngine';
 
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 const DEMO_USER_ID = 'demo-user-123';
 const BACKEND_URL = 'http://localhost:3001';
 
@@ -236,8 +237,9 @@ const DEFAULT_AGENT: DeployedAgent = {
   version: 1,
 };
 
-// Helper to load agents from localStorage
+// Helper to load agents from localStorage (DEMO_MODE only: fallback to defaults when backend unavailable)
 function loadAgentsFromStorage(): DeployedAgent[] {
+  if (!DEMO_MODE) return [];
   try {
     const stored = localStorage.getItem('demo_agents');
     if (stored) {
