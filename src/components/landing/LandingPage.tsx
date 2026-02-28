@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, useInView } from 'framer-motion';
 import {
   Zap, ArrowRight, Check, Github, Linkedin, Twitter,
-  Mail, Send,
+  Mail, Send, Hash, Settings, Triangle,
 } from 'lucide-react';
 import './LandingPage.css';
 
@@ -92,10 +92,60 @@ const testimonials = [
   { quote: 'Our team went from drowning in Slack noise to having every message triaged and prioritized automatically.', name: 'David Park', role: 'Engineering Manager', initials: 'DP', av: 6 },
 ];
 
+const SOCIAL_PROOF_STATS = [
+  { value: 10000, label: 'Documents Generated' },
+  { value: 500, label: 'Teams Using Operon' },
+  { value: 3600, label: 'Agent Templates Ready' },
+];
+
+const INTEGRATIONS: { name: string; icon: React.ReactNode }[] = [
+  { name: 'Gmail', icon: <Mail size={15} className="op-social-proof-logo-icon" /> },
+  { name: 'Slack', icon: <Hash size={15} className="op-social-proof-logo-icon" /> },
+  {
+    name: 'Microsoft Teams',
+    icon: (
+      <span className="op-social-proof-logo-icon op-social-proof-logo-letter" aria-hidden>T</span>
+    ),
+  },
+  { name: 'HubSpot', icon: <Settings size={15} className="op-social-proof-logo-icon" /> },
+  { name: 'Google Drive', icon: <Triangle size={15} className="op-social-proof-logo-icon" /> },
+  {
+    name: 'Notion',
+    icon: (
+      <span className="op-social-proof-logo-icon op-social-proof-logo-letter" aria-hidden>N</span>
+    ),
+  },
+];
+
+function useCountUp(end: number, inView: boolean, durationMs = 2000) {
+  const [count, setCount] = useState(0);
+  const hasAnimated = useRef(false);
+  useEffect(() => {
+    if (!inView || hasAnimated.current) return;
+    hasAnimated.current = true;
+    const start = 0;
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / durationMs, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.round(start + (end - start) * eased));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [inView, end, durationMs]);
+  return count;
+}
+
 export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [clockTime, setClockTime] = useState('');
+  const socialProofRef = useRef<HTMLDivElement>(null);
+  const socialProofInView = useInView(socialProofRef, { once: true, margin: '-80px' });
+  const stat1 = useCountUp(SOCIAL_PROOF_STATS[0].value, socialProofInView);
+  const stat2 = useCountUp(SOCIAL_PROOF_STATS[1].value, socialProofInView);
+  const stat3 = useCountUp(SOCIAL_PROOF_STATS[2].value, socialProofInView);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -143,31 +193,157 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
 
       {/* Hero */}
       <section className="op-hero">
-        <motion.div className="op-hero-inner" initial="hidden" animate="visible" variants={stagger}>
-          <motion.div className="op-hero-massive" variants={fadeUp}>
-            OPERON
-          </motion.div>
-          <motion.div className="op-hero-sub" variants={fadeUp}>
-            We design and build <span className="op-hero-accent">AI agents</span> that
-          </motion.div>
-          <motion.div className="op-hero-accent" style={{ fontSize: 'clamp(24px, 3.5vw, 38px)' }} variants={fadeUp}>
-            deliver real impact.
-          </motion.div>
+        {/* Ambient orb */}
+        <motion.div
+          className="op-hero-orb"
+          aria-hidden="true"
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+        />
 
-          <motion.div className="op-hero-badges" variants={fadeUp}>
-            <span className="op-badge">
+        <div className="op-hero-bg-overlay" aria-hidden="true" />
+
+        <div className="op-hero-inner">
+          {/* Trust badge */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          >
+            <div className="op-hero-trust-pill">
               <span className="op-badge-dot" />
-              Based in San Francisco, CA
-            </span>
-            <span className="op-badge">
-              AI Automation & Enterprise Solutions
-            </span>
+              ⚡ Trusted by 500+ teams
+            </div>
           </motion.div>
 
-          <motion.p className="op-hero-tag" variants={fadeUp}>
-            Crafting intelligent workflows
+          {/* Headline */}
+          <motion.h1
+            className="op-hero-title"
+            initial={{ opacity: 0, y: 28 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut', delay: 0.1 }}
+          >
+            Your AI workforce, ready to work.
+          </motion.h1>
+
+          {/* Subheadline */}
+          <motion.p
+            className="op-hero-subtitle"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut', delay: 0.3 }}
+          >
+            3,600+ agent templates for documents, emails, and workflows — deployed in seconds.
           </motion.p>
-        </motion.div>
+
+          {/* CTAs */}
+          <motion.div
+            className="op-hero-cta-row"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut', delay: 0.7 }}
+          >
+            <button className="op-hero-cta-primary" onClick={onGetStarted}>
+              Get Started <ArrowRight size={18} />
+            </button>
+            <button className="op-hero-cta-secondary">
+              Watch Demo
+            </button>
+          </motion.div>
+
+          {/* Product mockup */}
+          <motion.div
+            className="op-hero-mockup"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: 'easeOut', delay: 1.0 }}
+          >
+            <div className="op-hero-mockup-window">
+              <div className="op-hero-mockup-bar">
+                <span />
+                <span />
+                <span />
+              </div>
+              <div className="op-hero-mockup-body">
+                <div className="op-hero-mockup-header">
+                  <div>
+                    <div className="op-hero-mockup-title">Agent workforce</div>
+                    <div className="op-hero-mockup-subtitle">Live tasks • 24/7 coverage</div>
+                  </div>
+                  <span className="op-hero-mockup-status-pill">
+                    <span className="op-hero-mockup-status-dot" />
+                    All systems online
+                  </span>
+                </div>
+                <div className="op-hero-mockup-table">
+                  <div className="op-hero-mockup-row head">
+                    <span>Agent</span>
+                    <span>Channel</span>
+                    <span>Queue</span>
+                    <span>Status</span>
+                  </div>
+                  <div className="op-hero-mockup-row">
+                    <span>Contract reviewer</span>
+                    <span>Documents</span>
+                    <span>18 in review</span>
+                    <span className="status success">Running</span>
+                  </div>
+                  <div className="op-hero-mockup-row">
+                    <span>Inbox triage</span>
+                    <span>Email</span>
+                    <span>42 unread</span>
+                    <span className="status success">Running</span>
+                  </div>
+                  <div className="op-hero-mockup-row">
+                    <span>Sales follow-ups</span>
+                    <span>CRM</span>
+                    <span>9 this hour</span>
+                    <span className="status idle">Idle</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Social proof bar */}
+      <section className="op-social-proof" ref={socialProofRef}>
+        <div className="op-social-proof-inner">
+          <div className="op-social-proof-stats">
+            <div className="op-social-proof-stat">
+              <span className="op-social-proof-number">{stat1.toLocaleString()}+</span>
+              <span className="op-social-proof-label">{SOCIAL_PROOF_STATS[0].label}</span>
+            </div>
+            <div className="op-social-proof-divider" aria-hidden="true" />
+            <div className="op-social-proof-stat">
+              <span className="op-social-proof-number">{stat2.toLocaleString()}+</span>
+              <span className="op-social-proof-label">{SOCIAL_PROOF_STATS[1].label}</span>
+            </div>
+            <div className="op-social-proof-divider" aria-hidden="true" />
+            <div className="op-social-proof-stat">
+              <span className="op-social-proof-number">{stat3.toLocaleString()}+</span>
+              <span className="op-social-proof-label">{SOCIAL_PROOF_STATS[2].label}</span>
+            </div>
+          </div>
+          <motion.div
+            className="op-social-proof-logos"
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          >
+            <span className="op-social-proof-logos-label">Integrates with</span>
+            <div className="op-social-proof-logos-strip">
+              {INTEGRATIONS.map(({ name, icon }) => (
+                <span key={name} className="op-social-proof-logo-pill">
+                  {icon}
+                  {name}
+                </span>
+              ))}
+            </div>
+          </motion.div>
+        </div>
       </section>
 
       {/* Interactive Cards */}
