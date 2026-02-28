@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import {
-  Zap, ArrowRight, Check, Github, Linkedin, Twitter,
+  Zap, ArrowRight, Github, Linkedin, Twitter,
   Mail, Send, Hash, Settings, Triangle,
 } from 'lucide-react';
 import './LandingPage.css';
@@ -116,6 +116,192 @@ const INTEGRATIONS: { name: string; icon: React.ReactNode }[] = [
     ),
   },
 ];
+
+/* Showcase: full-width portfolio sections, black + orange only. Panels are freestanding in a collage (no card/box). */
+function ShowcaseCollagePanels({ productName, inView }: { productName: string; inView: boolean }) {
+  const [expanded, setExpanded] = React.useState(true);
+  React.useEffect(() => {
+    const t = setInterval(() => setExpanded((e) => !e), 4000);
+    return () => clearInterval(t);
+  }, []);
+
+  if (productName === 'Document Intelligence') {
+    const extractRows = ['Party A: Acme Corp', 'Value: $48,000', 'State: California', 'Confidence: 99.1%'];
+    return (
+      <>
+        <div className="op-showcase-panel op-showcase-panel--back" style={{ transform: 'rotate(-4deg)' }}>
+          <div className="op-showcase-panel-inner op-showcase-doc-preview">
+            <div className="op-showcase-doc-preview-title">Commercial Lease Agreement</div>
+            <motion.div className="op-showcase-scan-line" animate={{ top: ['0%', '100%'] }} transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.5 }} />
+            <div className="op-showcase-doc-preview-section">§1 Parties ✓</div>
+            <div className="op-showcase-doc-preview-section">§2 Lease Terms ✓</div>
+            <div className="op-showcase-doc-preview-section">§3 Payment ✓</div>
+            <div className="op-showcase-doc-preview-section op-showcase-doc-preview-section--last">§4 Jurisdiction…</div>
+          </div>
+        </div>
+        <div className="op-showcase-panel op-showcase-panel--front" style={{ transform: 'rotate(3deg)' }}>
+          <div className="op-showcase-panel-inner op-showcase-extract">
+            {extractRows.map((text) => (
+              <div key={text} className="op-showcase-extract-row">{text}</div>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (productName === 'Communications Agent') {
+    return (
+      <>
+        <div className="op-showcase-panel op-showcase-panel--back" style={{ transform: 'rotate(4deg)' }}>
+          <div className="op-showcase-panel-inner">
+            <div className="op-showcase-comm-inbox-row">
+              <span>⭐ John Miller (VIP)</span>
+              <span className="op-showcase-pill">VIP</span>
+            </div>
+            <div className="op-showcase-comm-inbox-row">
+              <span>Sarah Chen — Draft Ready</span>
+              <span className="op-showcase-pill">Draft Ready</span>
+            </div>
+            <div className="op-showcase-comm-inbox-row op-showcase-comm-inbox-row--muted">
+              <span>Team Slack · 8 mentions</span>
+            </div>
+          </div>
+        </div>
+        <div className="op-showcase-panel op-showcase-panel--front" style={{ transform: 'rotate(-3deg)' }}>
+          <div className="op-showcase-panel-inner">
+            <div className="op-showcase-draft-header">Matching your voice</div>
+            <div className="op-showcase-draft-text">Thanks for sending this over. I’ve reviewed the terms and we’re aligned on the key points.<span className="op-showcase-cursor" /></div>
+            <motion.div className="op-showcase-draft-actions" animate={{ height: expanded ? 28 : 0, opacity: expanded ? 1 : 0.7 }} transition={{ duration: 0.4 }}>
+              <button type="button" className="op-showcase-btn op-showcase-btn--primary">✓ Approve</button>
+            </motion.div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (productName === 'Sales Intelligence') {
+    const leads = [
+      { name: 'Acme Corp', score: 87, opacity: 1 },
+      { name: 'TechForward', score: 64, opacity: 0.6 },
+      { name: 'InnovateCo', score: 31, opacity: 0.3 },
+    ];
+    return (
+      <>
+        <div className="op-showcase-panel op-showcase-panel--back" style={{ transform: 'rotate(-4deg)' }}>
+          <div className="op-showcase-panel-inner">
+            {leads.map((lead) => (
+              <div key={lead.name} className="op-showcase-sales-lead-row">
+                <span>{lead.name} · {lead.score}/100</span>
+                <div className="op-showcase-sales-bar-wrap">
+                  <motion.div
+                    className="op-showcase-sales-bar op-showcase-sales-bar--orange"
+                    style={{ width: inView ? `${lead.score}%` : '0%', opacity: lead.opacity }}
+                    transition={{ delay: 0.2, duration: 0.8, ease: 'easeOut' }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="op-showcase-panel op-showcase-panel--front" style={{ transform: 'rotate(3deg)' }}>
+          <div className="op-showcase-panel-inner">
+            <div className="op-showcase-sales-insight-text">⚠ Deal at risk: TechForward engagement dropped 23%</div>
+            <button type="button" className="op-showcase-btn op-showcase-btn--primary op-showcase-btn--block">Next Best Action →</button>
+            <div className="op-showcase-sales-forecast">$284K forecast</div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (productName === 'Workflow Builder') {
+    const nodes = [{ label: 'Email Trigger' }, { label: 'AI Classify' }, { label: 'Route' }, { label: 'Slack Notify' }];
+    const templates = ['Email to Slack summary', 'VIP contact alert', 'Lead score update'];
+    return (
+      <>
+        <div className="op-showcase-panel op-showcase-panel--back" style={{ transform: 'rotate(4deg)' }}>
+          <div className="op-showcase-panel-inner">
+            <div className="op-showcase-workflow-canvas">
+              {nodes.map((node, i) => (
+                <React.Fragment key={node.label}>
+                  <div className="op-showcase-workflow-node">{node.label}</div>
+                  {i < nodes.length - 1 && <div className="op-showcase-workflow-line" />}
+                </React.Fragment>
+              ))}
+              <motion.div className="op-showcase-workflow-dot" animate={{ left: ['0%', '25%', '50%', '75%', '100%', '0%'] }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }} />
+            </div>
+          </div>
+        </div>
+        <div className="op-showcase-panel op-showcase-panel--front" style={{ transform: 'rotate(-3deg)' }}>
+          <div className="op-showcase-panel-inner">
+            <div className="op-showcase-template-title">Template library</div>
+            {templates.map((t) => (
+              <div key={t} className="op-showcase-template-row">
+                <span>{t}</span>
+                <button type="button" className="op-showcase-template-import">Import →</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return null;
+}
+
+const SHOWCASE_BADGES: Record<string, string> = {
+  'Document Intelligence': '6 specialized models · 99.1% accuracy',
+  'Communications Agent': 'Gmail · Slack · Teams',
+  'Sales Intelligence': '94.2% scoring accuracy',
+  'Workflow Builder': '4,343+ templates',
+};
+
+function ShowcaseSectionBlock({ product, index }: { product: typeof products[0]; index: number }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-80px' });
+  const copyOnLeft = index % 2 === 0; // 0, 2 = left; 1, 3 = right
+  const copyFrom = copyOnLeft ? -40 : 40;
+  const collageFrom = copyOnLeft ? 40 : -40;
+
+  return (
+    <section ref={ref} className={`op-showcase-section ${copyOnLeft ? 'op-showcase-section--left' : 'op-showcase-section--right'}`}>
+      <div className="op-showcase-section-inner">
+        <motion.div
+          className="op-showcase-copy"
+          initial={{ opacity: 0, x: copyFrom }}
+          animate={inView ? { opacity: 1, x: 0 } : {}}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+        >
+          <h2 className="op-showcase-copy-title"><span className="op-showcase-copy-dash">—</span> {product.name}</h2>
+          <p className="op-showcase-copy-desc">{product.desc}</p>
+          <ul className="op-showcase-copy-features">
+            {product.features.map((f, i) => (
+              <li key={f}><span className="op-showcase-copy-marker">{i === 0 ? '+' : '→'}</span> {f}</li>
+            ))}
+          </ul>
+          <div className="op-showcase-tech-pills">
+            {product.tech.map((t) => (
+              <span key={t} className="op-showcase-tech-pill">{t}</span>
+            ))}
+          </div>
+        </motion.div>
+        <motion.div
+          className="op-showcase-collage"
+          initial={{ opacity: 0, x: collageFrom }}
+          animate={inView ? { opacity: 1, x: 0 } : {}}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+        >
+          <div className="op-showcase-collage-glow" />
+          <ShowcaseCollagePanels productName={product.name} inView={inView} />
+          <span className="op-showcase-floating-badge">{SHOWCASE_BADGES[product.name]}</span>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
 
 function useCountUp(end: number, inView: boolean, durationMs = 2000) {
   const [count, setCount] = useState(0);
@@ -405,41 +591,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* Showcase */}
+      {/* Showcase — full-width portfolio sections, black + orange only */}
       <section className="op-showcase">
-        <div className="op-label">SHOWCASE</div>
-
-        <div className="op-products">
-          {products.map((p) => (
-            <motion.div key={p.name} className={`op-product-card ${p.color}`} initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
-              <div className="op-product-info">
-                <span className="op-product-emoji">{p.emoji}</span>
-                <h3>{p.name}</h3>
-                <p>{p.desc}</p>
-                <ul className="op-product-features">
-                  {p.features.map((f) => (
-                    <li key={f}><Check size={16} /> {f}</li>
-                  ))}
-                </ul>
-                <div className="op-tech-pills">
-                  {p.tech.map((t) => (
-                    <span key={t} className="op-tech-pill">{t}</span>
-                  ))}
-                </div>
-              </div>
-              <div className="op-product-mockup">
-                <div className="op-mockup-bar"><span /><span /><span /></div>
-                <div className="op-mockup-body">
-                  <div className="op-mockup-line" />
-                  <div className="op-mockup-line short" />
-                  <div className="op-mockup-block" />
-                  <div className="op-mockup-line med" />
-                  <div className="op-mockup-line short" />
-                </div>
-              </div>
-            </motion.div>
-          ))}
+        <div className="op-showcase-intro">
+          <span className="op-showcase-intro-label">WHAT WE BUILD</span>
+          <h2 className="op-showcase-intro-heading">Four agents. Every workflow covered.</h2>
         </div>
+        {products.map((p, i) => (
+          <ShowcaseSectionBlock key={p.name} product={p} index={i} />
+        ))}
       </section>
 
       {/* Skills */}

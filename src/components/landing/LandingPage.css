@@ -768,166 +768,435 @@
   box-shadow: 0 6px 20px rgba(224,122,58,0.3);
 }
 
-/* ─── Showcase / Products ─── */
+/* ─── Showcase — full-width portfolio sections, black + orange only, no cards ─── */
 .op-showcase {
-  padding: 100px 24px;
+  padding: 0;
+  background: #0a0a0a;
 }
 
-.op-showcase .op-label {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--op-text-muted);
-  margin-bottom: 48px;
+.op-showcase-intro {
+  padding: 80px 24px 64px;
   text-align: center;
 }
 
-.op-products {
-  display: flex;
-  flex-direction: column;
-  gap: 48px;
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-.op-product-card {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 48px;
-  padding: 40px;
-  background: var(--op-card);
-  border-radius: 24px;
-  border: 1px solid var(--op-border);
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.3s, box-shadow 0.3s;
-}
-
-.op-product-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  border-radius: 24px 24px 0 0;
-}
-
-.op-product-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
-}
-
-.op-product-card.orange::before { background: linear-gradient(90deg, #e07a3a, #f0a060); }
-.op-product-card.blue::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-.op-product-card.purple::before { background: linear-gradient(90deg, #e07a3a, #f0a060); }
-.op-product-card.green::before { background: linear-gradient(90deg, #22c55e, #4ade80); }
-
-.op-product-info h3 {
-  font-size: 24px;
-  font-weight: 700;
-  margin-bottom: 12px;
-}
-
-.op-product-info .op-product-emoji {
-  font-size: 28px;
-  margin-bottom: 12px;
+.op-showcase-intro-label {
   display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #888888;
+  margin-bottom: 12px;
 }
 
-.op-product-info p {
-  font-size: 15px;
-  color: var(--op-text-sec);
-  line-height: 1.7;
+.op-showcase-intro-heading {
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.op-showcase-section {
+  min-height: 90vh;
+  display: flex;
+  align-items: center;
+  padding: 80px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.op-showcase-section:first-of-type {
+  border-top: none;
+}
+
+.op-showcase-section-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 64px;
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.op-showcase-section--left .op-showcase-section-inner {
+  flex-direction: row;
+}
+
+.op-showcase-section--right .op-showcase-section-inner {
+  flex-direction: row-reverse;
+}
+
+.op-showcase-copy {
+  max-width: 480px;
+  flex-shrink: 0;
+}
+
+.op-showcase-copy-title {
+  font-size: clamp(28px, 3.5vw, 36px);
+  font-weight: 700;
+  color: #ffffff;
   margin-bottom: 20px;
+  line-height: 1.2;
 }
 
-.op-product-features {
+.op-showcase-copy-dash {
+  color: #e07b39;
+  font-size: 20px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.op-showcase-copy-desc {
+  font-size: 16px;
+  color: #888888;
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+
+.op-showcase-copy-features {
   list-style: none;
   margin-bottom: 24px;
 }
 
-.op-product-features li {
+.op-showcase-copy-features li {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   padding: 6px 0;
   font-size: 14px;
-  color: var(--op-text-sec);
+  color: #888888;
 }
 
-.op-product-features li svg {
-  color: var(--op-primary);
+.op-showcase-copy-marker {
+  color: #e07b39;
+  font-weight: 600;
   flex-shrink: 0;
-  margin-top: 2px;
 }
 
-.op-tech-pills {
+.op-showcase-tech-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.op-tech-pill {
+.op-showcase-tech-pill {
   padding: 4px 12px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--op-border);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(224, 123, 57, 0.2);
   border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--op-text-sec);
+  color: #888888;
 }
 
-.op-product-mockup {
-  background: rgba(255,255,255,0.02);
-  border-radius: 16px;
-  border: 1px solid var(--op-border);
+/* Collage: freestanding panels, no window chrome */
+.op-showcase-collage {
+  position: relative;
+  min-width: 380px;
+  min-height: 320px;
+  flex: 1;
+  max-width: 560px;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
+}
+
+.op-showcase-collage-glow {
+  position: absolute;
+  inset: -20%;
+  background: radial-gradient(ellipse at 60% 50%, rgba(224, 123, 57, 0.15) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.op-showcase-floating-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(224, 123, 57, 0.2);
+  color: #e07b39;
+  border: 1px solid rgba(224, 123, 57, 0.35);
+  z-index: 3;
+}
+
+.op-showcase-panel {
+  position: absolute;
+  background: #111111;
+  border: 1px solid rgba(224, 123, 57, 0.2);
+  border-radius: 12px;
   overflow: hidden;
+  min-width: 320px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.op-showcase-panel--back {
+  width: 340px;
+  left: 0;
+  top: 20px;
+  z-index: 0;
+}
+
+.op-showcase-panel--front {
+  width: 320px;
+  right: 0;
+  bottom: 20px;
+  z-index: 1;
+}
+
+.op-showcase-panel-inner {
+  padding: 12px 14px;
+  font-size: 11px;
+  color: #888888;
+}
+
+.op-showcase-panel-inner * {
+  color: inherit;
+}
+
+/* Card 1 — Document Intelligence */
+.op-showcase-doc-preview {
+  position: relative;
+}
+
+.op-showcase-doc-preview-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 10px;
+}
+
+.op-showcase-doc-preview-section {
+  font-size: 10px;
+  color: #888888;
+  padding: 3px 0;
+}
+
+.op-showcase-doc-preview-section--last {
+  color: #e07b39;
+}
+
+.op-showcase-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: #e07b39;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.op-showcase-extract {
   display: flex;
   flex-direction: column;
+  gap: 6px;
 }
 
-.op-mockup-bar {
+.op-showcase-extract-row {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 4px 0 4px 10px;
+  border-left: 3px solid #e07b39;
+}
+
+/* Card 2 — Communications */
+.op-showcase-comm-inbox-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--op-border);
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.85);
 }
 
-.op-mockup-bar span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.op-showcase-comm-inbox-row--muted {
+  color: #888888;
 }
 
-.op-mockup-bar span:nth-child(1) { background: #ff5f57; }
-.op-mockup-bar span:nth-child(2) { background: #ffbd2e; }
-.op-mockup-bar span:nth-child(3) { background: #28c840; }
+.op-showcase-pill {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(224, 123, 57, 0.25);
+  color: #e07b39;
+  margin-left: auto;
+}
 
-.op-mockup-body {
-  flex: 1;
-  padding: 20px;
+.op-showcase-draft-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e07b39;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-top: 2px solid #e07b39;
+  padding-top: 8px;
+}
+
+.op-showcase-draft-text {
+  font-size: 10px;
+  color: #888888;
+  margin-bottom: 8px;
+}
+
+.op-showcase-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 12px;
+  background: #e07b39;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: op-cursor-blink 1s step-end infinite;
+}
+
+@keyframes op-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.op-showcase-draft-actions {
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.op-showcase-btn {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: default;
+  border: 1px solid transparent;
+  font-family: inherit;
+}
+
+.op-showcase-btn--primary {
+  background: #e07b39;
+  color: #fff;
+}
+
+.op-showcase-btn--ghost {
+  background: transparent;
+  color: #888888;
+  border-color: rgba(224, 123, 57, 0.3);
+}
+
+.op-showcase-btn--block {
+  width: 100%;
+}
+
+/* Card 3 — Sales Intelligence */
+.op-showcase-sales-lead-row {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 4px;
+  margin-bottom: 8px;
 }
 
-.op-mockup-line {
-  height: 12px;
-  background: rgba(255,255,255,0.04);
-  border-radius: 4px;
+.op-showcase-sales-lead-row span {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.85);
 }
 
-.op-mockup-line.short { width: 60%; }
-.op-mockup-line.med { width: 80%; }
+.op-showcase-sales-bar-wrap {
+  height: 4px;
+  background: #1a1a1a;
+  border-radius: 2px;
+  overflow: hidden;
+}
 
-.op-mockup-block {
-  height: 80px;
-  background: rgba(255,255,255,0.03);
+.op-showcase-sales-bar--orange {
+  height: 100%;
+  border-radius: 2px;
+  min-width: 2px;
+  background: #e07b39;
+}
+
+.op-showcase-sales-insight-text {
+  font-size: 10px;
+  color: #888888;
+  margin-bottom: 8px;
+}
+
+.op-showcase-sales-forecast {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e07b39;
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* Card 4 — Workflow Builder */
+.op-showcase-workflow-canvas {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  padding: 4px 0;
+}
+
+.op-showcase-workflow-node {
+  padding: 6px 10px;
+  background: #1a1a1a;
+  border: 1px solid #e07b39;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.04);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.9);
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.op-showcase-workflow-line {
+  width: 20px;
+  min-width: 20px;
+  height: 0;
+  border-top: 2px dashed #e07b39;
+  align-self: center;
+}
+
+.op-showcase-workflow-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e07b39;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.op-showcase-template-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 8px;
+}
+
+.op-showcase-template-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 10px;
+  color: #888888;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.op-showcase-template-import {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid #e07b39;
+  color: #e07b39;
+  cursor: default;
+  font-family: inherit;
 }
 
 /* ─── Skills / Tech ─── */
@@ -1399,8 +1668,25 @@
     margin: 0 auto;
   }
 
-  .op-product-card {
-    grid-template-columns: 1fr;
+  .op-showcase-section-inner {
+    flex-direction: column !important;
+    gap: 48px;
+  }
+
+  .op-showcase-collage {
+    min-width: 100%;
+    max-width: 100%;
+    min-height: 280px;
+  }
+
+  .op-showcase-panel--back {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .op-showcase-panel--front {
+    width: 100%;
+    max-width: 300px;
   }
 
   .op-about-inner {
