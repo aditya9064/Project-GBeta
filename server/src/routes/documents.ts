@@ -371,7 +371,7 @@ router.get('/templates', async (req: Request, res: Response) => {
 /* ─── DELETE /templates/:id — Delete a saved template ─── */
 router.delete('/templates/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id: string = (Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) ?? '';
     if (db) {
       await db.collection('documentTemplates').doc(id).delete();
     }

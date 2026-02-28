@@ -41,7 +41,7 @@ router.post('/run', validate(computerRunSchema), async (req: Request, res: Respo
 
 router.get('/status/:taskId', async (req: Request, res: Response) => {
   try {
-    const { taskId } = req.params;
+    const taskId: string = (Array.isArray(req.params.taskId) ? req.params.taskId[0] : req.params.taskId) ?? '';
 
     const status = ComputerService.getStatus(taskId);
 

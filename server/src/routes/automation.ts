@@ -550,7 +550,7 @@ agentsRouter.post('/', validate(agentCreateSchema), async (req: Request, res: Re
 
 agentsRouter.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id: string = (Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) ?? '';
     const updates = req.body;
 
     const existing = memAgents.get(id);
@@ -575,7 +575,7 @@ agentsRouter.put('/:id', async (req: Request, res: Response) => {
 
 agentsRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id: string = (Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) ?? '';
     memAgents.delete(id);
     memLogs.delete(id);
 
@@ -598,7 +598,7 @@ agentsRouter.delete('/:id', async (req: Request, res: Response) => {
 
 agentsRouter.get('/:id/logs', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id: string = (Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) ?? '';
 
     if (await checkAgentsFirestore()) {
       const snap = await agentsDb!
@@ -624,7 +624,7 @@ agentsRouter.get('/:id/logs', async (req: Request, res: Response) => {
 
 agentsRouter.post('/:id/logs', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id: string = (Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) ?? '';
     const log = req.body;
     if (!log) {
       res.status(400).json({ success: false, error: 'Missing log data' });

@@ -99,9 +99,9 @@ function getDb(): Firestore {
     }
     firestoreDb = getFirestore(firebaseApp);
     return firestoreDb;
-  } catch (err: any) {
-    initializationError = err.message;
-    throw new Error(`Firestore not available: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Firestore not available: ${message}`);
   }
 }
 
