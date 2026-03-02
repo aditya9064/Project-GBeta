@@ -6,7 +6,7 @@
    checks with caching to avoid excessive polling.
    ═══════════════════════════════════════════════════════════ */
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
 export interface BackendStatus {
   available: boolean;

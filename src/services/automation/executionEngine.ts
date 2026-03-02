@@ -29,6 +29,10 @@ import {
   MemoryConfig,
   AgentCallConfig,
   BrowserTaskConfig,
+  SupervisorReviewConfig,
+  QualityGateConfig,
+  EscalateConfig,
+  CrewTaskConfig,
 } from './types';
 import {
   isBackendAvailable,
@@ -630,6 +634,18 @@ async function executeNode(
     case 'vision_browse':
     case 'desktop_task':
       return executeVisionTask(resolvedNode, input, useRealBackend);
+
+    case 'supervisor_review':
+      return executeSupervisorReview(resolvedNode, input, context, useRealBackend);
+
+    case 'quality_gate':
+      return executeQualityGate(resolvedNode, input, context);
+
+    case 'escalate':
+      return executeEscalate(resolvedNode, input, context);
+
+    case 'crew_task':
+      return executeCrewTask(resolvedNode, input, context, useRealBackend);
 
     default:
       // For any unknown/n8n-specific node type, pass through with metadata
@@ -1851,7 +1867,8 @@ async function executeAgentCall(
 
 /* ═══ VISION BROWSE / DESKTOP TASK NODE ══════════════════ */
 
-const BACKEND_URL_VISION = 'http://localhost:3001';
+// In production, use relative /api paths. In dev, VITE_API_URL points to localhost:3001
+const BACKEND_URL_VISION = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || '');
 
 async function executeVisionTask(
   node: WorkflowNodeData,
@@ -2045,6 +2062,397 @@ function simulateBrowserAction(config: BrowserTaskConfig, input: any): any {
     custom: () => ({ description: config.description, executed: true }),
   };
   return (sims[config.action] || sims.custom)();
+}
+
+/* ═══ WORKFORCE NODE EXECUTORS ════════════════════════════ */
+
+async function executeSupervisorReview(
+  node: WorkflowNodeData,
+  input: any,
+  context: ExecutionContext,
+  useRealBackend: boolean
+): Promise<any> {
+  const config = node.config as SupervisorReviewConfig;
+  
+  console.log(`[Supervisor] Reviewing output from previous node...`);
+  
+  // Get the output that needs to be reviewed
+  const outputToReview = input;
+  
+  // If auto-approve threshold is set and we have a confidence score
+  if (config.autoApproveThreshold && input._confidence !== undefined) {
+    if (input._confidence >= config.autoApproveThreshold) {
+      return {
+        ...input,
+        _review: {
+          status: 'auto_approved',
+          confidence: input._confidence,
+          threshold: config.autoApproveThreshold,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+  }
+  
+  // If we have a reviewer agent, delegate to them
+  if (config.reviewerAgentId && useRealBackend) {
+    try {
+      const reviewResult = await AgentBus.callAgent(
+        context.agentId,
+        'Supervisor Review',
+        config.reviewerAgentId,
+        {
+          action: 'review',
+          content: outputToReview,
+          reviewPrompt: config.reviewPrompt || 'Please review this output for quality and accuracy.',
+          crewContext: context.crewSharedContext,
+        },
+        true,
+        30000
+      );
+      
+      if (reviewResult.success && reviewResult.output?.approved) {
+        return {
+          ...input,
+          _review: {
+            status: 'approved',
+            reviewerAgentId: config.reviewerAgentId,
+            feedback: reviewResult.output.feedback,
+            timestamp: new Date().toISOString(),
+          },
+        };
+      } else if (config.onReject === 'retry' && (config.maxRetries || 1) > 0) {
+        return {
+          ...input,
+          _review: {
+            status: 'needs_revision',
+            feedback: reviewResult.output?.feedback || 'Review failed',
+            retriesRemaining: (config.maxRetries || 1) - 1,
+          },
+          _requiresRetry: true,
+        };
+      } else if (config.onReject === 'escalate') {
+        return {
+          ...input,
+          _review: {
+            status: 'escalated',
+            reason: reviewResult.output?.feedback || 'Review rejected',
+          },
+          _escalate: true,
+        };
+      } else {
+        throw new Error(`Review rejected: ${reviewResult.output?.feedback || 'Unknown reason'}`);
+      }
+    } catch (err: any) {
+      console.warn(`[Supervisor] Review error: ${err.message}`);
+    }
+  }
+  
+  // If explicit approval is required but no reviewer, pause for human review
+  if (config.requireExplicitApproval) {
+    return {
+      ...input,
+      _review: {
+        status: 'pending_human_review',
+        content: outputToReview,
+        timestamp: new Date().toISOString(),
+      },
+      _awaitingApproval: true,
+    };
+  }
+  
+  // Default: pass through with review metadata
+  return {
+    ...input,
+    _review: {
+      status: 'auto_approved',
+      reason: 'No explicit approval required',
+      timestamp: new Date().toISOString(),
+    },
+  };
+}
+
+async function executeQualityGate(
+  node: WorkflowNodeData,
+  input: any,
+  context: ExecutionContext
+): Promise<any> {
+  const config = node.config as QualityGateConfig;
+  
+  console.log(`[Quality Gate] Validating ${config.validationRules.length} rules...`);
+  
+  const results: { rule: string; passed: boolean; error?: string }[] = [];
+  
+  for (const rule of config.validationRules) {
+    let passed = false;
+    let error: string | undefined;
+    
+    switch (rule.type) {
+      case 'required_field':
+        if (rule.field) {
+          const value = getNestedValue(input, rule.field);
+          passed = value !== undefined && value !== null && value !== '';
+          if (!passed) error = rule.errorMessage || `Required field "${rule.field}" is missing`;
+        }
+        break;
+        
+      case 'format':
+        if (rule.field && rule.condition) {
+          const value = getNestedValue(input, rule.field);
+          try {
+            const regex = new RegExp(rule.condition);
+            passed = regex.test(String(value || ''));
+            if (!passed) error = rule.errorMessage || `Field "${rule.field}" does not match required format`;
+          } catch {
+            passed = false;
+            error = `Invalid format rule: ${rule.condition}`;
+          }
+        }
+        break;
+        
+      case 'range':
+        if (rule.field && rule.condition) {
+          const value = Number(getNestedValue(input, rule.field));
+          const [min, max] = rule.condition.split('-').map(Number);
+          passed = !isNaN(value) && value >= min && value <= max;
+          if (!passed) error = rule.errorMessage || `Field "${rule.field}" is not within range ${min}-${max}`;
+        }
+        break;
+        
+      case 'custom':
+        passed = true;
+        break;
+    }
+    
+    results.push({ rule: rule.name, passed, error });
+  }
+  
+  const passedCount = results.filter(r => r.passed).length;
+  const passRate = config.validationRules.length > 0 
+    ? passedCount / config.validationRules.length 
+    : 1;
+  const overallPassed = passRate >= (config.passThreshold || 1);
+  
+  const gateResult = {
+    ...input,
+    _qualityGate: {
+      passed: overallPassed,
+      passRate,
+      threshold: config.passThreshold || 1,
+      results,
+      timestamp: new Date().toISOString(),
+    },
+  };
+  
+  if (!overallPassed) {
+    const failedRules = results.filter(r => !r.passed);
+    const errorMessages = failedRules.map(r => r.error).filter(Boolean).join('; ');
+    
+    switch (config.failAction) {
+      case 'block':
+        throw new Error(`Quality gate failed: ${errorMessages}`);
+      case 'escalate':
+        gateResult._escalate = true;
+        gateResult._escalateReason = errorMessages;
+        break;
+      case 'warn':
+      default:
+        gateResult._qualityGate.warning = errorMessages;
+    }
+  }
+  
+  return gateResult;
+}
+
+async function executeEscalate(
+  node: WorkflowNodeData,
+  input: any,
+  context: ExecutionContext
+): Promise<any> {
+  const config = node.config as EscalateConfig;
+  
+  console.log(`[Escalate] Escalating to ${config.target} with priority ${config.priority}`);
+  
+  const escalation = {
+    id: `esc-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+    target: config.target,
+    targetAgentId: config.targetAgentId,
+    reason: config.reason || input._escalateReason || 'Manual escalation',
+    priority: config.priority,
+    notifyChannels: config.notifyChannels,
+    context: {
+      agentId: context.agentId,
+      executionId: context.executionId,
+      crewId: context.crewId,
+      input: input,
+    },
+    createdAt: new Date().toISOString(),
+    status: 'pending' as const,
+  };
+  
+  // If target is another agent and we have the ID, try to delegate
+  if (config.target === 'senior_agent' && config.targetAgentId) {
+    try {
+      const result = await AgentBus.callAgent(
+        context.agentId,
+        'Escalation Handler',
+        config.targetAgentId,
+        {
+          action: 'handle_escalation',
+          escalation,
+          originalInput: input,
+        },
+        true,
+        config.timeout ? config.timeout * 1000 : 60000
+      );
+      
+      if (result.success) {
+        return {
+          ...result.output,
+          _escalation: {
+            ...escalation,
+            status: 'handled',
+            handledBy: config.targetAgentId,
+            handledAt: new Date().toISOString(),
+          },
+        };
+      }
+    } catch (err: any) {
+      console.warn(`[Escalate] Failed to delegate: ${err.message}`);
+    }
+  }
+  
+  // For human escalation or failed agent escalation
+  if (config.target === 'human' || config.target === 'manager') {
+    return {
+      ...input,
+      _escalation: {
+        ...escalation,
+        status: 'awaiting_human',
+      },
+      _awaitingHumanEscalation: true,
+    };
+  }
+  
+  // Fallback action
+  if (config.fallbackAction === 'continue') {
+    return {
+      ...input,
+      _escalation: {
+        ...escalation,
+        status: 'fallback_continue',
+      },
+    };
+  } else if (config.fallbackAction === 'skip') {
+    return {
+      _escalation: {
+        ...escalation,
+        status: 'skipped',
+      },
+      _skipped: true,
+    };
+  }
+  
+  throw new Error(`Escalation to ${config.target} could not be completed`);
+}
+
+async function executeCrewTask(
+  node: WorkflowNodeData,
+  input: any,
+  context: ExecutionContext,
+  useRealBackend: boolean
+): Promise<any> {
+  const config = node.config as CrewTaskConfig;
+  
+  console.log(`[Crew Task] Delegating to crew ${config.crewId}: ${config.goal}`);
+  
+  // Map input if configured
+  let taskInput = input;
+  if (config.inputMapping) {
+    taskInput = {};
+    for (const [targetKey, sourceKey] of Object.entries(config.inputMapping)) {
+      taskInput[targetKey] = getNestedValue(input, sourceKey);
+    }
+  }
+  
+  const crewTask = {
+    crewId: config.crewId,
+    goal: config.goal,
+    input: taskInput,
+    callerAgentId: context.agentId,
+    callerExecutionId: context.executionId,
+    startedAt: new Date().toISOString(),
+  };
+  
+  if (!useRealBackend) {
+    // Simulated crew execution
+    await new Promise(r => setTimeout(r, 1500));
+    return {
+      ...input,
+      _crewTask: {
+        ...crewTask,
+        status: 'simulated',
+        result: {
+          success: true,
+          output: `Simulated crew task result for: ${config.goal}`,
+        },
+        completedAt: new Date().toISOString(),
+      },
+    };
+  }
+  
+  // Real crew execution will be handled by the CrewExecutor
+  // For now, emit an event for the crew to pick up
+  AgentBus.emit({
+    id: `crew-task-${Date.now()}`,
+    type: 'agent_request',
+    sourceAgentId: context.agentId,
+    sourceAgentName: 'Workflow',
+    targetAgentId: `crew:${config.crewId}`,
+    payload: crewTask,
+    timestamp: new Date(),
+    handled: false,
+  });
+  
+  if (!config.waitForCompletion) {
+    return {
+      ...input,
+      _crewTask: {
+        ...crewTask,
+        status: 'dispatched',
+      },
+    };
+  }
+  
+  // Wait for completion with timeout
+  const timeout = config.timeout ? config.timeout * 1000 : 120000;
+  const startTime = Date.now();
+  
+  // Poll for result (simplified - real implementation would use proper event handling)
+  while (Date.now() - startTime < timeout) {
+    await new Promise(r => setTimeout(r, 1000));
+    
+    // Check for crew task completion event
+    const events = AgentBus.getRecentEvents();
+    const completionEvent = events.find(
+      e => e.type === 'agent_output' && 
+           e.payload?.crewTaskId === crewTask.crewId &&
+           e.payload?.callerExecutionId === context.executionId
+    );
+    
+    if (completionEvent) {
+      return {
+        ...completionEvent.payload.result,
+        _crewTask: {
+          ...crewTask,
+          status: 'completed',
+          completedAt: new Date().toISOString(),
+        },
+      };
+    }
+  }
+  
+  throw new Error(`Crew task timed out after ${timeout / 1000} seconds`);
 }
 
 /* ═══ EXPORTS ════════════════════════════════════════════ */

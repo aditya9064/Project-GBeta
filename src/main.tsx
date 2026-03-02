@@ -1,11 +1,19 @@
-import { StrictMode, useEffect } from 'react'
+import { StrictMode, useEffect, lazy, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthProvider } from './contexts/AuthContext'
 import { AgentProvider } from './contexts/AgentContext'
-import { CrewOSDashboard } from './components/crewos/CrewOSDashboard'
-import { LandingPage } from './components/landing/LandingPage'
+import { PageLoader } from './components/ui/LoadingSpinner'
+
+// Lazy load main components for code splitting
+const LandingPage = lazy(() => 
+  import('./components/landing/LandingPage').then(m => ({ default: m.LandingPage }))
+);
+
+const CrewOSDashboard = lazy(() => 
+  import('./components/crewos/CrewOSDashboard').then(m => ({ default: m.CrewOSDashboard }))
+);
 
 function AppRouter() {
   const navigate = useNavigate();
@@ -23,18 +31,20 @@ function AppRouter() {
   }, [location.pathname]);
 
   return (
-    <Routes>
-      <Route path="/" element={
-        <ErrorBoundary>
-          <LandingPage onGetStarted={() => navigate('/dashboard')} />
-        </ErrorBoundary>
-      } />
-      <Route path="/*" element={
-        <ErrorBoundary>
-          <CrewOSDashboard />
-        </ErrorBoundary>
-      } />
-    </Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/" element={
+          <ErrorBoundary>
+            <LandingPage onGetStarted={() => navigate('/dashboard')} />
+          </ErrorBoundary>
+        } />
+        <Route path="/*" element={
+          <ErrorBoundary>
+            <CrewOSDashboard />
+          </ErrorBoundary>
+        } />
+      </Routes>
+    </Suspense>
   );
 }
 

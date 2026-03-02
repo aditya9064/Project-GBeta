@@ -1,6 +1,23 @@
 // Automation Agent Types - Inspired by n8n and Zapier
 
-export type NodeType = 'trigger' | 'action' | 'app' | 'knowledge' | 'condition' | 'ai' | 'filter' | 'delay' | 'memory' | 'agent_call' | 'browser_task' | 'vision_browse' | 'desktop_task';
+export type NodeType = 
+  | 'trigger' 
+  | 'action' 
+  | 'app' 
+  | 'knowledge' 
+  | 'condition' 
+  | 'ai' 
+  | 'filter' 
+  | 'delay' 
+  | 'memory' 
+  | 'agent_call' 
+  | 'browser_task' 
+  | 'vision_browse' 
+  | 'desktop_task'
+  | 'supervisor_review'
+  | 'quality_gate'
+  | 'escalate'
+  | 'crew_task';
 
 export type AgentStatus = 'draft' | 'active' | 'paused' | 'error' | 'archived';
 
@@ -245,6 +262,24 @@ export interface DeployedAgent {
 
   // Inter-agent — capabilities this agent advertises for discovery
   capabilities?: string[];
+  
+  // Tags for categorization and filtering
+  tags?: string[];
+  
+  // Domain expertise (e.g., 'sales', 'marketing', 'engineering')
+  domain?: string;
+  
+  // Priority for task routing (higher = preferred)
+  priority?: number;
+  
+  // Cost per execution (for budget tracking)
+  costPerExecution?: number;
+  
+  // Maximum concurrent executions
+  maxConcurrentExecutions?: number;
+  
+  // Current load (number of running executions)
+  currentLoad?: number;
 }
 
 // Execution Record
@@ -302,6 +337,145 @@ export interface ExecutionContext {
   currentNodeId?: string;
   memory: Record<string, any>;
   callerAgentId?: string;
+  // Crew context for workforce execution
+  crewId?: string;
+  crewRole?: CrewMemberRole;
+  crewSharedContext?: Record<string, any>;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Agent Workforce Types
+// ═══════════════════════════════════════════════════════════
+
+export type CrewMemberRole = 'manager' | 'specialist' | 'reviewer' | 'qa';
+export type CrewMemberPermission = 'execute' | 'delegate' | 'review' | 'approve';
+export type SupervisionLevel = 'none' | 'light' | 'strict';
+export type EscalationTarget = 'human' | 'manager' | 'senior_agent';
+
+export interface CrewMember {
+  agentId: string;
+  agentName: string;
+  role: CrewMemberRole;
+  joinedAt: string;
+  permissions: CrewMemberPermission[];
+}
+
+export interface CrewSettings {
+  supervisionLevel: SupervisionLevel;
+  requireReviewForOutput: boolean;
+  escalationEnabled: boolean;
+  escalationThreshold: number;
+  maxConcurrentTasks: number;
+}
+
+export interface CrewStats {
+  totalExecutions: number;
+  successfulExecutions: number;
+  failedExecutions: number;
+  avgDurationMs: number;
+  lastExecutedAt?: string;
+}
+
+export interface Crew {
+  id: string;
+  name: string;
+  description: string;
+  ownerId: string;
+  members: CrewMember[];
+  sharedContext: Record<string, any>;
+  settings: CrewSettings;
+  stats: CrewStats;
+  createdAt: string;
+  updatedAt: string;
+  status: 'active' | 'archived';
+}
+
+// Supervisor Review Node Config
+export interface SupervisorReviewConfig {
+  reviewerAgentId?: string;
+  reviewPrompt?: string;
+  autoApproveThreshold?: number;
+  requireExplicitApproval: boolean;
+  onReject: 'retry' | 'escalate' | 'fail';
+  maxRetries?: number;
+}
+
+// Quality Gate Node Config
+export interface QualityGateConfig {
+  validationRules: QualityRule[];
+  passThreshold: number;
+  failAction: 'block' | 'warn' | 'escalate';
+  customValidationPrompt?: string;
+}
+
+export interface QualityRule {
+  id: string;
+  name: string;
+  type: 'required_field' | 'format' | 'range' | 'custom';
+  field?: string;
+  condition?: string;
+  errorMessage: string;
+}
+
+// Escalation Node Config
+export interface EscalateConfig {
+  target: EscalationTarget;
+  targetAgentId?: string;
+  reason?: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  notifyChannels: ('email' | 'slack' | 'in_app')[];
+  timeout?: number;
+  fallbackAction?: 'continue' | 'fail' | 'skip';
+}
+
+// Crew Task Node Config
+export interface CrewTaskConfig {
+  crewId: string;
+  goal: string;
+  inputMapping?: Record<string, string>;
+  waitForCompletion: boolean;
+  timeout?: number;
+}
+
+// Execution Feedback Types
+export type FeedbackOutcome = 'success' | 'failure' | 'partial' | 'user_corrected';
+
+export interface UserCorrection {
+  field: string;
+  before: string;
+  after: string;
+}
+
+export interface ExecutionFeedback {
+  id: string;
+  executionId: string;
+  agentId: string;
+  crewId?: string;
+  outcome: FeedbackOutcome;
+  userCorrections?: UserCorrection[];
+  rating?: number;
+  feedbackText?: string;
+  timestamp: string;
+}
+
+// Agent Metrics Types
+export type MetricPeriod = 'daily' | 'weekly' | 'monthly' | 'all_time';
+
+export interface AgentMetrics {
+  agentId: string;
+  agentName: string;
+  period: MetricPeriod;
+  periodStart: string;
+  periodEnd: string;
+  totalExecutions: number;
+  successCount: number;
+  failureCount: number;
+  avgDurationMs: number;
+  minDurationMs: number;
+  maxDurationMs: number;
+  totalCost: number;
+  userCorrections: number;
+  successRate: number;
 }
 
 // ═══════════════════════════════════════════════════════════

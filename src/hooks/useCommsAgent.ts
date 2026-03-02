@@ -1284,7 +1284,7 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
   const fetchThread = useCallback(async (messageId: string) => {
     try {
       if (backendConnected) {
-        const apiBase = import.meta.env.VITE_API_URL || '/api';
+        const apiBase = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
         const res = await fetch(`${apiBase}/messages?threadId=${messageId}`, {
           headers: { 'Content-Type': 'application/json' },
         });

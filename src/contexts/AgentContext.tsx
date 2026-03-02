@@ -18,12 +18,15 @@ import {
 } from '../services/automation';
 import type { AutomationStatus, ExecutionLog } from '../services/automation';
 import type { AIGeneratedAgent } from '../services/automation/planGenerator';
-import type { AgentRegistryEntry, AgentBusEvent } from '../services/automation/types';
+import type { AgentRegistryEntry, AgentBusEvent, Crew } from '../services/automation/types';
 import { ExecutionEngine } from '../services/automation/executionEngine';
+import { CrewService, type Crew as CrewType } from '../services/workforce';
+import { MetricsService } from '../services/workforce';
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 const DEMO_USER_ID = 'demo-user-123';
-const BACKEND_URL = 'http://localhost:3001';
+// In production, use relative /api paths. In dev, VITE_API_URL points to localhost:3001
+const BACKEND_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || '');
 
 // ─── Schedule types ──────────────────────────────────────
 interface AgentSchedule {
@@ -63,6 +66,10 @@ interface AgentContextType {
   getScheduleInfo: (agentId: string) => AgentSchedule | null;
   // Prompt-to-Agent
   createAgentFromPrompt: (prompt: string) => Promise<{ success: boolean; agent?: DeployedAgent; error?: string }>;
+  // Crews
+  crews: CrewType[];
+  loadCrews: () => Promise<void>;
+  getCrewForAgent: (agentId: string) => CrewType | null;
 }
 
 const defaultAgentContext: AgentContextType = {
@@ -92,6 +99,9 @@ const defaultAgentContext: AgentContextType = {
   scheduleAgent: () => {},
   getScheduleInfo: () => null,
   createAgentFromPrompt: async () => ({ success: false, error: 'AgentProvider not available' }),
+  crews: [],
+  loadCrews: async () => {},
+  getCrewForAgent: () => null,
 };
 
 const AgentContext = createContext<AgentContextType>(defaultAgentContext);
@@ -300,6 +310,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   const [agentRegistry, setAgentRegistry] = useState<AgentRegistryEntry[]>([]);
   const [busEvents, setBusEvents] = useState<AgentBusEvent[]>([]);
   const scheduleLastRun = useRef<Record<string, number>>({});
+  const [crews, setCrews] = useState<CrewType[]>([]);
 
   // Check backend status on mount
   const checkBackend = useCallback(async () => {
@@ -652,6 +663,15 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         completedAt: executionRecord.completedAt instanceof Date ? executionRecord.completedAt.toISOString() : executionRecord.completedAt,
       });
 
+      // Record metrics
+      MetricsService.recordExecution(
+        agentId,
+        agent.name,
+        result.success,
+        executionRecord.duration || 0,
+        0
+      );
+
       // Sync updated agent stats to backend
       const updatedAgent = agents.find((a) => a.id === agentId);
       if (updatedAgent) {
@@ -770,6 +790,26 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     return schedules[agentId] || null;
   }, []);
 
+  // ─── Crews ────────────────────────────────────────────────
+
+  const loadCrews = useCallback(async () => {
+    try {
+      const loadedCrews = await CrewService.list();
+      setCrews(loadedCrews);
+    } catch (err) {
+      console.warn('Failed to load crews:', err);
+    }
+  }, []);
+
+  const getCrewForAgent = useCallback((agentId: string): CrewType | null => {
+    return crews.find(c => c.members.some(m => m.agentId === agentId)) || null;
+  }, [crews]);
+
+  // Load crews on mount
+  useEffect(() => {
+    loadCrews();
+  }, [loadCrews]);
+
   // Poll every 60 s to check if any scheduled agent is due
   useEffect(() => {
     const interval = setInterval(() => {
@@ -818,6 +858,9 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       scheduleAgent: scheduleAgentFn,
       getScheduleInfo: getScheduleInfoFn,
       createAgentFromPrompt,
+      crews,
+      loadCrews,
+      getCrewForAgent,
     }}>
       {children}
     </AgentContext.Provider>

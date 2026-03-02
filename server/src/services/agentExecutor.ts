@@ -16,6 +16,7 @@ import { AgentStore, type ExecutionRecord, type ExecutionNodeLog } from './agent
 import type { StoredAgent } from './agentStore.js';
 import { VisionAgent } from './visionAgent.js';
 import { ComputerService } from './computer/index.js';
+import { ExecutionStream } from './executionStream.js';
 
 interface WorkflowNode {
   id: string;
@@ -62,8 +63,17 @@ export class AgentExecutor {
       logs: [],
     };
 
-    await AgentStore.saveExecution(record);
-    console.log(`\n🚀 [AgentExecutor] Starting: "${agent.name}" (${executionId})`);
+      await AgentStore.saveExecution(record);
+      console.log(`\n🚀 [AgentExecutor] Starting: "${agent.name}" (${executionId})`);
+
+      // Emit SSE event for execution start
+      ExecutionStream.emit({
+        type: 'log',
+        executionId,
+        agentId: agent.id,
+        message: `Starting execution of "${agent.name}"`,
+        timestamp: new Date().toISOString(),
+      });
 
     try {
       await GmailService.restoreFromStore();
@@ -106,6 +116,17 @@ export class AgentExecutor {
       await AgentStore.recordExecution(agent.id, true);
 
       console.log(`  ✅ [AgentExecutor] Completed: "${agent.name}" in ${record.durationMs}ms`);
+
+      // Emit SSE event for execution complete
+      ExecutionStream.emit({
+        type: 'execution_complete',
+        executionId,
+        agentId: agent.id,
+        message: `Execution completed successfully in ${record.durationMs}ms`,
+        output: record.output,
+        timestamp: new Date().toISOString(),
+      });
+
       return record;
 
     } catch (err: any) {
@@ -119,6 +140,16 @@ export class AgentExecutor {
       await AgentStore.updateStatus(agent.id, 'error', err.message);
 
       console.error(`  ❌ [AgentExecutor] Failed: "${agent.name}": ${err.message}`);
+
+      // Emit SSE event for execution failure
+      ExecutionStream.emit({
+        type: 'execution_failed',
+        executionId,
+        agentId: agent.id,
+        error: err.message,
+        timestamp: new Date().toISOString(),
+      });
+
       return record;
     }
   }
@@ -151,6 +182,18 @@ export class AgentExecutor {
       nodeLog.input = this.sanitizeForLog(input);
       record.logs.push(nodeLog);
 
+      // Emit SSE event for node start
+      ExecutionStream.emit({
+        type: 'node_start',
+        executionId: record.id,
+        agentId: record.agentId,
+        nodeId: node.id,
+        nodeName: node.label,
+        nodeType: node.type,
+        status: 'running',
+        timestamp: new Date().toISOString(),
+      });
+
       try {
         const output = await this.executeNode(node, input);
         nodeLog.status = 'completed';
@@ -160,6 +203,19 @@ export class AgentExecutor {
         nodeOutputs[nodeId] = output;
         executed.add(nodeId);
         console.log(`  ✅ ${node.type}: ${node.label} (${nodeLog.durationMs}ms)`);
+
+        // Emit SSE event for node complete
+        ExecutionStream.emit({
+          type: 'node_complete',
+          executionId: record.id,
+          agentId: record.agentId,
+          nodeId: node.id,
+          nodeName: node.label,
+          nodeType: node.type,
+          status: 'completed',
+          output: this.sanitizeForLog(output),
+          timestamp: new Date().toISOString(),
+        });
       } catch (err: any) {
         nodeLog.status = 'failed';
         nodeLog.completedAt = new Date().toISOString();
@@ -167,6 +223,20 @@ export class AgentExecutor {
         nodeLog.error = err.message;
         executed.add(nodeId);
         console.error(`  ❌ ${node.type}: ${node.label}: ${err.message}`);
+
+        // Emit SSE event for node failure
+        ExecutionStream.emit({
+          type: 'node_failed',
+          executionId: record.id,
+          agentId: record.agentId,
+          nodeId: node.id,
+          nodeName: node.label,
+          nodeType: node.type,
+          status: 'failed',
+          error: err.message,
+          timestamp: new Date().toISOString(),
+        });
+
         throw err;
       }
     }

@@ -27,6 +27,8 @@ export const api = onRequest(
     timeoutSeconds: 300,
     // 512MB for processing large inboxes
     memory: '512MiB',
+    // Keep 1 instance warm to avoid cold starts (~$10-15/month)
+    minInstances: 1,
     // Allow unauthenticated access (Firebase Hosting rewrites need this)
     invoker: 'public',
   },

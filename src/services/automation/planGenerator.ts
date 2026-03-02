@@ -578,7 +578,8 @@ export function generatePlan(prompt: string): GeneratedPlan {
 
 // ─── AI-Powered Generation ──────────────────────────────
 
-const BACKEND_URL = 'http://localhost:3001';
+// In production, use relative /api paths. In dev, VITE_API_URL points to localhost:3001
+const BACKEND_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || '');
 
 export interface AIGeneratedAgent {
   success: boolean;

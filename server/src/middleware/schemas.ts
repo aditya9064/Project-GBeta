@@ -29,7 +29,7 @@ export const aiProcessSchema = z.object({
 export const httpRequestSchema = z.object({
   url: z.string().url('Invalid URL'),
   method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD']).optional().default('GET'),
-  headers: z.record(z.string(), z.string()).optional(),
+  headers: z.record(z.string()).optional(),
   body: z.any().optional(),
 });
 
@@ -48,7 +48,10 @@ export const agentGenerateSchema = z.object({
 
 export const visionStartSchema = z.object({
   task: z.string().min(1, 'Task is required').max(2000),
-  url: z.string().url().optional(),
+  url: z.string().max(2000).optional().refine(
+    (val) => !val || val.startsWith('http://') || val.startsWith('https://'),
+    { message: 'URL must start with http:// or https://' }
+  ),
   appName: z.string().max(200).optional(),
   sessionId: z.string().max(200).optional(),
 });

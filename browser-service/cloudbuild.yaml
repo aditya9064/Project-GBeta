@@ -1,0 +1,55 @@
+# Cloud Build config for Browser Service
+# Builds and deploys to Cloud Run
+
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/crewos-images/browser-service:latest'
+      - './browser-service'
+
+  # Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/crewos-images/browser-service:latest'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'browser-service'
+      - '--image'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/crewos-images/browser-service:latest'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--timeout'
+      - '300'
+      - '--concurrency'
+      - '10'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '3'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'OPENAI_API_KEY=${_OPENAI_API_KEY}'
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/crewos-images/browser-service:latest'
+
+substitutions:
+  _OPENAI_API_KEY: ''
+
+options:
+  logging: CLOUD_LOGGING_ONLY

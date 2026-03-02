@@ -95,4 +95,13 @@ export const config = {
 
   // Frontend URL (for CORS & redirects)
   frontendUrl: isProduction ? PROD_URL : (process.env.FRONTEND_URL || 'http://localhost:5173'),
+
+  // Browser Service (Cloud Run) - for production browser automation
+  browserService: {
+    url: process.env.BROWSER_SERVICE_URL || '',
+    enabled: isProduction && !!process.env.BROWSER_SERVICE_URL,
+  },
+
+  // Is this running in production?
+  isProduction,
 } as const;

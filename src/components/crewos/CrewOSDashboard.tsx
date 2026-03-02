@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Layers,
@@ -80,6 +80,10 @@ import {
   type TemplateSearchResult,
 } from '../../services/n8n';
 import { UserInputModal } from './UserInputModal';
+import { WorkforceDashboard } from '../workforce';
+import { OperonConsole, type OperonCallbacks } from '../operon/OperonConsole';
+import { MonitoringDashboard } from '../monitoring/MonitoringDashboard';
+import { AgentMarketplace } from '../marketplace/AgentMarketplace';
 
 /* ─── TYPES ────────────────────────────────────────────────── */
 
@@ -411,13 +415,6 @@ const agentCatalog: CatalogAgent[] = [
   },
 ];
 
-const members = [
-  { name: 'Aditya Miriyala', initial: 'AM', color: '#e07a3a', time: '08:06:28 for this week' },
-  { name: 'Sarah Chen', initial: 'SC', color: '#e07a3a', time: '12:41:07 for this week' },
-  { name: 'Marcus Johnson', initial: 'MJ', color: '#1a1a2e', time: '01:56:22 for this week' },
-  { name: 'Priya Patel', initial: 'PP', color: '#d46b2c', time: '16:35:59 for this week' },
-  { name: 'Alex Rodriguez', initial: 'AR', color: '#3a3a52', time: '' },
-];
 
 /* ─── STATUS HELPERS ───────────────────────────────────────── */
 
@@ -442,6 +439,9 @@ const pathToNav: Record<string, string> = {
   '/sales': 'sales',
   '/workflow': 'workflow',
   '/logs': 'logs',
+  '/workforce': 'workforce',
+  '/monitoring': 'monitoring',
+  '/marketplace': 'marketplace',
 };
 
 const navToPath: Record<string, string> = {
@@ -451,11 +451,14 @@ const navToPath: Record<string, string> = {
   sales: '/sales',
   workflow: '/workflow',
   logs: '/logs',
+  workforce: '/workforce',
+  monitoring: '/monitoring',
+  marketplace: '/marketplace',
 };
 
 export function CrewOSDashboard() {
   const { signOut } = useAuth();
-  const { agents: automationAgents, deployNewAgent, loading: agentsLoading, runAgent, pauseAgent, resumeAgent, deleteAgent: deleteAutomationAgent, backendStatus, lastExecutionLogs } = useAgents();
+  const { agents: automationAgents, deployNewAgent, loading: agentsLoading, runAgent, pauseAgent, resumeAgent, deleteAgent: deleteAutomationAgent, backendStatus, lastExecutionLogs, createAgentFromPrompt } = useAgents();
   const location = useLocation();
   const navigate = useNavigate();
   const [isDeploying, setIsDeploying] = useState(false);
@@ -579,6 +582,9 @@ export function CrewOSDashboard() {
   const isSales = activeNav === 'sales';
   const isWorkflow = activeNav === 'workflow';
   const isLogs = activeNav === 'logs';
+  const isWorkforce = activeNav === 'workforce';
+  const isMonitoring = activeNav === 'monitoring';
+  const isMarketplace = activeNav === 'marketplace';
 
   // State for filtering logs by a specific agent
   const [logsAgentId, setLogsAgentId] = useState<string | undefined>(undefined);
@@ -1158,6 +1164,23 @@ export function CrewOSDashboard() {
     }
   };
 
+  const operonCallbacks: OperonCallbacks = useMemo(() => ({
+    navigate: (tab: string) => setActiveNav(tab),
+    createAgentFromPrompt,
+    runAgent: (agentId: string) => handleRunAgent(agentId),
+    pauseAgent,
+    resumeAgent,
+    deleteAgent: deleteAutomationAgent,
+    openCatalog: () => setShowCatalog(true),
+    getAgents: () => automationAgents.map(a => ({
+      id: a.id,
+      name: a.name,
+      status: a.status,
+      description: a.description,
+    })),
+    getCurrentTab: () => activeNav,
+  }), [setActiveNav, createAgentFromPrompt, handleRunAgent, pauseAgent, resumeAgent, deleteAutomationAgent, automationAgents, activeNav]);
+
   return (
     <div className={`operonai-app ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${isWorkflow ? 'workflow-active' : ''} ${isWorkflow && sidebarVisibleInWorkflow ? 'sidebar-visible' : ''}`}>
         {/* ──────── SIDEBAR ──────── */}
@@ -1242,30 +1265,36 @@ export function CrewOSDashboard() {
             </button>
 
             <button
+              className={`operonai-nav-item ${activeNav === 'workforce' ? 'active' : ''}`}
+              onClick={() => setActiveNav('workforce')}
+            >
+              <span className="operonai-nav-item-icon"><Users size={18} /></span>
+              <span className="operonai-nav-item-text">Workforce</span>
+            </button>
+
+            <button
+              className={`operonai-nav-item ${activeNav === 'monitoring' ? 'active' : ''}`}
+              onClick={() => setActiveNav('monitoring')}
+            >
+              <span className="operonai-nav-item-icon"><Activity size={18} /></span>
+              <span className="operonai-nav-item-text">Monitoring</span>
+            </button>
+
+            <button
+              className={`operonai-nav-item ${activeNav === 'marketplace' ? 'active' : ''}`}
+              onClick={() => setActiveNav('marketplace')}
+            >
+              <span className="operonai-nav-item-icon"><ShoppingCart size={18} /></span>
+              <span className="operonai-nav-item-text">Marketplace</span>
+            </button>
+
+            <button
               className="operonai-nav-item operonai-nav-logout"
               onClick={signOut}
             >
               <span className="operonai-nav-item-icon"><LogOut size={18} /></span>
               <span className="operonai-nav-item-text">Log Out</span>
             </button>
-          </div>
-
-          {/* Members */}
-          <div className="operonai-sidebar-section">
-            <div className="operonai-sidebar-label">
-              <span>Members</span>
-              <button className="operonai-sidebar-label-action"><Plus size={14} /></button>
-            </div>
-
-            {members.map((m) => (
-              <button className="operonai-member-item" key={m.name}>
-                <div className="operonai-member-avatar" style={{ background: m.color }}>{m.initial}</div>
-                <div className="operonai-member-info">
-                  <span className="operonai-member-name">{m.name}</span>
-                  {m.time && <span className="operonai-member-time">{m.time}</span>}
-                </div>
-              </button>
-            ))}
           </div>
 
           <div className="operonai-sidebar-spacer" />
@@ -1314,8 +1343,23 @@ export function CrewOSDashboard() {
           />
         )}
 
+        {/* Workforce Dashboard View */}
+        {isWorkforce && (
+          <WorkforceDashboard />
+        )}
+
+        {/* Monitoring Dashboard View */}
+        {isMonitoring && (
+          <MonitoringDashboard />
+        )}
+
+        {/* Agent Marketplace View */}
+        {isMarketplace && (
+          <AgentMarketplace />
+        )}
+
         {/* Agent Workforce View (Home) */}
-        {!isDocAI && !isComms && !isSales && !isWorkflow && !isLogs && (
+        {!isDocAI && !isComms && !isSales && !isWorkflow && !isLogs && !isWorkforce && !isMonitoring && !isMarketplace && (
         <div className="operonai-main">
           {/* Workforce Header */}
           <div className="aw-header">
@@ -1323,10 +1367,7 @@ export function CrewOSDashboard() {
               <h1 className="aw-title">Agent Workforce</h1>
               <p className="aw-subtitle">Manage and monitor your deployed AI agents</p>
             </div>
-            <button className="aw-new-agent-btn" onClick={() => setShowCatalog(true)}>
-              <Plus size={16} />
-              New agent
-            </button>
+            <OperonConsole callbacks={operonCallbacks} />
           </div>
 
           {/* Tabs + Search */}
@@ -1354,6 +1395,11 @@ export function CrewOSDashboard() {
                 Calendar
               </button>
             </div>
+
+            <button className="aw-new-agent-btn" onClick={() => setShowCatalog(true)}>
+              <Plus size={16} />
+              New agent
+            </button>
 
             <div className="aw-search-area">
               <div className="aw-search-box">
@@ -1495,6 +1541,102 @@ export function CrewOSDashboard() {
                   <Plus size={16} /> New agent
                 </button>
               </div>
+            ) : activeTab === 'list' ? (
+              <div className="aw-agents-list">
+                <div className="aw-list-header">
+                  <span className="aw-list-col name">Name</span>
+                  <span className="aw-list-col status">Status</span>
+                  <span className="aw-list-col runs">Runs</span>
+                  <span className="aw-list-col last-run">Last Run</span>
+                  <span className="aw-list-col actions">Actions</span>
+                </div>
+                {automationAgents.map((agent: AutomationAgent) => (
+                  <div key={agent.id} className="aw-list-row">
+                    <span className="aw-list-col name">
+                      <div className={`aw-agent-status-dot ${agent.status}`} />
+                      <div>
+                        <div className="aw-list-agent-name">{agent.name}</div>
+                        <div className="aw-list-agent-desc">{agent.description || `Automated workflow`}</div>
+                      </div>
+                    </span>
+                    <span className="aw-list-col status">
+                      <span className={`aw-list-status-badge ${agent.status}`}>{agent.status}</span>
+                    </span>
+                    <span className="aw-list-col runs">{agent.totalExecutions || 0}</span>
+                    <span className="aw-list-col last-run">
+                      {agent.lastExecutedAt ? new Date(agent.lastExecutedAt).toLocaleDateString() : '—'}
+                    </span>
+                    <span className="aw-list-col actions">
+                      <button className="aw-agent-action-btn run" onClick={() => handleRunAgent(agent.id)} disabled={runningAgentId === agent.id}>
+                        {runningAgentId === agent.id ? <Loader2 size={13} className="spinning" /> : <Play size={13} />}
+                        {runningAgentId === agent.id ? 'Running...' : 'Run'}
+                      </button>
+                      <button className="aw-agent-action-btn edit" onClick={() => navigate(`/automation-builder/${agent.id}`)}>
+                        <PenTool size={13} />
+                      </button>
+                      <button className="aw-agent-action-btn pause" onClick={() => agent.status === 'active' ? pauseAgent(agent.id) : resumeAgent(agent.id)}>
+                        {agent.status === 'active' ? '⏸' : '▶'}
+                      </button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : activeTab === 'calendar' ? (
+              <div className="aw-agents-calendar">
+                {(() => {
+                  const now = new Date();
+                  const year = now.getFullYear();
+                  const month = now.getMonth();
+                  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                  const firstDay = new Date(year, month, 1).getDay();
+                  const daysInMonth = new Date(year, month + 1, 0).getDate();
+                  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+                  const today = now.getDate();
+
+                  const agentsByDay: Record<number, AutomationAgent[]> = {};
+                  for (const agent of automationAgents) {
+                    const d = agent.lastExecutedAt ? new Date(agent.lastExecutedAt) : agent.createdAt ? new Date(agent.createdAt) : null;
+                    if (d && d.getFullYear() === year && d.getMonth() === month) {
+                      const day = d.getDate();
+                      if (!agentsByDay[day]) agentsByDay[day] = [];
+                      agentsByDay[day].push(agent);
+                    }
+                  }
+
+                  return (
+                    <>
+                      <div className="aw-cal-header">
+                        <span className="aw-cal-title">{monthNames[month]} {year}</span>
+                      </div>
+                      <div className="aw-cal-grid">
+                        {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                          <div key={d} className="aw-cal-day-header">{d}</div>
+                        ))}
+                        {Array.from({ length: totalCells }, (_, i) => {
+                          const dayNum = i - firstDay + 1;
+                          const inMonth = dayNum >= 1 && dayNum <= daysInMonth;
+                          const events = inMonth ? agentsByDay[dayNum] : undefined;
+                          return (
+                            <div key={i} className={`aw-cal-day ${!inMonth ? 'outside' : ''} ${inMonth && dayNum === today ? 'today' : ''}`}>
+                              {inMonth && (
+                                <>
+                                  <span className="aw-cal-day-num">{dayNum}</span>
+                                  {events?.map(a => (
+                                    <div key={a.id} className={`aw-cal-event ${a.status}`} title={a.name}>
+                                      <span className={`aw-agent-status-dot ${a.status}`} />
+                                      {a.name}
+                                    </div>
+                                  ))}
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
             ) : (
               <div className="aw-agents-grid">
                 {automationAgents.map((agent: AutomationAgent) => {
@@ -1614,10 +1756,6 @@ export function CrewOSDashboard() {
             )}
           </div>
 
-          {/* Voice Activation Button */}
-          <button className="aw-voice-btn" title='Say "Hey Operon" — click to mute'>
-            <Mic size={18} />
-          </button>
         </div>
         )}
         </div>

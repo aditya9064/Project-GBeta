@@ -18,8 +18,31 @@ import { validate } from '../middleware/validate.js';
 import { visionStartSchema } from '../middleware/schemas.js';
 import { BrowserService } from '../services/browser.service.js';
 import { VisionAgent, getSessionState, getLatestScreenshot } from '../services/visionAgent.js';
+import { config } from '../config.js';
+import { logger } from '../services/logger.js';
 
 const router = Router();
+
+// Helper to proxy requests to Cloud Run browser service in production
+async function proxyToCloudRun(path: string, options: RequestInit = {}): Promise<Response | null> {
+  if (!config.browserService.enabled) return null;
+  
+  try {
+    const url = `${config.browserService.url}${path}`;
+    logger.info(`[Browser] Proxying to Cloud Run: ${url}`);
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+    return response as unknown as Response;
+  } catch (err) {
+    logger.error('[Browser] Cloud Run proxy error', { error: err instanceof Error ? err.message : String(err) });
+    return null;
+  }
+}
 
 /* ─── POST /api/browser/session — Create or resume ─── */
 
@@ -230,8 +253,23 @@ router.get('/status', (_req: Request, res: Response) => {
 /**
  * GET /api/browser/vision/screenshot/:sessionId — poll latest screenshot
  */
-router.get('/vision/screenshot/:sessionId', (req: Request, res: Response) => {
-  const screenshot = getLatestScreenshot(String(req.params.sessionId));
+router.get('/vision/screenshot/:sessionId', async (req: Request, res: Response) => {
+  const sessionId = String(req.params.sessionId);
+
+  // In production, proxy to Cloud Run
+  if (config.browserService.enabled) {
+    try {
+      const cloudRes = await fetch(`${config.browserService.url}/vision/screenshot/${sessionId}`);
+      const data = await cloudRes.json();
+      res.json(data);
+      return;
+    } catch (err) {
+      logger.error('[Vision] Cloud Run screenshot failed', { error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  // Local execution
+  const screenshot = getLatestScreenshot(sessionId);
   if (screenshot) {
     res.json({ success: true, screenshot });
   } else {
@@ -276,15 +314,31 @@ router.post('/vision/desktop', async (req: Request, res: Response) => {
 /**
  * POST /api/browser/vision/start — Start a vision task (returns immediately)
  */
-router.post('/vision/start', validate(visionStartSchema), (req: Request, res: Response) => {
+router.post('/vision/start', validate(visionStartSchema), async (req: Request, res: Response) => {
   const { task, url, appName, sessionId } = req.body;
   if (!url && !appName) { res.status(400).json({ success: false, error: 'Missing "url" or "appName"' }); return; }
 
   const sid = sessionId || `vision-${Date.now()}`;
-  console.log(`[Vision] Starting task: "${task}" url="${url || 'desktop'}" session="${sid}"`);
+  logger.info(`[Vision] Starting task: "${task}" url="${url || 'desktop'}" session="${sid}"`);
 
+  // In production, proxy to Cloud Run browser service
+  if (config.browserService.enabled && url) {
+    try {
+      const cloudRes = await fetch(`${config.browserService.url}/vision/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task, url, sessionId: sid }),
+      });
+      const data = await cloudRes.json();
+      res.json(data);
+      return;
+    } catch (err) {
+      logger.error('[Vision] Cloud Run proxy failed, falling back to local', { error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  // Local execution (development or fallback)
   VisionAgent.startTask(task, url, sid);
-
   res.json({ success: true, sessionId: sid });
 });
 
@@ -292,14 +346,28 @@ router.post('/vision/start', validate(visionStartSchema), (req: Request, res: Re
  * GET /api/browser/vision/poll/:sessionId — Poll session state (logs, status, url)
  * Query param: ?since=<logIndex> to get only new logs
  */
-router.get('/vision/poll/:sessionId', (req: Request, res: Response) => {
-  const state = getSessionState(String(req.params.sessionId));
+router.get('/vision/poll/:sessionId', async (req: Request, res: Response) => {
+  const sessionId = String(req.params.sessionId);
+  const since = parseInt(req.query.since as string) || 0;
+
+  // In production, proxy to Cloud Run
+  if (config.browserService.enabled) {
+    try {
+      const cloudRes = await fetch(`${config.browserService.url}/vision/poll/${sessionId}?since=${since}`);
+      const data = await cloudRes.json();
+      res.json(data);
+      return;
+    } catch (err) {
+      logger.error('[Vision] Cloud Run poll failed', { error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  // Local execution
+  const state = getSessionState(sessionId);
   if (!state) {
     res.json({ success: false, error: 'Session not found' });
     return;
   }
-
-  const since = parseInt(req.query.since as string) || 0;
 
   res.json({
     success: true,

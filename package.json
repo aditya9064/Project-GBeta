@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite preview --outDir dist-firebase --port 5173",
     "dev:source": "vite",
-    "build": "vite build --outDir dist-build",
+    "build": "vite build --outDir dist",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",

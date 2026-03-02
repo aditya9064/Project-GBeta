@@ -51,7 +51,8 @@ interface AgentExecutionViewerProps {
   onComplete?: (result: AgentRunResult) => void;
 }
 
-const BACKEND = 'http://localhost:3001';
+// In production, use relative /api paths. In dev, VITE_API_URL points to localhost:3001
+const BACKEND = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || '');
 
 /* ─── Component ──────────────────────────────────────────── */
 

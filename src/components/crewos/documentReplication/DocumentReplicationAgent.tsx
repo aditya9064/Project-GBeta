@@ -9,7 +9,7 @@ import { uploadDocument } from '../../../services/documentReplication/api';
 import type { DetectedField } from '../../../services/documentReplication/types';
 import './DocumentReplication.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
 type Step = 'upload' | 'map' | 'data' | 'generate';
 

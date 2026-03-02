@@ -19,6 +19,7 @@ const EXECUTIONS_COLLECTION = 'agent_executions';
 let firebaseApp: App | null = null;
 let firestoreDb: Firestore | null = null;
 let firestoreAvailable: boolean | null = null;
+let initializationError: string | null = null;
 
 // In-memory fallback when Firestore is unavailable
 const memoryAgents = new Map<string, StoredAgent>();

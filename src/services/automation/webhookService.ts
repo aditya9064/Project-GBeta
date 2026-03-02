@@ -1,7 +1,7 @@
 import type { Webhook } from './types';
 
 const STORAGE_KEY = 'operon_webhooks';
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 const WEBHOOK_BASE_URL = import.meta.env.VITE_WEBHOOK_URL || `${window.location.origin}/api/webhooks`;
 
 let _backendAvailable: boolean | null = null;

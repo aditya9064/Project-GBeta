@@ -526,6 +526,75 @@ interface BlockComponentProps {
   onAddComment?: (blockId: string, content: string) => void;
 }
 
+function DatabaseCalendarView({ rows }: { rows: DatabaseRow[] }) {
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const firstDate = rows.find(r => r.cells.date)?.cells.date;
+    if (firstDate && typeof firstDate === 'string') {
+      const d = new Date(firstDate);
+      return isNaN(d.getTime()) ? new Date() : d;
+    }
+    return new Date();
+  });
+
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const totalCells = Math.ceil((firstDayOfMonth + daysInMonth) / 7) * 7;
+
+  const eventsByDay: Record<number, DatabaseRow[]> = {};
+  for (const row of rows) {
+    const dateStr = row.cells.date;
+    if (!dateStr || typeof dateStr !== 'string') continue;
+    const d = new Date(dateStr);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      const day = d.getDate();
+      if (!eventsByDay[day]) eventsByDay[day] = [];
+      eventsByDay[day].push(row);
+    }
+  }
+
+  const prevMonth = () => setCurrentMonth(new Date(year, month - 1, 1));
+  const nextMonth = () => setCurrentMonth(new Date(year, month + 1, 1));
+  const today = new Date();
+  const isToday = (day: number) => day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+
+  return (
+    <div className="database-calendar-view">
+      <div className="calendar-header">
+        <button onClick={prevMonth}>←</button>
+        <span>{monthNames[month]} {year}</span>
+        <button onClick={nextMonth}>→</button>
+      </div>
+      <div className="calendar-grid">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+          <div key={day} className="calendar-day-header">{day}</div>
+        ))}
+        {Array.from({ length: totalCells }, (_, i) => {
+          const dayNum = i - firstDayOfMonth + 1;
+          const inMonth = dayNum >= 1 && dayNum <= daysInMonth;
+          const events = inMonth ? eventsByDay[dayNum] : undefined;
+          return (
+            <div key={i} className={`calendar-day ${!inMonth ? 'outside' : ''} ${inMonth && isToday(dayNum) ? 'today' : ''}`}>
+              {inMonth && (
+                <>
+                  <span className="day-number">{dayNum}</span>
+                  {events?.map(ev => (
+                    <div key={ev.id} className="calendar-event" title={String(ev.cells.name || '')}>
+                      {String(ev.cells.name || '')}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function BlockComponent({ 
   block, 
   index, 
@@ -1455,23 +1524,7 @@ function BlockComponent({
           )}
 
           {viewType === 'calendar' && (
-            <div className="database-calendar-view">
-              <div className="calendar-header">
-                <button>←</button>
-                <span>January 2024</span>
-                <button>→</button>
-              </div>
-              <div className="calendar-grid">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="calendar-day-header">{day}</div>
-                ))}
-                {Array.from({ length: 35 }, (_, i) => (
-                  <div key={i} className="calendar-day">
-                    <span className="day-number">{(i % 31) + 1}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <DatabaseCalendarView rows={db.rows} />
           )}
 
           {viewType === 'gallery' && (
