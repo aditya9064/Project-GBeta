@@ -20,6 +20,7 @@
 import { GmailService } from './gmail.service.js';
 import { SlackService } from './slack.service.js';
 import { StyleAnalyzer } from './style-analyzer.js';
+import { logger } from './logger.js';
 import type { UnifiedMessage, StyleProfile } from '../types.js';
 
 /* ─── User Voice Profile Type ─────────────────────────── */
@@ -101,8 +102,7 @@ export const UserVoiceService = {
     const userEmail = options?.userEmail;
     const maxMessages = options?.maxMessagesPerChannel || 100;
 
-    console.log('\n🎓 User Voice Service: Starting voice learning...');
-    console.log(`   User: ${userName} (${userId})`);
+    logger.info('User Voice Service: Starting voice learning...', { userName, userId });
 
     const allSentMessages: UnifiedMessage[] = [];
     const messagesByChannel = { email: 0, slack: 0, teams: 0 };
@@ -111,41 +111,41 @@ export const UserVoiceService = {
     try {
       const gmailConnection = GmailService.getConnection();
       if (gmailConnection.status === 'connected') {
-        console.log('   📧 Fetching sent emails...');
+        logger.info('Fetching sent emails...');
         const sentEmails = await GmailService.fetchSentMessages();
         allSentMessages.push(...sentEmails);
         messagesByChannel.email = sentEmails.length;
-        console.log(`   ✓ Found ${sentEmails.length} sent emails`);
+        logger.info(`Found ${sentEmails.length} sent emails`);
       } else {
-        console.log('   ⚠️  Gmail not connected, skipping email analysis');
+        logger.info('Gmail not connected, skipping email analysis');
       }
     } catch (err) {
-      console.error('   ✗ Error fetching sent emails:', err);
+      logger.error('Error fetching sent emails', { error: err });
     }
 
     // ─── Fetch sent messages from Slack ───────────────────
     try {
       const slackConnection = SlackService.getConnection();
       if (slackConnection.status === 'connected') {
-        console.log('   💬 Fetching sent Slack messages...');
+        logger.info('Fetching sent Slack messages...');
         const sentSlack = await SlackService.fetchSentMessages(maxMessages);
         allSentMessages.push(...sentSlack);
         messagesByChannel.slack = sentSlack.length;
-        console.log(`   ✓ Found ${sentSlack.length} sent Slack messages`);
+        logger.info(`Found ${sentSlack.length} sent Slack messages`);
       } else {
-        console.log('   ⚠️  Slack not connected, skipping Slack analysis');
+        logger.info('Slack not connected, skipping Slack analysis');
       }
     } catch (err) {
-      console.error('   ✗ Error fetching sent Slack messages:', err);
+      logger.error('Error fetching sent Slack messages', { error: err });
     }
 
     // ─── TODO: Fetch sent messages from Teams ─────────────
     // (Similar pattern when Teams service is implemented)
 
-    console.log(`\n   📊 Total messages to analyze: ${allSentMessages.length}`);
+    logger.info(`Total messages to analyze: ${allSentMessages.length}`);
 
     if (allSentMessages.length < MIN_MESSAGES_FOR_PROFILE) {
-      console.log(`   ⚠️  Not enough messages (need at least ${MIN_MESSAGES_FOR_PROFILE})`);
+      logger.warn(`Not enough messages (need at least ${MIN_MESSAGES_FOR_PROFILE})`);
       
       // Create a placeholder profile
       userVoiceProfile = {
@@ -166,7 +166,7 @@ export const UserVoiceService = {
     }
 
     // ─── Analyze ALL messages for overall style ───────────
-    console.log('   🔍 Analyzing writing style...');
+    logger.info('Analyzing writing style...');
     
     // Create fake "contact" messages for the style analyzer
     // (The analyzer expects messages TO a contact, but we're analyzing FROM the user)
@@ -194,7 +194,7 @@ export const UserVoiceService = {
       );
       if (emailProfiles.length > 0) {
         channelStyles.email = emailProfiles[0];
-        console.log(`   ✓ Email style analyzed (${emailMessages.length} messages)`);
+        logger.info(`Email style analyzed (${emailMessages.length} messages)`);
       }
     }
 
@@ -206,7 +206,7 @@ export const UserVoiceService = {
       );
       if (slackProfiles.length > 0) {
         channelStyles.slack = slackProfiles[0];
-        console.log(`   ✓ Slack style analyzed (${slackMessages.length} messages)`);
+        logger.info(`Slack style analyzed (${slackMessages.length} messages)`);
       }
     }
 
@@ -235,12 +235,13 @@ export const UserVoiceService = {
       isReady: true,
     };
 
-    console.log(`\n✅ Voice profile ready!`);
-    console.log(`   Confidence: ${confidence}%`);
-    console.log(`   Formality: ${masterProfile.formality}`);
-    console.log(`   Length: ${masterProfile.averageLength}`);
-    console.log(`   Contractions: ${masterProfile.usesContractions}`);
-    console.log(`   Emoji: ${masterProfile.emojiUsage}`);
+    logger.info('Voice profile ready', {
+      confidence,
+      formality: masterProfile.formality,
+      averageLength: masterProfile.averageLength,
+      usesContractions: masterProfile.usesContractions,
+      emojiUsage: masterProfile.emojiUsage,
+    });
 
     return userVoiceProfile;
   },
@@ -329,7 +330,7 @@ export const UserVoiceService = {
    */
   clearProfile(): void {
     userVoiceProfile = null;
-    console.log('🗑️  User voice profile cleared');
+    logger.info('User voice profile cleared');
   },
 };
 

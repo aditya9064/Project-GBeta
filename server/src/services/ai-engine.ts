@@ -41,6 +41,7 @@ import type {
 } from '../types.js';
 import { StyleAnalyzer } from './style-analyzer.js';
 import { UserVoiceService } from './user-voice.service.js';
+import { logger } from './logger.js';
 
 /* ─── OpenAI Client ────────────────────────────────────── */
 
@@ -126,7 +127,7 @@ Analyze and return ONLY valid JSON (no markdown, no explanation):
     const analysis = JSON.parse(content) as MessageAnalysis;
     return analysis;
   } catch (err) {
-    console.error('AI analysis error:', err);
+    logger.error('AI analysis error', { error: err });
     // Return a sensible fallback analysis
     return inferAnalysisFromContent(message);
   }
@@ -438,7 +439,7 @@ Write ONLY the response text. No meta-commentary, no "Here's a draft:", no quota
 
     return response.choices[0]?.message?.content?.trim() || '';
   } catch (err) {
-    console.error('AI draft generation error:', err);
+    logger.error('AI draft generation error', { error: err });
     // Return a smart fallback based on analysis & style
     return generateFallbackDraft(message, analysis, stylePrompt);
   }
@@ -646,9 +647,9 @@ export const AIEngine = {
   /** Store style profiles from the style analyzer */
   setStyleProfiles(profiles: StyleProfile[]): void {
     storedStyleProfiles = profiles;
-    console.log(`🎨 AI Engine: Loaded ${profiles.length} style profiles`);
+    logger.info(`AI Engine: Loaded ${profiles.length} style profiles`);
     for (const p of profiles) {
-      console.log(`   → ${p.contactName}: ${p.formality}, ${p.averageLength}, contractions=${p.usesContractions}, confidence=${p.styleConfidence}%`);
+      logger.info(`Style profile: ${p.contactName}`, { formality: p.formality, averageLength: p.averageLength, contractions: p.usesContractions, confidence: p.styleConfidence });
     }
   },
 
@@ -694,15 +695,15 @@ export const AIEngine = {
    * sent messages) to generate responses that sound like them.
    */
   async generateResponse(message: UnifiedMessage): Promise<GeneratedResponse> {
-    console.log(`\n🧠 AI Engine: Processing message from ${message.from} (${message.channel})`);
+    logger.info(`AI Engine: Processing message from ${message.from} (${message.channel})`);
 
     // Stage 1: Analyze the message
-    console.log('  📊 Stage 1: Analyzing message...');
+    logger.info('Stage 1: Analyzing message...');
     const analysis = await analyzeMessage(message);
-    console.log(`  → Intent: ${analysis.intent}, Urgency: ${analysis.urgency}/10, Sentiment: ${analysis.sentiment}`);
+    logger.info('Analysis complete', { intent: analysis.intent, urgency: analysis.urgency, sentiment: analysis.sentiment });
 
     // Stage 2: Build context
-    console.log('  📋 Stage 2: Building context...');
+    logger.info('Stage 2: Building context...');
     let context = buildContext(message, analysis);
 
     // ─── Use USER'S OWN voice profile (not contact-specific) ───
@@ -718,7 +719,7 @@ export const AIEngine = {
       // Use channel-specific style if available
       stylePrompt = UserVoiceService.getStylePrompt(message.channel);
       styleProfile = userVoiceProfile.styleProfile;
-      console.log(`  🎨 Using USER's voice profile (${userVoiceProfile.confidence}% confidence, ${userVoiceProfile.messagesAnalyzed} messages analyzed)`);
+      logger.info(`Using USER's voice profile`, { confidence: userVoiceProfile.confidence, messagesAnalyzed: userVoiceProfile.messagesAnalyzed });
     } else {
       // Fallback: try contact-specific profile (legacy behavior)
       styleProfile = this.getStyleProfileForContact(message.from) ||
@@ -726,31 +727,30 @@ export const AIEngine = {
       stylePrompt = styleProfile ? StyleAnalyzer.getStylePromptForContact(styleProfile) : null;
       
       if (stylePrompt) {
-        console.log(`  🎨 Using contact-specific style for ${message.from}`);
+        logger.info(`Using contact-specific style for ${message.from}`);
       } else {
-        console.log(`  ⚠️  No voice profile learned yet — using default voice`);
-        console.log(`      Connect Gmail/Slack and run voice learning to personalize responses`);
+        logger.warn('No voice profile learned yet — using default voice. Connect Gmail/Slack and run voice learning to personalize responses');
       }
     }
 
     // Stage 3: Select response strategy
-    console.log('  🎯 Stage 3: Selecting strategy...');
+    logger.info('Stage 3: Selecting strategy...');
     const strategy = selectStrategy(message.channel, analysis);
 
     // Stage 4: Style-aware draft generation
-    console.log('  ✍️  Stage 4: Generating style-matched draft...');
+    logger.info('Stage 4: Generating style-matched draft...');
     let draft = await generateDraft(message, analysis, context, strategy, stylePrompt);
 
     // Stage 5: Quality & style scoring
-    console.log('  ⭐ Stage 5: Scoring quality & style alignment...');
+    logger.info('Stage 5: Scoring quality & style alignment...');
     let confidence = scoreResponse(draft, message, analysis, styleProfile);
-    console.log(`  → Confidence: ${confidence}%`);
+    logger.info(`Confidence: ${confidence}%`);
 
     // Stage 6: Refinement (if below threshold and style profile exists)
     let refinementAttempts = 0;
     while (confidence < MIN_CONFIDENCE_THRESHOLD && styleProfile && refinementAttempts < MAX_REFINEMENT_ATTEMPTS) {
       refinementAttempts++;
-      console.log(`  🔄 Stage 6: Refining draft (attempt ${refinementAttempts})...`);
+      logger.info(`Stage 6: Refining draft (attempt ${refinementAttempts})...`);
 
       // Build specific feedback for the refinement
       const feedbackParts: string[] = [];
@@ -780,7 +780,7 @@ export const AIEngine = {
         const refinementContext = `${context}\n\nPREVIOUS DRAFT (needs style alignment):\n"""${draft}"""\n\nSTYLE FEEDBACK:\n${feedbackParts.join('\n')}`;
         draft = await generateDraft(message, analysis, refinementContext, strategy, stylePrompt);
         confidence = scoreResponse(draft, message, analysis, styleProfile);
-        console.log(`  → Refined confidence: ${confidence}%`);
+        logger.info(`Refined confidence: ${confidence}%`);
       } else {
         break;
       }

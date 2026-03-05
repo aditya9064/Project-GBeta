@@ -15,6 +15,7 @@
 
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { logger } from './logger.js';
 
 /* ─── Firestore initialization (may fail locally) ──────── */
 
@@ -28,7 +29,7 @@ try {
   db = getFirestore();
   firestoreAvailable = true;
 } catch (err) {
-  console.warn('⚠️  Firestore unavailable — using in-memory token store for local dev');
+  logger.warn('Firestore unavailable — using in-memory token store for local dev');
 }
 
 const COLLECTION = 'oauth_tokens';
@@ -55,15 +56,14 @@ async function ensureFirestore(): Promise<boolean> {
     // Quick read to verify Firestore is accessible (avoid reserved __ prefix)
     await db.collection(COLLECTION).doc('health_check').get();
     firestoreChecked = true;
-    console.log('✅ Firestore is accessible for token storage');
+    logger.info('Firestore is accessible for token storage');
     return true;
   } catch (err: any) {
     // Log the actual error for debugging
-    console.error('⚠️  Firestore check failed:', err?.message || err);
-    console.error('   Code:', err?.code, 'Details:', err?.details);
+    logger.error('Firestore check failed', { error: err?.message || err, code: err?.code, details: err?.details });
     firestoreAvailable = false;
     firestoreChecked = true;
-    console.warn('⚠️  Falling back to in-memory token store');
+    logger.warn('Falling back to in-memory token store');
     return false;
   }
 }
@@ -95,7 +95,7 @@ export const TokenStore = {
           ...data,
           updatedAt: data.updatedAt.toISOString(),
         });
-        console.log(`✅ Saved ${service} tokens to Firestore`);
+        logger.info(`Saved ${service} tokens to Firestore`);
       } catch (err) {
         // Silently fall back — already in memory
       }
@@ -142,7 +142,7 @@ export const TokenStore = {
     if (await ensureFirestore()) {
       try {
         await db!.collection(COLLECTION).doc(service).delete();
-        console.log(`🗑️ Deleted ${service} tokens from Firestore`);
+        logger.info(`Deleted ${service} tokens from Firestore`);
       } catch {
         // Silently ignore — already removed from memory
       }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import './TasksPage.css';
 import { useTasks, Task, TaskStatus, TaskPriority } from '../../hooks/useTasks';
+import { exportToCsv } from '../../utils/exportCsv';
 
 // Icons
 const Icons = {
@@ -86,18 +87,45 @@ const Icons = {
       <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"/>
     </svg>
   ),
+  Calendar: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+  ),
+  User: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+      <circle cx="12" cy="7" r="4"/>
+    </svg>
+  ),
+  Tag: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+      <line x1="7" y1="7" x2="7.01" y2="7"/>
+    </svg>
+  ),
+  Download: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7,10 12,15 17,10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+  ),
 };
 
 const statusConfig: Record<TaskStatus, { label: string; color: string; bgColor: string }> = {
   todo: { label: 'TO DO', color: '#9CA3AF', bgColor: 'rgba(156, 163, 175, 0.1)' },
-  in_progress: { label: 'IN PROGRESS', color: '#3B82F6', bgColor: 'rgba(59, 130, 246, 0.1)' },
+  in_progress: { label: 'IN PROGRESS', color: '#e07a3a', bgColor: 'rgba(224, 122, 58, 0.1)' },
   review: { label: 'REVIEW', color: '#F59E0B', bgColor: 'rgba(245, 158, 11, 0.1)' },
   done: { label: 'DONE', color: '#10B981', bgColor: 'rgba(16, 185, 129, 0.1)' },
 };
 
 const priorityConfig: Record<TaskPriority, { label: string; color: string }> = {
   low: { label: 'Low', color: '#9CA3AF' },
-  normal: { label: 'Normal', color: '#3B82F6' },
+  normal: { label: 'Normal', color: '#e07a3a' },
   high: { label: 'High', color: '#F59E0B' },
   urgent: { label: 'Urgent', color: '#EF4444' },
 };
@@ -109,6 +137,9 @@ export function TasksPage() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('normal');
+  const [newTaskDueDate, setNewTaskDueDate] = useState('');
+  const [newTaskAssignee, setNewTaskAssignee] = useState('');
+  const [newTaskTags, setNewTaskTags] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [expandedStatuses, setExpandedStatuses] = useState<Set<TaskStatus>>(
     new Set(['todo', 'in_progress', 'review', 'done'])
@@ -121,16 +152,27 @@ export function TasksPage() {
     if (!newTaskTitle.trim() || isCreating) return;
     
     setIsCreating(true);
+    const parsedTags = newTaskTags
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean);
+
     const { error } = await addTask({
       title: newTaskTitle,
       description: newTaskDescription,
       priority: newTaskPriority,
+      dueDate: newTaskDueDate ? new Date(newTaskDueDate + 'T00:00:00') : null,
+      assigneeName: newTaskAssignee.trim() || null,
+      tags: parsedTags.length > 0 ? parsedTags : undefined,
     });
 
     if (!error) {
       setNewTaskTitle('');
       setNewTaskDescription('');
       setNewTaskPriority('normal');
+      setNewTaskDueDate('');
+      setNewTaskAssignee('');
+      setNewTaskTags('');
       setIsAddModalOpen(false);
     }
     setIsCreating(false);
@@ -163,52 +205,82 @@ export function TasksPage() {
     setExpandedStatuses(newExpanded);
   };
 
+  const isOverdue = (task: Task) =>
+    task.dueDate && task.status !== 'done' && task.dueDate < new Date();
+
+  const formatDate = (date: Date) => {
+    const now = new Date();
+    const diff = date.getTime() - now.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Tomorrow';
+    if (days === -1) return 'Yesterday';
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  };
+
   const filteredTasks = (statusTasks: Task[]) => {
     if (!searchQuery) return statusTasks;
+    const q = searchQuery.toLowerCase();
     return statusTasks.filter(t => 
-      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.description.toLowerCase().includes(searchQuery.toLowerCase())
+      t.title.toLowerCase().includes(q) ||
+      t.description.toLowerCase().includes(q) ||
+      t.tags.some(tag => tag.toLowerCase().includes(q))
     );
   };
 
-  const renderTaskRow = (task: Task) => (
-    <div key={task.id} className="task-row">
-      <button 
-        className={`task-status-btn ${task.status}`}
-        onClick={() => handleStatusChange(task, task.status === 'done' ? 'todo' : 'done')}
-        title={task.status === 'done' ? 'Mark as todo' : 'Mark as done'}
-      >
-        {task.status === 'done' ? <Icons.Check /> : <Icons.Circle />}
-      </button>
-      
-      <div className="task-content">
-        <span className={`task-title ${task.status === 'done' ? 'completed' : ''}`}>
-          {task.title}
-        </span>
-        {task.description && (
-          <span className="task-description">{task.description}</span>
-        )}
-      </div>
-
-      <div className="task-meta">
-        {task.dueDate && (
-          <span className="task-due-date">
-            <Icons.Clock />
-            {task.dueDate.toLocaleDateString()}
-          </span>
-        )}
-        <span className={`task-priority priority-${task.priority}`} title={`Priority: ${priorityConfig[task.priority].label}`}>
-          <Icons.Flag />
-        </span>
-      </div>
-
-      <div className="task-actions">
-        <button className="task-action-btn" onClick={() => handleDeleteTask(task.id)} title="Delete task">
-          <Icons.Trash />
+  const renderTaskRow = (task: Task) => {
+    const overdue = isOverdue(task);
+    return (
+      <div key={task.id} className={`task-row ${overdue ? 'overdue' : ''}`}>
+        <button 
+          className={`task-status-btn ${task.status}`}
+          onClick={() => handleStatusChange(task, task.status === 'done' ? 'todo' : 'done')}
+          title={task.status === 'done' ? 'Mark as todo' : 'Mark as done'}
+        >
+          {task.status === 'done' ? <Icons.Check /> : <Icons.Circle />}
         </button>
+        
+        <div className="task-content">
+          <span className={`task-title ${task.status === 'done' ? 'completed' : ''}`}>
+            {task.title}
+          </span>
+          {task.description && (
+            <span className="task-description">{task.description}</span>
+          )}
+          {task.tags.length > 0 && (
+            <div className="task-tags">
+              {task.tags.map(tag => (
+                <span key={tag} className="task-tag">{tag}</span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="task-meta">
+          {task.assigneeName && (
+            <span className="task-assignee" title={task.assigneeName}>
+              {task.assigneeName.charAt(0).toUpperCase()}
+            </span>
+          )}
+          {task.dueDate && (
+            <span className={`task-due-date ${overdue ? 'overdue' : ''}`}>
+              <Icons.Calendar />
+              {formatDate(task.dueDate)}
+            </span>
+          )}
+          <span className={`task-priority priority-${task.priority}`} title={`Priority: ${priorityConfig[task.priority].label}`}>
+            <Icons.Flag />
+          </span>
+        </div>
+
+        <div className="task-actions">
+          <button className="task-action-btn" onClick={() => handleDeleteTask(task.id)} title="Delete task">
+            <Icons.Trash />
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderStatusSection = (status: TaskStatus) => {
     const config = statusConfig[status];
@@ -295,6 +367,21 @@ export function TasksPage() {
               <Icons.Grid />
             </button>
           </div>
+          <button className="tasks-export-btn" onClick={() => {
+            const headers = ['Title', 'Status', 'Priority', 'Due Date', 'Assignee', 'Tags'];
+            const rows = tasks.map(t => [
+              t.title,
+              t.status,
+              t.priority || '',
+              t.dueDate ? new Date(t.dueDate).toLocaleDateString() : '',
+              t.assigneeName || '',
+              (t.tags || []).join('; '),
+            ]);
+            exportToCsv('tasks-export.csv', headers, rows);
+          }} style={{display:'flex',alignItems:'center',gap:'6px',padding:'8px 14px',background:'#f3f4f6',border:'1px solid #d1d5db',borderRadius:'8px',cursor:'pointer',fontSize:'13px',color:'#374151'}}>
+            <Icons.Download />
+            Export
+          </button>
           <button className="add-task-btn" onClick={() => setIsAddModalOpen(true)}>
             <Icons.Plus />
             <span>Add Task</span>
@@ -321,25 +408,42 @@ export function TasksPage() {
                     <span className="status-count">{statusTasks.length}</span>
                   </div>
                   <div className="board-column-tasks">
-                    {statusTasks.map(task => (
-                      <div key={task.id} className="board-task-card">
-                        <div className="board-task-title">{task.title}</div>
-                        {task.description && (
-                          <div className="board-task-description">{task.description}</div>
-                        )}
-                        <div className="board-task-footer">
-                          <span className={`task-priority priority-${task.priority}`}>
-                            <Icons.Flag />
-                          </span>
-                          {task.dueDate && (
-                            <span className="task-due-date">
-                              <Icons.Clock />
-                              {task.dueDate.toLocaleDateString()}
-                            </span>
+                    {statusTasks.map(task => {
+                      const overdue = isOverdue(task);
+                      return (
+                        <div key={task.id} className={`board-task-card ${overdue ? 'overdue' : ''}`}>
+                          <div className="board-task-title">{task.title}</div>
+                          {task.description && (
+                            <div className="board-task-description">{task.description}</div>
                           )}
+                          {task.tags.length > 0 && (
+                            <div className="task-tags">
+                              {task.tags.map(tag => (
+                                <span key={tag} className="task-tag">{tag}</span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="board-task-footer">
+                            <span className={`task-priority priority-${task.priority}`}>
+                              <Icons.Flag />
+                            </span>
+                            {task.dueDate && (
+                              <span className={`task-due-date ${overdue ? 'overdue' : ''}`}>
+                                <Icons.Calendar />
+                                {formatDate(task.dueDate)}
+                              </span>
+                            )}
+                            <div className="board-task-footer-right">
+                              {task.assigneeName && (
+                                <span className="task-assignee" title={task.assigneeName}>
+                                  {task.assigneeName.charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     <button 
                       className="add-task-inline board"
                       onClick={() => handleQuickAddTask(status)}
@@ -403,6 +507,34 @@ export function TasksPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group form-group-half">
+                  <label><Icons.Calendar /> Due Date</label>
+                  <input
+                    type="date"
+                    value={newTaskDueDate}
+                    onChange={(e) => setNewTaskDueDate(e.target.value)}
+                  />
+                </div>
+                <div className="form-group form-group-half">
+                  <label><Icons.User /> Assignee</label>
+                  <input
+                    type="text"
+                    placeholder="Assignee name"
+                    value={newTaskAssignee}
+                    onChange={(e) => setNewTaskAssignee(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label><Icons.Tag /> Tags</label>
+                <input
+                  type="text"
+                  placeholder="e.g. bug, frontend, urgent (comma-separated)"
+                  value={newTaskTags}
+                  onChange={(e) => setNewTaskTags(e.target.value)}
+                />
               </div>
             </div>
             <div className="modal-footer">

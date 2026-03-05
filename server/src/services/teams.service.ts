@@ -12,6 +12,7 @@ import { ConfidentialClientApplication } from '@azure/msal-node';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { config } from '../config.js';
 import { TokenStore } from './tokenStore.js';
+import { logger } from './logger.js';
 import type { UnifiedMessage, ChannelConnection } from '../types.js';
 
 /* ─── State ────────────────────────────────────────────── */
@@ -101,9 +102,9 @@ export const TeamsService = {
       accessToken = token;
       graphClient = createGraphClient(token);
       connectionState = stored.connection as unknown as ChannelConnection;
-      console.log('🔄 Teams: Restored tokens from Firestore');
+      logger.info('Teams: Restored tokens from Firestore');
     } catch (err) {
-      console.error('❌ Teams: Failed to restore tokens:', err);
+      logger.error('Teams: Failed to restore tokens', { error: err });
     }
   },
 
@@ -246,7 +247,7 @@ export const TeamsService = {
             });
           }
         } catch (err) {
-          console.error(`Error fetching messages from chat ${chat.id}:`, err);
+          logger.error(`Error fetching messages from chat ${chat.id}`, { error: err });
         }
       }
 
@@ -306,12 +307,12 @@ export const TeamsService = {
                 });
               }
             } catch (err) {
-              console.error(`Error fetching channel messages:`, err);
+              logger.error('Error fetching channel messages', { error: err });
             }
           }
         }
       } catch (err) {
-        console.error('Error fetching teams:', err);
+        logger.error('Error fetching teams', { error: err });
       }
 
       // Sort by time (newest first) and limit
@@ -321,7 +322,7 @@ export const TeamsService = {
       connectionState.messageCount = messages.length;
       return messages.slice(0, limit);
     } catch (err) {
-      console.error('Error fetching Teams messages:', err);
+      logger.error('Error fetching Teams messages', { error: err });
       throw err;
     }
   },

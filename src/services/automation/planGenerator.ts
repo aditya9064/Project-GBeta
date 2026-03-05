@@ -10,6 +10,8 @@
 
 import type { BrowserAction } from './types';
 import type { WorkflowDefinition } from './types';
+import { log } from '../../utils/logger';
+import { getAuthHeaders } from '../../lib/firebase';
 
 export interface PlanStep {
   id: string;
@@ -602,9 +604,10 @@ export interface AIGeneratedAgent {
  */
 export async function generateAgentFromPrompt(prompt: string): Promise<AIGeneratedAgent> {
   try {
+    const authHeaders = await getAuthHeaders();
     const res = await fetch(`${BACKEND_URL}/api/agents/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ prompt }),
     });
 
@@ -640,7 +643,7 @@ export async function generateAgentFromPrompt(prompt: string): Promise<AIGenerat
       explanation: result.explanation || '',
     };
   } catch (err: any) {
-    console.warn('[PlanGenerator] AI generation unavailable, falling back to keyword matching:', err.message);
+    log.warn('[PlanGenerator] AI generation unavailable, falling back to keyword matching:', err.message);
 
     // Fallback: generate plan using keyword matching, then convert
     const plan = generatePlan(prompt);

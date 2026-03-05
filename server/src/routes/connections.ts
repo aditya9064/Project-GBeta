@@ -15,6 +15,7 @@ import { GmailService } from '../services/gmail.service.js';
 import { SlackService } from '../services/slack.service.js';
 import { TeamsService } from '../services/teams.service.js';
 import { config } from '../config.js';
+import { logger } from '../services/logger.js';
 import type { ChannelConnection, APIResponse } from '../types.js';
 
 const router = Router();
@@ -25,11 +26,15 @@ const router = Router();
    them from Firestore before every connections request. */
 
 router.use(async (_req: Request, _res: Response, next: Function) => {
-  await Promise.all([
-    GmailService.restoreFromStore(),
-    SlackService.restoreFromStore(),
-    TeamsService.restoreFromStore(),
-  ]);
+  try {
+    await Promise.all([
+      GmailService.restoreFromStore(),
+      SlackService.restoreFromStore(),
+      TeamsService.restoreFromStore(),
+    ]);
+  } catch (err) {
+    logger.warn('Token restore partially failed', { error: err instanceof Error ? err.message : String(err) });
+  }
   next();
 });
 
@@ -72,10 +77,10 @@ router.get('/gmail/callback', async (req: Request, res: Response) => {
   }
 
   try {
-    const connection = await GmailService.handleCallback(code);
-    // Redirect back to the frontend Communications page
+    await GmailService.handleCallback(code);
     res.redirect(`${config.frontendUrl}/comms?connected=gmail`);
   } catch (err) {
+    logger.error('Gmail OAuth callback failed', { error: err instanceof Error ? err.message : String(err) });
     res.redirect(`${config.frontendUrl}/comms?error=gmail_auth_failed`);
   }
 });
@@ -115,6 +120,7 @@ router.get('/slack/callback', async (req: Request, res: Response) => {
     await SlackService.handleCallback(code);
     res.redirect(`${config.frontendUrl}/comms?connected=slack`);
   } catch (err) {
+    logger.error('Slack OAuth callback failed', { error: err instanceof Error ? err.message : String(err) });
     res.redirect(`${config.frontendUrl}/comms?error=slack_auth_failed`);
   }
 });
@@ -159,9 +165,10 @@ router.get('/teams/callback', async (req: Request, res: Response) => {
   }
 
   try {
-    const connection = await TeamsService.handleCallback(code);
+    await TeamsService.handleCallback(code);
     res.redirect(`${config.frontendUrl}/comms?connected=teams`);
   } catch (err) {
+    logger.error('Teams OAuth callback failed', { error: err instanceof Error ? err.message : String(err) });
     res.redirect(`${config.frontendUrl}/comms?error=teams_auth_failed`);
   }
 });

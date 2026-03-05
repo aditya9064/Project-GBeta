@@ -264,13 +264,13 @@ button.workforce-btn-icon:hover {
 }
 
 .stat-icon.blue {
-  background: rgba(59, 130, 246, 0.12);
-  color: #3b82f6;
+  background: rgba(224, 122, 58, 0.12);
+  color: #e07a3a;
 }
 
 .stat-icon.purple {
-  background: rgba(139, 92, 246, 0.12);
-  color: #8b5cf6;
+  background: rgba(224, 122, 58, 0.12);
+  color: #e07a3a;
 }
 
 .stat-icon.green {
@@ -394,8 +394,8 @@ button.workforce-btn-icon:hover {
 }
 
 .agent-status-indicator.running {
-  background: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  background: #e07a3a;
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.2);
   animation: pulse 2s infinite;
 }
 
@@ -587,13 +587,13 @@ button.workforce-btn-icon:hover {
 }
 
 .activity-item.crew_task .activity-icon {
-  background: rgba(139, 92, 246, 0.12);
-  color: #8b5cf6;
+  background: rgba(224, 122, 58, 0.12);
+  color: #e07a3a;
 }
 
 .activity-item.feedback .activity-icon {
-  background: rgba(59, 130, 246, 0.12);
-  color: #3b82f6;
+  background: rgba(224, 122, 58, 0.12);
+  color: #e07a3a;
 }
 
 .activity-content {
@@ -661,7 +661,7 @@ button.workforce-btn-icon:hover {
 }
 
 .insight-icon.opportunity {
-  color: #8b5cf6;
+  color: #e07a3a;
 }
 
 .insight-icon.achievement {
@@ -1012,13 +1012,13 @@ button.workforce-btn-icon:hover {
 }
 
 .crew-member-role.specialist {
-  background: rgba(59, 130, 246, 0.12);
-  color: #3b82f6;
+  background: rgba(224, 122, 58, 0.12);
+  color: #e07a3a;
 }
 
 .crew-member-role.reviewer {
-  background: rgba(139, 92, 246, 0.12);
-  color: #8b5cf6;
+  background: rgba(224, 122, 58, 0.12);
+  color: #e07a3a;
 }
 
 .crew-member-role.qa {
@@ -1610,8 +1610,8 @@ button.workforce-btn-icon:hover {
 }
 
 .escalation-suggestion {
-  background: rgba(59, 130, 246, 0.05);
-  border: 1px solid rgba(59, 130, 246, 0.1);
+  background: rgba(224, 122, 58, 0.05);
+  border: 1px solid rgba(224, 122, 58, 0.1);
   border-radius: 8px;
   padding: 14px;
   margin-bottom: 20px;

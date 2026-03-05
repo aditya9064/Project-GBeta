@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Brain,
   Loader2,
+  Download,
 } from 'lucide-react';
 import { CrewManager } from './CrewManager';
 import { AgentMetrics } from './AgentMetrics';
@@ -157,6 +158,30 @@ export function WorkforceDashboard() {
           </div>
         </div>
         <div className="workforce-header-right">
+          <button
+            className="workforce-btn-icon"
+            onClick={async () => {
+              try {
+                const API_BASE = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
+                const { auth } = await import('../../lib/firebase');
+                const token = await auth.currentUser?.getIdToken();
+                const resp = await fetch(`${API_BASE}/api/analytics/report/markdown`, {
+                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
+                const text = await resp.text();
+                const blob = new Blob([text], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'workforce-report.md';
+                a.click();
+                URL.revokeObjectURL(url);
+              } catch { /* ignore */ }
+            }}
+            title="Export Report"
+          >
+            <Download size={18} />
+          </button>
           <button 
             className="workforce-btn-icon" 
             onClick={handleRefresh}

@@ -14,6 +14,8 @@
 import { Router, Request, Response } from 'express';
 import { BudgetStore } from '../services/budgetStore.js';
 import { logger } from '../services/logger.js';
+import { validate } from '../middleware/validate.js';
+import { budgetUpdateSchema, budgetRecordCostSchema, budgetSetLimitSchema, budgetCalculateSchema } from '../middleware/schemas.js';
 
 const router = Router();
 
@@ -34,7 +36,7 @@ router.get('/:userId', async (req: Request, res: Response) => {
 
 /* ─── PUT /api/budget/:userId — Update budget settings ─────── */
 
-router.put('/:userId', async (req: Request, res: Response) => {
+router.put('/:userId', validate(budgetUpdateSchema), async (req: Request, res: Response) => {
   try {
     const updates = req.body;
     const budget = await BudgetStore.updateBudget(req.params.userId as string, updates);
@@ -83,17 +85,9 @@ router.get('/:userId/entries', async (req: Request, res: Response) => {
 
 /* ─── POST /api/budget/:userId/cost — Record cost entry ────── */
 
-router.post('/:userId/cost', async (req: Request, res: Response) => {
+router.post('/:userId/cost', validate(budgetRecordCostSchema), async (req: Request, res: Response) => {
   try {
     const { agentId, agentName, crewId, crewName, executionId, category, amount, description, metadata } = req.body;
-    
-    if (!category || amount === undefined || !description) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing required fields: category, amount, description',
-      });
-      return;
-    }
     
     const entry = await BudgetStore.recordCost({
       userId: req.params.userId as string,
@@ -139,17 +133,9 @@ router.get('/:userId/can-execute', async (req: Request, res: Response) => {
 
 /* ─── POST /api/budget/:userId/agent/:agentId — Set agent budget */
 
-router.post('/:userId/agent/:agentId', async (req: Request, res: Response) => {
+router.post('/:userId/agent/:agentId', validate(budgetSetLimitSchema), async (req: Request, res: Response) => {
   try {
     const { budget } = req.body;
-    
-    if (budget === undefined) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing required field: budget',
-      });
-      return;
-    }
     
     await BudgetStore.setAgentBudget(req.params.userId as string, req.params.agentId as string, Number(budget));
     res.json({ success: true });
@@ -164,17 +150,9 @@ router.post('/:userId/agent/:agentId', async (req: Request, res: Response) => {
 
 /* ─── POST /api/budget/:userId/crew/:crewId — Set crew budget ─ */
 
-router.post('/:userId/crew/:crewId', async (req: Request, res: Response) => {
+router.post('/:userId/crew/:crewId', validate(budgetSetLimitSchema), async (req: Request, res: Response) => {
   try {
     const { budget } = req.body;
-    
-    if (budget === undefined) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing required field: budget',
-      });
-      return;
-    }
     
     await BudgetStore.setCrewBudget(req.params.userId as string, req.params.crewId as string, Number(budget));
     res.json({ success: true });
@@ -189,17 +167,9 @@ router.post('/:userId/crew/:crewId', async (req: Request, res: Response) => {
 
 /* ─── POST /api/budget/calculate — Calculate token cost ─────── */
 
-router.post('/calculate', async (req: Request, res: Response) => {
+router.post('/calculate', validate(budgetCalculateSchema), async (req: Request, res: Response) => {
   try {
     const { model, inputTokens, outputTokens } = req.body;
-    
-    if (!model || inputTokens === undefined || outputTokens === undefined) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing required fields: model, inputTokens, outputTokens',
-      });
-      return;
-    }
     
     const cost = BudgetStore.calculateTokenCost(model, Number(inputTokens), Number(outputTokens));
     res.json({ success: true, data: { cost } });

@@ -17,6 +17,7 @@ import type { StoredAgent } from './agentStore.js';
 import { VisionAgent } from './visionAgent.js';
 import { ComputerService } from './computer/index.js';
 import { ExecutionStream } from './executionStream.js';
+import { logger } from './logger.js';
 
 interface WorkflowNode {
   id: string;
@@ -64,7 +65,7 @@ export class AgentExecutor {
     };
 
       await AgentStore.saveExecution(record);
-      console.log(`\n🚀 [AgentExecutor] Starting: "${agent.name}" (${executionId})`);
+      logger.info(`[AgentExecutor] Starting: "${agent.name}" (${executionId})`);
 
       // Emit SSE event for execution start
       ExecutionStream.emit({
@@ -94,7 +95,7 @@ export class AgentExecutor {
         record.logs.push(triggerLog);
         nodeOutputs[triggerNode.id] = triggerData;
         executed.add(triggerNode.id);
-        console.log(`  ✅ Trigger: ${triggerNode.label}`);
+        logger.info(`Trigger: ${triggerNode.label}`);
 
         // Follow edges from trigger to execute downstream nodes
         const outEdges = workflow.edges.filter(e => e.source === triggerNode.id);
@@ -115,7 +116,7 @@ export class AgentExecutor {
       await AgentStore.saveExecution(record);
       await AgentStore.recordExecution(agent.id, true);
 
-      console.log(`  ✅ [AgentExecutor] Completed: "${agent.name}" in ${record.durationMs}ms`);
+      logger.info(`[AgentExecutor] Completed: "${agent.name}" in ${record.durationMs}ms`);
 
       // Emit SSE event for execution complete
       ExecutionStream.emit({
@@ -139,7 +140,7 @@ export class AgentExecutor {
       await AgentStore.recordExecution(agent.id, false);
       await AgentStore.updateStatus(agent.id, 'error', err.message);
 
-      console.error(`  ❌ [AgentExecutor] Failed: "${agent.name}": ${err.message}`);
+      logger.error(`[AgentExecutor] Failed: "${agent.name}"`, { error: err.message });
 
       // Emit SSE event for execution failure
       ExecutionStream.emit({
@@ -202,7 +203,7 @@ export class AgentExecutor {
         nodeLog.output = this.sanitizeForLog(output);
         nodeOutputs[nodeId] = output;
         executed.add(nodeId);
-        console.log(`  ✅ ${node.type}: ${node.label} (${nodeLog.durationMs}ms)`);
+        logger.info(`${node.type}: ${node.label} (${nodeLog.durationMs}ms)`);
 
         // Emit SSE event for node complete
         ExecutionStream.emit({
@@ -222,7 +223,7 @@ export class AgentExecutor {
         nodeLog.durationMs = Date.now() - new Date(nodeLog.startedAt).getTime();
         nodeLog.error = err.message;
         executed.add(nodeId);
-        console.error(`  ❌ ${node.type}: ${node.label}: ${err.message}`);
+        logger.error(`${node.type}: ${node.label}`, { error: err.message });
 
         // Emit SSE event for node failure
         ExecutionStream.emit({
@@ -286,7 +287,7 @@ export class AgentExecutor {
       case 'computer_task':
         return this.executeComputerTask(node, input);
       default:
-        console.log(`  ⚡ Passthrough for unknown node type: ${node.type}`);
+        logger.info(`Passthrough for unknown node type: ${node.type}`);
         return { ...input, _nodeType: node.type, _processed: true };
     }
   }

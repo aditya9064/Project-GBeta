@@ -5,8 +5,8 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthProvider } from './contexts/AuthContext'
 import { AgentProvider } from './contexts/AgentContext'
 import { PageLoader } from './components/ui/LoadingSpinner'
+import { NotFound } from './components/ui/NotFound'
 
-// Lazy load main components for code splitting
 const LandingPage = lazy(() => 
   import('./components/landing/LandingPage').then(m => ({ default: m.LandingPage }))
 );
@@ -14,6 +14,13 @@ const LandingPage = lazy(() =>
 const CrewOSDashboard = lazy(() => 
   import('./components/crewos/CrewOSDashboard').then(m => ({ default: m.CrewOSDashboard }))
 );
+
+const DASHBOARD_PATHS = [
+  '/dashboard', '/agents', '/comms', '/docai', '/sales',
+  '/workflow', '/logs', '/marketplace',
+  '/settings', '/teams', '/docs',
+  '/integrations', '/webhooks', '/knowledge',
+];
 
 function AppRouter() {
   const navigate = useNavigate();
@@ -30,19 +37,25 @@ function AppRouter() {
     }
   }, [location.pathname]);
 
+  const dashboardElement = (
+    <ErrorBoundary>
+      <CrewOSDashboard />
+    </ErrorBoundary>
+  );
+
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={
           <ErrorBoundary>
-            <LandingPage onGetStarted={() => navigate('/dashboard')} />
+            <LandingPage onGetStarted={() => navigate('/agents')} />
           </ErrorBoundary>
         } />
-        <Route path="/*" element={
-          <ErrorBoundary>
-            <CrewOSDashboard />
-          </ErrorBoundary>
-        } />
+        {DASHBOARD_PATHS.map(path => (
+          <Route key={path} path={path} element={dashboardElement} />
+        ))}
+        <Route path="/automation-builder/:id" element={dashboardElement} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   );

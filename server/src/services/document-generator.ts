@@ -5,6 +5,7 @@
 
 import { createRequire } from 'node:module';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { logger } from './logger.js';
 
 const require = createRequire(import.meta.url);
 
@@ -158,7 +159,7 @@ async function getTextPositionsFromPdf(
       }
     }
   } catch (e) {
-    console.warn('getTextPositionsFromPdf failed, falling back to simple PDF:', e);
+    logger.warn('getTextPositionsFromPdf failed, falling back to simple PDF', { error: e });
   }
   return result;
 }

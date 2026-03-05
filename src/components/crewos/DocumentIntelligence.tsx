@@ -12,34 +12,25 @@ import {
   Shield,
   Sparkles,
   ArrowRight,
-  Eye,
-  Table2,
-  Tag,
-  Cpu,
   Database,
-  GitBranch,
   Play,
   BarChart3,
   Clock,
   Zap,
   FileCheck,
   AlertTriangle,
-  Check,
-  X,
   Search,
   Plus,
   Download,
   RefreshCw,
-  Settings2,
-  BookOpen,
   Scale,
-  Home,
   Building2,
   FileSignature,
   ClipboardCheck,
   Briefcase,
 } from 'lucide-react';
 import './DocumentIntelligence.css';
+import { log } from '../../utils/logger';
 
 import {
   getAvailableTemplates,
@@ -57,103 +48,7 @@ import { DocumentReplicationAgent } from './documentReplication';
 
 const API_BASE = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
-/* ─── TYPES ──────────────────────────────────────────────── */
-
-interface ModelInfo {
-  id: string;
-  name: string;
-  description: string;
-  type: 'ocr' | 'extraction' | 'classifier' | 'structure' | 'content' | 'validation';
-  status: 'deployed' | 'training' | 'fine-tuning' | 'queued';
-  accuracy: number;
-  latency: string;
-  trainingSamples: string;
-  lastTrained: string;
-  icon: typeof FileText;
-}
-
 /* ─── DATA ───────────────────────────────────────────────── */
-
-const models: ModelInfo[] = [
-  {
-    id: 'm1',
-    name: 'LayoutLMv3 — OCR + Layout',
-    description:
-      'Layout-aware transformer that understands document structure — headers, paragraphs, tables, signatures, and spatial relationships between text blocks. Handles scanned PDFs, photos, and handwritten content.',
-    type: 'ocr',
-    status: 'deployed',
-    accuracy: 97.8,
-    latency: '1.2s',
-    trainingSamples: '48K docs',
-    lastTrained: '2 days ago',
-    icon: Eye,
-  },
-  {
-    id: 'm2',
-    name: 'TableFormer — Table & KV Extraction',
-    description:
-      'Extracts structured tables, key-value pairs, line items, and nested data from complex document layouts. Handles multi-page tables with merged cells and irregular formatting.',
-    type: 'extraction',
-    status: 'deployed',
-    accuracy: 96.4,
-    latency: '0.8s',
-    trainingSamples: '22K tables',
-    lastTrained: '5 days ago',
-    icon: Table2,
-  },
-  {
-    id: 'm3',
-    name: 'DocClassifier — Document Type',
-    description:
-      'Classifies documents into 47 categories (invoices, contracts, W-9s, insurance certs, leases, NDAs, etc.) with sub-type detection. Routes to appropriate extraction pipeline.',
-    type: 'classifier',
-    status: 'deployed',
-    accuracy: 99.1,
-    latency: '0.3s',
-    trainingSamples: '85K docs',
-    lastTrained: '1 day ago',
-    icon: Tag,
-  },
-  {
-    id: 'm4',
-    name: 'StructureGen — Outline Model',
-    description:
-      'Generates document structure ASTs trained on real professional documents. Knows section ordering, required clauses, and regulatory requirements per document type and jurisdiction.',
-    type: 'structure',
-    status: 'deployed',
-    accuracy: 94.7,
-    latency: '2.1s',
-    trainingSamples: '35K outlines',
-    lastTrained: '3 days ago',
-    icon: GitBranch,
-  },
-  {
-    id: 'm5',
-    name: 'SectionWriter — Content Generation',
-    description:
-      'Fine-tuned on 200K+ real professional document sections. Generates each section independently with full context awareness. This is how 20–50 page documents are composed — section by section, not all at once.',
-    type: 'content',
-    status: 'fine-tuning',
-    accuracy: 92.3,
-    latency: '4.8s/section',
-    trainingSamples: '200K sections',
-    lastTrained: 'In progress',
-    icon: Brain,
-  },
-  {
-    id: 'm6',
-    name: 'DocValidator — Cross-Reference',
-    description:
-      'Validates internal references, clause numbering, regulatory compliance, contradiction detection, and formatting consistency across the full generated document.',
-    type: 'validation',
-    status: 'training',
-    accuracy: 91.6,
-    latency: '3.2s',
-    trainingSamples: '15K validated docs',
-    lastTrained: 'Epoch 8/12',
-    icon: Shield,
-  },
-];
 
 /* ─── TEMPLATE ICON / COLOR MAP ─────────────────────────── */
 const templateIcons: Record<string, typeof FileText> = {
@@ -165,9 +60,18 @@ const templateColors: Record<string, string> = {
   dt4: '#3a3a52', dt5: '#c05a1c', dt6: '#111111',
 };
 
+const templateModelStats: Record<string, { accuracy: string; latency: string; trainedOn: string; lastTrained: string }> = {
+  dt1: { accuracy: '97.2%', latency: '~12s', trainedOn: '18K leases', lastTrained: '2 days ago' },
+  dt2: { accuracy: '96.8%', latency: '~15s', trainedOn: '14K contracts', lastTrained: '3 days ago' },
+  dt3: { accuracy: '98.1%', latency: '~8s', trainedOn: '22K proposals', lastTrained: '1 day ago' },
+  dt4: { accuracy: '97.5%', latency: '~10s', trainedOn: '11K compliance', lastTrained: '4 days ago' },
+  dt5: { accuracy: '96.3%', latency: '~14s', trainedOn: '9K agreements', lastTrained: '5 days ago' },
+  dt6: { accuracy: '95.9%', latency: '~18s', trainedOn: '7K reports', lastTrained: '3 days ago' },
+};
+
 /* ─── COMPONENT ──────────────────────────────────────────── */
 
-type ActiveView = 'models' | 'generate' | 'pipeline' | 'replicate';
+type ActiveView = 'generate' | 'replicate';
 
 interface DocumentIntelligenceProps {
   initialView?: ActiveView;
@@ -176,13 +80,12 @@ interface DocumentIntelligenceProps {
 export function DocumentIntelligence(props: DocumentIntelligenceProps = {}) {
   const { initialView } = props;
   const { user } = useAuth();
-  const [activeView, setActiveView] = useState<ActiveView>(initialView ?? 'models');
+  const [activeView, setActiveView] = useState<ActiveView>(initialView === 'replicate' ? 'replicate' : 'generate');
   useEffect(() => {
     if (initialView) setActiveView(initialView);
   }, [initialView]);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [wizardStep, setWizardStep] = useState(0); // 0 = template select, 1 = intake, 2 = generating, 3 = review
-  const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState(true);
 
   // ─── NEW: Live generation state ───
@@ -281,7 +184,7 @@ export function DocumentIntelligence(props: DocumentIntelligenceProps = {}) {
         }
       } catch { /* history save non-fatal */ }
     } catch (err) {
-      console.error('Generation failed:', err);
+      log.error('Generation failed:', err);
       setWizardStep(1);
     } finally {
       setIsGenerating(false);
@@ -305,169 +208,6 @@ export function DocumentIntelligence(props: DocumentIntelligenceProps = {}) {
     a.click();
     URL.revokeObjectURL(url);
   }, [generatedDoc]);
-
-  const getStatusBadge = (status: ModelInfo['status']) => {
-    const map = {
-      'deployed': { label: 'Deployed', className: 'docai-status-deployed' },
-      'training': { label: 'Training', className: 'docai-status-training' },
-      'fine-tuning': { label: 'Fine-tuning', className: 'docai-status-finetuning' },
-      'queued': { label: 'Queued', className: 'docai-status-queued' },
-    };
-    return map[status];
-  };
-
-  const getTypeLabel = (type: ModelInfo['type']) => {
-    const map = {
-      'ocr': { label: 'Understanding', className: 'docai-type-understanding' },
-      'extraction': { label: 'Extraction', className: 'docai-type-extraction' },
-      'classifier': { label: 'Classification', className: 'docai-type-classification' },
-      'structure': { label: 'Generation', className: 'docai-type-generation' },
-      'content': { label: 'Generation', className: 'docai-type-generation' },
-      'validation': { label: 'Validation', className: 'docai-type-validation' },
-    };
-    return map[type];
-  };
-
-  /* ─── MODELS VIEW ───────────────────────────────────────── */
-  const renderModelsView = () => (
-    <div className="docai-models-view">
-      {/* Architecture Overview */}
-      <div className="docai-arch-banner">
-        <div className="docai-arch-banner-content">
-          <div className="docai-arch-banner-icon">
-            <Layers size={28} />
-          </div>
-          <div className="docai-arch-banner-text">
-            <h3>Custom Model Stack — Not a GPT Wrapper</h3>
-            <p>6 specialized models trained on your document corpus. Each handles one stage of the pipeline. Documents are composed section-by-section, not generated in a single call.</p>
-          </div>
-          <div className="docai-arch-stats">
-            <div className="docai-arch-stat">
-              <span className="docai-arch-stat-value">6</span>
-              <span className="docai-arch-stat-label">Models</span>
-            </div>
-            <div className="docai-arch-stat">
-              <span className="docai-arch-stat-value">405K</span>
-              <span className="docai-arch-stat-label">Training Samples</span>
-            </div>
-            <div className="docai-arch-stat">
-              <span className="docai-arch-stat-value">47</span>
-              <span className="docai-arch-stat-label">Doc Types</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Pipeline Diagram */}
-      <div className="docai-pipeline-flow">
-        <div className="docai-pipeline-flow-label">Generation Pipeline</div>
-        <div className="docai-pipeline-steps">
-          {['OCR + Layout', 'Extract KV', 'Classify', 'Structure', 'Generate Sections', 'Validate'].map((step, i) => (
-            <div key={step} className="docai-pipeline-step-item">
-              <div className={`docai-pipeline-step-dot ${i < 4 ? 'active' : i === 4 ? 'current' : ''}`}>
-                {i < 4 ? <Check size={12} /> : i === 4 ? <Loader2 size={12} className="docai-spin" /> : <Circle size={12} />}
-              </div>
-              <span className="docai-pipeline-step-name">{step}</span>
-              {i < 5 && <ArrowRight size={14} className="docai-pipeline-arrow" />}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Model Cards */}
-      <div className="docai-models-grid">
-        {models.map((model) => {
-          const statusBadge = getStatusBadge(model.status);
-          const typeLabel = getTypeLabel(model.type);
-          const isExpanded = expandedModel === model.id;
-
-          return (
-            <div
-              key={model.id}
-              className={`docai-model-card ${isExpanded ? 'expanded' : ''}`}
-              onClick={() => setExpandedModel(isExpanded ? null : model.id)}
-            >
-              <div className="docai-model-card-header">
-                <div className="docai-model-card-tags">
-                  <span className={`docai-model-type ${typeLabel.className}`}>{typeLabel.label}</span>
-                  <span className={`docai-model-status ${statusBadge.className}`}>
-                    {model.status === 'training' || model.status === 'fine-tuning' ? (
-                      <Loader2 size={11} className="docai-spin" />
-                    ) : model.status === 'deployed' ? (
-                      <CheckCircle2 size={11} />
-                    ) : null}
-                    {statusBadge.label}
-                  </span>
-                </div>
-                <div className="docai-model-icon">
-                  <model.icon size={20} />
-                </div>
-              </div>
-
-              <h4 className="docai-model-name">{model.name}</h4>
-              <p className="docai-model-desc">{model.description}</p>
-
-              <div className="docai-model-metrics">
-                <div className="docai-metric">
-                  <span className="docai-metric-value">{model.accuracy}%</span>
-                  <span className="docai-metric-label">Accuracy</span>
-                </div>
-                <div className="docai-metric">
-                  <span className="docai-metric-value">{model.latency}</span>
-                  <span className="docai-metric-label">Latency</span>
-                </div>
-                <div className="docai-metric">
-                  <span className="docai-metric-value">{model.trainingSamples}</span>
-                  <span className="docai-metric-label">Trained On</span>
-                </div>
-                <div className="docai-metric">
-                  <span className="docai-metric-value">{model.lastTrained}</span>
-                  <span className="docai-metric-label">Last Trained</span>
-                </div>
-              </div>
-
-              {isExpanded && (
-                <div className="docai-model-expanded">
-                  <div className="docai-model-expanded-section">
-                    <h5>Training Progress</h5>
-                    <div className="docai-progress-bar">
-                      <div
-                        className="docai-progress-fill"
-                        style={{
-                          width: model.status === 'deployed' ? '100%' : model.status === 'fine-tuning' ? '72%' : '67%',
-                        }}
-                      />
-                    </div>
-                    <span className="docai-progress-label">
-                      {model.status === 'deployed'
-                        ? 'Production ready'
-                        : model.status === 'fine-tuning'
-                        ? 'Epoch 9/12 — ETA 4.2h'
-                        : 'Epoch 8/12 — ETA 6.1h'}
-                    </span>
-                  </div>
-                  <div className="docai-model-actions">
-                    <button className="docai-model-action-btn">
-                      <RefreshCw size={14} />
-                      Retrain
-                    </button>
-                    <button className="docai-model-action-btn">
-                      <BarChart3 size={14} />
-                      Metrics
-                    </button>
-                    <button className="docai-model-action-btn">
-                      <Settings2 size={14} />
-                      Config
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
 
   /* ─── GENERATE VIEW ─────────────────────────────────────── */
   const renderGenerateView = () => {
@@ -528,6 +268,26 @@ export function DocumentIntelligence(props: DocumentIntelligenceProps = {}) {
                       <span><Layers size={12} /> {tmpl.sections} sections</span>
                       <span><Clock size={12} /> ~{tmpl.avgGenerationTime}</span>
                     </div>
+                    {templateModelStats[tmpl.id] && (
+                      <div className="docai-template-model-stats">
+                        <span className="docai-tms" title="Pipeline accuracy for this document type">
+                          <BarChart3 size={11} />
+                          {templateModelStats[tmpl.id].accuracy}
+                        </span>
+                        <span className="docai-tms" title="Average generation latency">
+                          <Zap size={11} />
+                          {templateModelStats[tmpl.id].latency}
+                        </span>
+                        <span className="docai-tms" title="Training corpus size">
+                          <Database size={11} />
+                          {templateModelStats[tmpl.id].trainedOn}
+                        </span>
+                        <span className="docai-tms" title="Last model training">
+                          <RefreshCw size={11} />
+                          {templateModelStats[tmpl.id].lastTrained}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="docai-template-inputs-badge">
                     {tmpl.questions.length} inputs
@@ -868,136 +628,6 @@ export function DocumentIntelligence(props: DocumentIntelligenceProps = {}) {
     return null;
   };
 
-  /* ─── PIPELINE VIEW ─────────────────────────────────────── */
-  const renderPipelineView = () => (
-    <div className="docai-pipeline-view">
-      <div className="docai-pipeline-header-bar">
-        <h3>How It Works — The 5-Stage Pipeline</h3>
-        <p>No single model generates the entire document. Each stage is a specialized model trained for its specific task.</p>
-      </div>
-
-      <div className="docai-how-cards">
-        {/* Stage 1 */}
-        <div className="docai-how-card">
-          <div className="docai-how-stage-num">01</div>
-          <div className="docai-how-icon" style={{ background: 'rgba(224,122,58,0.1)', color: '#e07a3a' }}>
-            <BookOpen size={24} />
-          </div>
-          <h4>Guided Intake</h4>
-          <p className="docai-how-subtitle">Users answer questions — never draft</p>
-          <p>A fine-tuned classifier determines document type and presents 8–15 targeted questions. For a lease: "Commercial or residential?", "State?", "Term length?" The user never writes prose. Entity data is auto-pulled from CRM, prior documents, and company records.</p>
-          <div className="docai-how-detail">
-            <span className="docai-how-tag">No drafting</span>
-            <span className="docai-how-tag">CRM auto-fill</span>
-            <span className="docai-how-tag">Smart defaults</span>
-          </div>
-        </div>
-
-        {/* Stage 2 */}
-        <div className="docai-how-card">
-          <div className="docai-how-stage-num">02</div>
-          <div className="docai-how-icon" style={{ background: 'rgba(224,122,58,0.1)', color: '#e07a3a' }}>
-            <GitBranch size={24} />
-          </div>
-          <h4>Structure Generation</h4>
-          <p className="docai-how-subtitle">The Outline Model builds the skeleton</p>
-          <p>A model fine-tuned on thousands of real professional documents generates the document AST — a structured JSON tree of sections, subsections, required clauses, and regulatory boilerplate. It knows section ordering and jurisdiction-specific requirements.</p>
-          <div className="docai-how-detail">
-            <span className="docai-how-tag">35K outlines trained</span>
-            <span className="docai-how-tag">JSON AST output</span>
-            <span className="docai-how-tag">Jurisdiction-aware</span>
-          </div>
-        </div>
-
-        {/* Stage 3 */}
-        <div className="docai-how-card highlight">
-          <div className="docai-how-stage-num">03</div>
-          <div className="docai-how-icon" style={{ background: 'rgba(26,26,46,0.08)', color: '#1a1a2e' }}>
-            <Brain size={24} />
-          </div>
-          <h4>Section-by-Section Generation</h4>
-          <p className="docai-how-subtitle">This is the key insight</p>
-          <p>Each section is generated <strong>independently</strong> by a fine-tuned content model with full context of prior sections + user inputs. This is how you get 20–50+ page documents. The model is trained on 200K+ real professional document sections, not generic web text. Each call generates one section with proper legal/business language.</p>
-          <div className="docai-how-detail">
-            <span className="docai-how-tag">200K sections trained</span>
-            <span className="docai-how-tag">Context-aware</span>
-            <span className="docai-how-tag">4.8s per section</span>
-            <span className="docai-how-tag">20–50+ pages</span>
-          </div>
-        </div>
-
-        {/* Stage 4 */}
-        <div className="docai-how-card">
-          <div className="docai-how-stage-num">04</div>
-          <div className="docai-how-icon" style={{ background: 'rgba(212,107,44,0.1)', color: '#d46b2c' }}>
-            <Shield size={24} />
-          </div>
-          <h4>Cross-Reference Validation</h4>
-          <p className="docai-how-subtitle">Deterministic quality checks</p>
-          <p>A validation model scans the complete generated document for: broken internal references ("Section 12.3" actually exists), consistent clause numbering, regulatory compliance per jurisdiction, contradiction detection, and proper defined term usage throughout.</p>
-          <div className="docai-how-detail">
-            <span className="docai-how-tag">Auditable</span>
-            <span className="docai-how-tag">Deterministic</span>
-            <span className="docai-how-tag">Compliance checks</span>
-          </div>
-        </div>
-
-        {/* Stage 5 */}
-        <div className="docai-how-card">
-          <div className="docai-how-stage-num">05</div>
-          <div className="docai-how-icon" style={{ background: 'rgba(58,58,82,0.08)', color: '#3a3a52' }}>
-            <FileCheck size={24} />
-          </div>
-          <h4>Template Rendering</h4>
-          <p className="docai-how-subtitle">Professional output — PDF, DOCX, HTML</p>
-          <p>The structured content renders into professional document format with proper headers, footers, page numbers, signature blocks, exhibits, and schedules. Company branding and formatting standards are applied automatically. Exports to PDF, DOCX, and HTML.</p>
-          <div className="docai-how-detail">
-            <span className="docai-how-tag">PDF / DOCX / HTML</span>
-            <span className="docai-how-tag">Company branding</span>
-            <span className="docai-how-tag">Signature blocks</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Why Not GPT */}
-      <div className="docai-why-custom">
-        <h3>Why Custom Models, Not GPT Wrappers</h3>
-        <div className="docai-comparison">
-          <div className="docai-comparison-col bad">
-            <div className="docai-comparison-header">
-              <X size={18} />
-              <span>GPT Wrapper Approach</span>
-            </div>
-            <ul>
-              <li>Generic output — no domain knowledge</li>
-              <li>Token limits = 1–2 page max</li>
-              <li>No understanding of document structure</li>
-              <li>Hallucinated legal language</li>
-              <li>Inconsistent between runs</li>
-              <li>Can't learn from your documents</li>
-              <li>Prompt injection risk for legal docs</li>
-            </ul>
-          </div>
-          <div className="docai-comparison-col good">
-            <div className="docai-comparison-header">
-              <CheckCircle2 size={18} />
-              <span>Custom Model Stack</span>
-            </div>
-            <ul>
-              <li>Trained on real professional documents</li>
-              <li>Section-by-section = unlimited length</li>
-              <li>Layout-aware structure understanding</li>
-              <li>Accurate legal/business language</li>
-              <li>Deterministic, auditable outputs</li>
-              <li>Continuous learning from feedback</li>
-              <li>Sandboxed per-model, no injection</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   /* ─── HISTORY VIEW ─────────────────────────────────────── */
   const renderHistoryView = () => (
     <div className="docai-models-view">
@@ -1074,25 +704,11 @@ export function DocumentIntelligence(props: DocumentIntelligenceProps = {}) {
           <h1 className="docai-header-title">Document Intelligence</h1>
           <div className="docai-header-tabs">
             <button
-              className={`docai-header-tab ${activeView === 'models' ? 'active' : ''}`}
-              onClick={() => setActiveView('models')}
-            >
-              <Cpu size={15} />
-              Model Stack
-            </button>
-            <button
               className={`docai-header-tab ${activeView === 'generate' ? 'active' : ''}`}
               onClick={() => { setActiveView('generate'); setWizardStep(0); setSelectedTemplate(null); }}
             >
               <Sparkles size={15} />
               Generate
-            </button>
-            <button
-              className={`docai-header-tab ${activeView === 'pipeline' ? 'active' : ''}`}
-              onClick={() => setActiveView('pipeline')}
-            >
-              <GitBranch size={15} />
-              How It Works
             </button>
             <button
               className={`docai-header-tab ${activeView === 'replicate' ? 'active' : ''}`}
@@ -1120,13 +736,11 @@ export function DocumentIntelligence(props: DocumentIntelligenceProps = {}) {
 
       {/* Content */}
       <div className="docai-content">
-        {activeView === 'models' && renderModelsView()}
         {activeView === 'generate' && renderGenerateView()}
-        {activeView === 'pipeline' && renderPipelineView()}
         {activeView === 'replicate' && (
           <DocumentReplicationAgent
             userId={user?.uid ?? 'anonymous'}
-            onBack={() => setActiveView('models')}
+            onBack={() => setActiveView('generate')}
           />
         )}
       </div>

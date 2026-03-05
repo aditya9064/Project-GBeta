@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import './MonitoringDashboard.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
 interface DashboardSummary {
   health: {

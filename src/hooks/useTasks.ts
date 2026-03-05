@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { log } from '../utils/logger';
 
 // Task status options
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done';
@@ -127,7 +128,7 @@ export function useTasks(projectId?: string) {
         setError(null);
       },
       (err) => {
-        console.error('Error fetching tasks:', err);
+        log.error('Error fetching tasks:', err);
         setError(err);
         setLoading(false);
       }
@@ -144,6 +145,7 @@ export function useTasks(projectId?: string) {
       status?: TaskStatus;
       priority?: TaskPriority;
       dueDate?: Date | null;
+      assigneeName?: string | null;
       projectId?: string | null;
       projectName?: string | null;
       tags?: string[];
@@ -163,7 +165,7 @@ export function useTasks(projectId?: string) {
           priority: taskData.priority || 'normal',
           dueDate: taskData.dueDate ? Timestamp.fromDate(taskData.dueDate) : null,
           assigneeId: user.uid,
-          assigneeName: user.displayName || user.email || 'Unknown',
+          assigneeName: taskData.assigneeName ?? (user.displayName || user.email || 'Unknown'),
           projectId: taskData.projectId || null,
           projectName: taskData.projectName || null,
           tags: taskData.tags || [],

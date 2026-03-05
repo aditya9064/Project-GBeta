@@ -21,6 +21,7 @@
 import { WebClient } from '@slack/web-api';
 import { config } from '../config.js';
 import { TokenStore } from './tokenStore.js';
+import { logger } from './logger.js';
 import type { UnifiedMessage, ChannelConnection } from '../types.js';
 
 /* ─── State ────────────────────────────────────────────── */
@@ -131,9 +132,9 @@ export const SlackService = {
       slackClient = new WebClient(token);
       currentUserId = (stored.tokens.userId as string) || null;
       connectionState = stored.connection as unknown as ChannelConnection;
-      console.log('🔄 Slack: Restored tokens from Firestore');
+      logger.info('Slack: Restored tokens from Firestore');
     } catch (err) {
-      console.error('❌ Slack: Failed to restore tokens:', err);
+      logger.error('Slack: Failed to restore tokens', { error: err });
     }
   },
 
@@ -185,7 +186,7 @@ export const SlackService = {
         throw new Error('No user token received. Make sure user_scope is configured in the Slack app.');
       }
 
-      console.log(`✓ Slack user token obtained for user ${userId} in workspace "${teamName}"`);
+      logger.info(`Slack user token obtained for user ${userId} in workspace "${teamName}"`);
 
       // Initialize client with the USER token (allows personal message access)
       slackClient = new WebClient(userToken);
@@ -353,7 +354,7 @@ export const SlackService = {
             remaining--;
           }
         } catch (err) {
-          console.error(`Error fetching messages from channel ${channel.id}:`, err);
+          logger.error(`Error fetching messages from channel ${channel.id}`, { error: err });
         }
       }
 
@@ -361,7 +362,7 @@ export const SlackService = {
       connectionState.messageCount = messages.length;
       return messages;
     } catch (err) {
-      console.error('Error fetching Slack messages:', err);
+      logger.error('Error fetching Slack messages', { error: err });
       throw err;
     }
   },
@@ -448,14 +449,14 @@ export const SlackService = {
             remaining--;
           }
         } catch (err) {
-          console.error(`Error fetching messages from channel ${channel.id}:`, err);
+          logger.error(`Error fetching messages from channel ${channel.id}`, { error: err });
         }
       }
 
-      console.log(`📧 Slack: Fetched ${messages.length} of user's own messages for voice learning`);
+      logger.info(`Slack: Fetched ${messages.length} of user's own messages for voice learning`);
       return messages;
     } catch (err) {
-      console.error('Error fetching user sent messages from Slack:', err);
+      logger.error('Error fetching user sent messages from Slack', { error: err });
       throw err;
     }
   },

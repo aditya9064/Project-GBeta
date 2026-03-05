@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './AIBrainstormPanel.css';
+import { log } from '../../utils/logger';
 
 // ============================================
 // TYPES
@@ -163,7 +164,7 @@ const expertRoles: { id: ExpertRole; label: string; icon: React.FC; color: strin
   { id: 'ceo', label: 'CEO', icon: Icons.Shield, color: '#EC4899', description: 'Executive leadership & decisions' },
   { id: 'cfo', label: 'CFO', icon: Icons.DollarSign, color: '#10B981', description: 'Financial planning & analysis' },
   { id: 'cmo', label: 'CMO', icon: Icons.Megaphone, color: '#F59E0B', description: 'Marketing & brand strategy' },
-  { id: 'programmer', label: 'Tech Lead', icon: Icons.Code, color: '#3B82F6', description: 'Technical architecture & solutions' },
+  { id: 'programmer', label: 'Tech Lead', icon: Icons.Code, color: '#d46b2c', description: 'Technical architecture & solutions' },
   { id: 'manager', label: 'Manager', icon: Icons.User, color: '#d46b2c', description: 'Operations & team coordination' },
   { id: 'analyst', label: 'Analyst', icon: Icons.TrendingUp, color: '#14B8A6', description: 'Data insights & market analysis' },
 ];
@@ -401,7 +402,7 @@ export function AIBrainstormPanel({
 
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Error generating AI response:', error);
+      log.error('Error generating AI response:', error);
     } finally {
       setIsLoading(false);
     }
@@ -441,7 +442,7 @@ export function AIBrainstormPanel({
   const getCategoryColor = (category: IdeaCategory): string => {
     const colors: Record<IdeaCategory, string> = {
       strategy: '#e07a3a',
-      technical: '#3B82F6',
+      technical: '#d46b2c',
       financial: '#10B981',
       marketing: '#F59E0B',
       operations: '#d46b2c',

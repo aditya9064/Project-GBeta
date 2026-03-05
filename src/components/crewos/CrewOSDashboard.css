@@ -55,6 +55,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 /* ─── SIDEBAR ────────────────────────────────────────────── */
@@ -766,7 +767,7 @@ button.operonai-btn-primary:hover {
 .operonai-tag-vision { background: rgba(224, 122, 58, 0.1); color: #e07a3a; }
 .operonai-tag-nlp { background: #f0f0f6; color: #3a3a52; }
 .operonai-tag-extraction { background: rgba(26, 26, 46, 0.08); color: #1a1a2e; }
-.operonai-tag-classification { background: rgba(224, 122, 58, 0.1); color: #4f46e5; }
+.operonai-tag-classification { background: rgba(224, 122, 58, 0.1); color: #e07a3a; }
 .operonai-tag-generation { background: rgba(212, 107, 44, 0.12); color: #d46b2c; }
 .operonai-tag-dev { background: #f5f5f9; color: #6a6a80; }
 .operonai-tag-research { background: #e8eaf6; color: #283593; }
@@ -3877,6 +3878,9 @@ button.operonai-empty-cta:hover {
   transition: all 0.2s ease;
   position: relative;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .aw-agent-card:hover {
   border-color: rgba(224, 122, 58, 0.2);
@@ -3990,24 +3994,26 @@ button.operonai-empty-cta:hover {
 .aw-agent-card-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 4px 2px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
-  padding-top: 16px;
+  padding-top: 12px;
   margin-top: auto;
 }
 .aw-agent-action-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 4px;
+  padding: 5px 8px;
   border: none;
   background: transparent !important;
   color: #6a6a80 !important;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
 }
 .aw-agent-action-btn:hover {
   background: #f8f8fc !important;
@@ -4103,8 +4109,8 @@ button.operonai-empty-cta:hover {
 
 /* Responding — blue accent */
 .operon-voice-bar.responding {
-  border-color: rgba(59,130,246,0.3);
-  box-shadow: 0 0 0 2px rgba(59,130,246,0.06);
+  border-color: rgba(224,122,58,0.3);
+  box-shadow: 0 0 0 2px rgba(224,122,58,0.06);
 }
 
 /* Orange glow layer when wake word detected */
@@ -4369,8 +4375,8 @@ button.operonai-empty-cta:hover {
 }
 
 .operon-chat-action-tag.navigate {
-  background: rgba(59,130,246,0.1);
-  color: #2563eb;
+  background: rgba(224,122,58,0.1);
+  color: #e07a3a;
 }
 
 .operon-chat-action-tag.create_agent {
@@ -4385,7 +4391,7 @@ button.operonai-empty-cta:hover {
 
 .operon-chat-action-tag.ask_clarification {
   background: rgba(168,85,247,0.1);
-  color: #7c3aed;
+  color: #e07a3a;
 }
 
 /* Controls */
@@ -4463,7 +4469,7 @@ button.operonai-empty-cta:hover {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(59,130,246,0.5), rgba(99,102,241,0.5), rgba(59,130,246,0.5), transparent);
+  background: linear-gradient(90deg, transparent, rgba(224,122,58,0.5), rgba(224,122,58,0.5), rgba(224,122,58,0.5), transparent);
   background-size: 200% 100%;
   animation: operon-respond-flow 2s ease-in-out infinite;
   z-index: 2;
@@ -4857,4 +4863,254 @@ button.operonai-empty-cta:hover {
   opacity: 0.7;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Agent Results Modal
+   ═══════════════════════════════════════════════════════════ */
+
+.ar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(2px);
+}
+
+.ar-panel {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 620px;
+  max-height: 85vh;
+  overflow: auto;
+  padding: 28px 32px;
+  color: #1a1a2e;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e8e8f0;
+}
+
+.ar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.ar-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ar-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(224, 122, 58, 0.1);
+  color: #e07a3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ar-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.ar-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  color: #5a5a72;
+}
+
+.ar-close {
+  background: none;
+  border: none;
+  color: #8a8aa0;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 150ms;
+}
+.ar-close:hover {
+  color: #1a1a2e;
+}
+
+.ar-stats-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.ar-stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #f0f0f6;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #5a5a72;
+}
+
+.ar-stat-chip.error {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+
+.ar-section {
+  margin-bottom: 16px;
+}
+
+.ar-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #8a8aa0;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+
+.ar-task-block {
+  font-size: 0.875rem;
+  color: #5a5a72;
+  background: #f8f8fc;
+  padding: 10px 14px;
+  border-radius: 8px;
+  line-height: 1.5;
+  border: 1px solid #e8e8f0;
+}
+
+.ar-error-block {
+  font-size: 0.875rem;
+  color: #dc2626;
+  background: #fef2f2;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+}
+
+.ar-data-block {
+  font-size: 0.8125rem;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  color: #c05d1e;
+  background: rgba(224, 122, 58, 0.06);
+  padding: 14px 16px;
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 400px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  line-height: 1.6;
+  border: 1px solid rgba(224, 122, 58, 0.15);
+}
+
+.ar-empty-data {
+  font-size: 0.875rem;
+  color: #8a8aa0;
+  font-style: italic;
+}
+
+.ar-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+.ar-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.ar-btn.secondary {
+  background: #ffffff;
+  color: #5a5a72;
+  border: 1px solid #e8e8f0;
+}
+.ar-btn.secondary:hover {
+  background: #f0f0f6;
+  color: #1a1a2e;
+}
+
+.ar-btn.primary {
+  background: #e07a3a;
+  color: #ffffff;
+  border: none;
+}
+.ar-btn.primary:hover {
+  background: #cf6a2c;
+}
+
+/* Results button style in agent cards */
+.aw-agent-action-btn.results {
+  color: #e07a3a;
+}
+.aw-agent-action-btn.results:hover {
+  background: rgba(224, 122, 58, 0.08);
+}
+
+.aw-agent-action-btn.logs {
+  color: #5a5a72;
+}
+
+/* ─── Custom Agent Banner (inside catalog modal) ─────── */
+
+.oc-custom-agent-banner {
+  margin: 10px 24px 0;
+  padding: 14px 20px;
+  background: #ffffff;
+  border: 1.5px solid #e8e8f0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: border-color 150ms, box-shadow 150ms, transform 150ms;
+}
+.oc-custom-agent-banner:hover {
+  border-color: #e07a3a;
+  box-shadow: 0 4px 16px rgba(224, 122, 58, 0.1);
+  transform: translateY(-1px);
+}
+
+.oc-custom-agent-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(224, 122, 58, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.oc-custom-agent-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 2px;
+}
+
+.oc-custom-agent-desc {
+  font-size: 13px;
+  color: #5a5a72;
 }

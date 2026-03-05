@@ -14,6 +14,7 @@
 
 import OpenAI from 'openai';
 import { config } from '../config.js';
+import { logger } from './logger.js';
 
 /* ─── Types ──────────────────────────────────────────────── */
 
@@ -261,7 +262,7 @@ export class PromptToAgentService {
         explanation: parsed.explanation || '',
       };
     } catch (err: any) {
-      console.error('[PromptToAgent] Generation error:', err);
+      logger.error('[PromptToAgent] Generation error', { error: err });
       return this.errorResult(err.message || 'Failed to generate agent');
     }
   }

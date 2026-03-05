@@ -20,6 +20,7 @@ import {
   inputSanitizationMiddleware,
   securityHeadersMiddleware,
 } from './middleware/security.js';
+import { firebaseAuthMiddleware } from './middleware/auth.js';
 import { messagesRouter } from './routes/messages.js';
 import { connectionsRouter } from './routes/connections.js';
 import { aiRouter } from './routes/ai.js';
@@ -46,6 +47,7 @@ import { webhooksRouter } from './routes/webhooks.js';
 import { Scheduler } from './services/scheduler.js';
 import { organizationsRouter } from './routes/organizations.js';
 import { operonRouter } from './routes/operon.js';
+import { autonomousRouter } from './routes/autonomous.js';
 
 export const app = express();
 
@@ -98,26 +100,32 @@ allowedOrigins.push(
   config.frontendUrl,
   'https://operonagent.com',
   'https://www.operonagent.com',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:4173',
-  'http://localhost:3000',
-  'http://localhost:5001',
 );
+
+if (!config.isProduction) {
+  allowedOrigins.push(
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:4173',
+    'http://localhost:3000',
+    'http://localhost:5001',
+  );
+}
 
 if (process.env.FIREBASE_HOSTING_URL) {
   allowedOrigins.push(process.env.FIREBASE_HOSTING_URL);
 }
+
+app.set('trust proxy', 1);
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     if (
       allowedOrigins.includes(origin) ||
-      origin.endsWith('.web.app') ||
-      origin.endsWith('.firebaseapp.com') ||
-      origin.endsWith('.operonagent.com') ||
-      origin === 'https://operonagent.com'
+      origin.endsWith('.gbeta-a7ea6.web.app') ||
+      origin.endsWith('.gbeta-a7ea6.firebaseapp.com') ||
+      origin.endsWith('.operonagent.com')
     ) {
       callback(null, true);
     } else {
@@ -137,7 +145,7 @@ app.use(securityHeadersMiddleware());
 app.use(observabilityMiddleware());
 
 // Input sanitization and injection detection
-app.use(inputSanitizationMiddleware({ sanitize: true, validate: true, blockOnIssues: false }));
+app.use(inputSanitizationMiddleware({ sanitize: true, validate: true, blockOnIssues: config.isProduction }));
 
 // Slow request detection (warn after 5 seconds)
 app.use(slowRequestMiddleware(5000));
@@ -169,6 +177,25 @@ const browserLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, error: 'Browser rate limit exceeded.' },
 });
+
+/* ─── Authentication ───────────────────────────────────── */
+
+app.use(firebaseAuthMiddleware({
+  skipPaths: [
+    '/healthz',
+    '/readyz',
+    '/api/health',
+    '/api/health/legacy',
+    '/api/observability/metrics',
+  ],
+  skipPrefixes: [
+    '/api/connections/gmail/callback',
+    '/api/connections/slack/callback',
+    '/api/connections/teams/callback',
+    '/api/webhooks/incoming/',
+    '/api/stream/executions',
+  ],
+}));
 
 /* ─── Routes ───────────────────────────────────────────── */
 
@@ -203,6 +230,7 @@ APM.start();
 // Initialize scheduler
 Scheduler.initialize();
 app.use('/api/operon', aiLimiter, operonRouter);
+app.use('/api/autonomous', aiLimiter, autonomousRouter);
 
 /* ─── Health & Observability Endpoints ─────────────────── */
 

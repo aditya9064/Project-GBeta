@@ -311,7 +311,7 @@ export function AuthPage({ onBack }: AuthPageProps) {
             </div>
           )}
 
-          {mode !== 'reset' && (
+          {mode !== 'reset' && import.meta.env.VITE_DEMO_MODE === 'true' && (
             <div className="demo-login-section">
               <div className="demo-divider">
                 <span>OR</span>

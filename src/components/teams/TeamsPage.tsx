@@ -5,6 +5,7 @@ import './TeamChat.css';
 import { useTeams, Team } from '../../hooks/useTeams';
 import { useAuth } from '../../contexts/AuthContext';
 import { TeamChat } from './TeamChat';
+import { log } from '../../utils/logger';
 
 interface TeamMember {
   id: string;
@@ -212,7 +213,7 @@ export function TeamsPage() {
       });
       
       if (error) {
-        console.error('Error creating team:', error);
+        log.error('Error creating team:', error);
       } else {
         setNewTeamName('');
         setNewTeamHandle('');

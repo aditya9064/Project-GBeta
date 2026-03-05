@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { CalendarEvent, CalendarView, ParsedEventIntent } from '../../types/calendar';
 import { parseEventIntent, createEventFromIntent, generateConfirmation } from '../../utils/aiEventParser';
+import { useEvents } from '../../hooks/useEvents';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 import { DayView } from './DayView';
@@ -22,14 +23,10 @@ const ChevronRight = () => (
   </svg>
 );
 
-interface CalendarProps {
-  initialEvents?: CalendarEvent[];
-}
-
-export function Calendar({ initialEvents = [] }: CalendarProps) {
+export function Calendar() {
+  const { events, loading, error, createEvent, updateEvent, deleteEvent } = useEvents();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>('month');
-  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [pendingIntent, setPendingIntent] = useState<ParsedEventIntent | null>(null);
@@ -95,7 +92,7 @@ export function Calendar({ initialEvents = [] }: CalendarProps) {
   };
 
   // Handle AI input
-  const handleAIInput = useCallback((input: string) => {
+  const handleAIInput = useCallback(async (input: string) => {
     const intent = parseEventIntent(input);
     
     if (intent.needsClarification) {
@@ -107,80 +104,86 @@ export function Calendar({ initialEvents = [] }: CalendarProps) {
     if (intent.confidence >= 0.6) {
       const event = createEventFromIntent(intent);
       if (event) {
-        setEvents(prev => [...prev, event]);
-        setAiMessage(generateConfirmation(event));
-        setSelectedEvent(event);
-        
-        // Navigate to event date
-        setCurrentDate(event.startTime);
-        
-        // Clear message after 4 seconds
-        setTimeout(() => setAiMessage(null), 4000);
+        const { id: _id, createdAt: _ca, updatedAt: _ua, createdBy: _cb, ...eventData } = event;
+        const newId = await createEvent(eventData);
+        if (newId) {
+          setAiMessage(generateConfirmation(event));
+          setCurrentDate(event.startTime);
+          setTimeout(() => setAiMessage(null), 4000);
+        } else {
+          setAiMessage('Failed to create event. Please try again.');
+          setTimeout(() => setAiMessage(null), 3000);
+        }
       }
     } else {
       setAiMessage("I'm not sure what you want to schedule. Could you be more specific?");
       setTimeout(() => setAiMessage(null), 3000);
     }
-  }, []);
+  }, [createEvent]);
 
   // Handle clarification response
-  const handleClarification = useCallback((response: string) => {
+  const handleClarification = useCallback(async (response: string) => {
     if (!pendingIntent) return;
     
-    // Parse the response and update intent
     const updatedInput = `${pendingIntent.title} ${response}`;
     const newIntent = parseEventIntent(updatedInput);
     
     const event = createEventFromIntent(newIntent);
     if (event) {
-      setEvents(prev => [...prev, event]);
-      setAiMessage(generateConfirmation(event));
-      setSelectedEvent(event);
-      setCurrentDate(event.startTime);
-      setTimeout(() => setAiMessage(null), 4000);
+      const { id: _id, createdAt: _ca, updatedAt: _ua, createdBy: _cb, ...eventData } = event;
+      const newId = await createEvent(eventData);
+      if (newId) {
+        setAiMessage(generateConfirmation(event));
+        setCurrentDate(event.startTime);
+        setTimeout(() => setAiMessage(null), 4000);
+      }
     }
     
     setPendingIntent(null);
-  }, [pendingIntent]);
+  }, [pendingIntent, createEvent]);
 
   // Event handlers
   const handleEventClick = useCallback((event: CalendarEvent) => {
     setSelectedEvent(event);
   }, []);
 
-  const handleEventUpdate = useCallback((updatedEvent: CalendarEvent) => {
-    setEvents(prev => prev.map(e => e.id === updatedEvent.id ? updatedEvent : e));
-    setSelectedEvent(updatedEvent);
-  }, []);
+  const handleEventUpdate = useCallback(async (updatedEvent: CalendarEvent) => {
+    const { id, createdAt: _ca, updatedAt: _ua, createdBy: _cb, ...updates } = updatedEvent;
+    const success = await updateEvent(id, updates);
+    if (success) {
+      setSelectedEvent(updatedEvent);
+    }
+  }, [updateEvent]);
 
-  const handleEventDelete = useCallback((eventId: string) => {
-    setEvents(prev => prev.filter(e => e.id !== eventId));
-    setSelectedEvent(null);
-    setAiMessage('Event deleted');
-    setTimeout(() => setAiMessage(null), 2000);
-  }, []);
+  const handleEventDelete = useCallback(async (eventId: string) => {
+    const success = await deleteEvent(eventId);
+    if (success) {
+      setSelectedEvent(null);
+      setAiMessage('Event deleted');
+      setTimeout(() => setAiMessage(null), 2000);
+    }
+  }, [deleteEvent]);
 
   const handleClosePanel = useCallback(() => {
     setSelectedEvent(null);
   }, []);
 
   // Handle drag reschedule
-  const handleEventDrop = useCallback((eventId: string, newStart: Date) => {
-    setEvents(prev => prev.map(event => {
-      if (event.id !== eventId) return event;
-      
-      const duration = event.endTime.getTime() - event.startTime.getTime();
-      return {
-        ...event,
-        startTime: newStart,
-        endTime: new Date(newStart.getTime() + duration),
-        updatedAt: new Date(),
-      };
-    }));
+  const handleEventDrop = useCallback(async (eventId: string, newStart: Date) => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
     
-    setAiMessage('Event rescheduled');
-    setTimeout(() => setAiMessage(null), 2000);
-  }, []);
+    const duration = event.endTime.getTime() - event.startTime.getTime();
+    const success = await updateEvent(eventId, {
+      startTime: newStart,
+      endTime: new Date(newStart.getTime() + duration),
+    });
+    
+    if (success) {
+      setAiMessage('Event rescheduled');
+      setTimeout(() => setAiMessage(null), 2000);
+    }
+  }, [events, updateEvent]);
 
   // Render current view
   const renderView = () => {
@@ -244,6 +247,18 @@ export function Calendar({ initialEvents = [] }: CalendarProps) {
           </div>
         </div>
       </div>
+
+      {/* Loading / Error State */}
+      {loading && (
+        <div className="ai-message">
+          <span>Loading events...</span>
+        </div>
+      )}
+      {error && (
+        <div className="ai-message" style={{ color: '#ef4444' }}>
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* AI Message */}
       {aiMessage && (

@@ -41,15 +41,11 @@ steps:
       - '0'
       - '--max-instances'
       - '3'
-      - '--allow-unauthenticated'
-      - '--set-env-vars'
-      - 'OPENAI_API_KEY=${_OPENAI_API_KEY}'
+      - '--set-secrets'
+      - 'OPENAI_API_KEY=openai-api-key:latest'
 
 images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/crewos-images/browser-service:latest'
-
-substitutions:
-  _OPENAI_API_KEY: ''
 
 options:
   logging: CLOUD_LOGGING_ONLY

@@ -1,4 +1,5 @@
 import type { Webhook } from './types';
+import { log } from '../../utils/logger';
 
 const STORAGE_KEY = 'operon_webhooks';
 const API_BASE = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
@@ -68,12 +69,12 @@ export const WebhookService = {
             };
             all.push(webhook);
             saveAll(all);
-            console.log(`[Webhook] Registered with backend: ${webhook.url}`);
+            log.info(`[Webhook] Registered with backend: ${webhook.url}`);
             return webhook;
           }
         }
       } catch (err) {
-        console.warn('[Webhook] Backend registration failed, using local mode:', err);
+        log.warn('[Webhook] Backend registration failed, using local mode:', err);
       }
     }
 

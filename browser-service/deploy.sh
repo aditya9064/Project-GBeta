@@ -26,8 +26,9 @@ gcloud run deploy ${SERVICE_NAME} \
   --concurrency 10 \
   --min-instances 0 \
   --max-instances 3 \
-  --allow-unauthenticated \
-  --set-env-vars "OPENAI_API_KEY=${OPENAI_API_KEY}"
+  # OPENAI_API_KEY secret must be created in GCP Secret Manager first:
+  #   gcloud secrets create openai-api-key --data-file=- <<< "your-key"
+  --set-secrets "OPENAI_API_KEY=openai-api-key:latest"
 
 echo "✅ Deployment complete!"
 echo ""

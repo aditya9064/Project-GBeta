@@ -363,21 +363,21 @@ const templates: { id: string; name: string; description: string; icon: DocIconT
     name: 'Project Overview', 
     description: 'Summarize goals, scope, and milestones',
     icon: 'target',
-    color: '#f59e0b'
+    color: '#e07a3a'
   },
   { 
     id: 'template-2', 
     name: 'Meeting Notes', 
     description: 'Capture an agenda, notes, and action it...',
     icon: 'edit',
-    color: '#e07a3a'
+    color: '#d46b2c'
   },
   { 
     id: 'template-3', 
     name: 'Wiki', 
     description: 'Organize information in one place',
     icon: 'book',
-    color: '#3b82f6',
+    color: '#e07a3a',
     isWiki: true
   },
 ];

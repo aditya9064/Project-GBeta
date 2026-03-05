@@ -5,6 +5,7 @@
 import { createRequire } from 'node:module';
 import OpenAI from 'openai';
 import { config } from '../config.js';
+import { logger } from './logger.js';
 
 const require = createRequire(import.meta.url);
 
@@ -39,7 +40,7 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<{ text: string
     const pdfParseModule = require('pdf-parse');
     const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : pdfParseModule?.default ?? pdfParseModule;
     if (typeof pdfParse !== 'function') {
-      console.warn('pdf-parse: no function export');
+      logger.warn('pdf-parse: no function export');
       return { text: '', pages: 1 };
     }
     const data = await pdfParse(buffer);
@@ -47,7 +48,7 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<{ text: string
     const pages = typeof data?.numpages === 'number' ? data.numpages : 1;
     return { text, pages };
   } catch (e) {
-    console.warn('pdf-parse failed, returning empty text:', e);
+    logger.warn('pdf-parse failed, returning empty text', { error: e });
     return { text: '', pages: 1 };
   }
 }
@@ -63,7 +64,7 @@ export async function extractTextFromDocx(buffer: Buffer): Promise<{ text: strin
     const pages = Math.max(1, Math.ceil(text.length / 3000));
     return { text, pages };
   } catch (e) {
-    console.warn('mammoth failed, returning empty text:', e);
+    logger.warn('mammoth failed, returning empty text', { error: e });
     return { text: '', pages: 1 };
   }
 }
@@ -147,7 +148,7 @@ Return a JSON array of objects with keys: name, type, confidence, sampleValue. U
       sampleValue: item.sampleValue != null ? String(item.sampleValue).slice(0, 200) : undefined,
     }));
   } catch (e) {
-    console.error('OpenAI variable detection failed:', e);
+    logger.error('OpenAI variable detection failed', { error: e });
     return [];
   }
 }

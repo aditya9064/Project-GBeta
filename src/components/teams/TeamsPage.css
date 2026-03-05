@@ -278,7 +278,7 @@
 
 .icon-btn-sm.active {
   color: var(--accent-purple);
-  background: rgba(124, 58, 237, 0.1);
+  background: rgba(224, 122, 58, 0.1);
 }
 
 /* Search Input */
@@ -468,7 +468,7 @@
 .team-card-preview {
   position: relative;
   height: 140px;
-  background: linear-gradient(135deg, #f0f0f6 0%, #e8e8f0 100%);
+  background: linear-gradient(135deg, #fef6f0 0%, #fdf0e8 100%);
   padding: 16px;
 }
 

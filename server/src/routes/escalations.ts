@@ -20,6 +20,14 @@ import {
   type EscalationPriority 
 } from '../services/escalationStore.js';
 import { logger } from '../services/logger.js';
+import { validate } from '../middleware/validate.js';
+import {
+  escalationCreateSchema,
+  escalationUpdateSchema,
+  escalationResolveSchema,
+  escalationDismissSchema,
+  escalationAssignSchema,
+} from '../middleware/schemas.js';
 
 const router = Router();
 
@@ -110,7 +118,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 /* ─── POST /api/escalations — Create escalation ────────────── */
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', validate(escalationCreateSchema), async (req: Request, res: Response) => {
   try {
     const {
       type,
@@ -131,14 +139,6 @@ router.post('/', async (req: Request, res: Response) => {
       dueBy,
       userId,
     } = req.body;
-
-    if (!type || !title || !description || !userId) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing required fields: type, title, description, userId',
-      });
-      return;
-    }
 
     const escalation = await EscalationStore.create({
       type,
@@ -178,7 +178,7 @@ router.post('/', async (req: Request, res: Response) => {
 
 /* ─── PUT /api/escalations/:id — Update escalation ─────────── */
 
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', validate(escalationUpdateSchema), async (req: Request, res: Response) => {
   try {
     const updates = req.body;
     const escalation = await EscalationStore.update(req.params.id as string, updates);
@@ -206,17 +206,9 @@ router.put('/:id', async (req: Request, res: Response) => {
 
 /* ─── POST /api/escalations/:id/resolve — Resolve escalation ─ */
 
-router.post('/:id/resolve', async (req: Request, res: Response) => {
+router.post('/:id/resolve', validate(escalationResolveSchema), async (req: Request, res: Response) => {
   try {
     const { resolution, resolvedBy, reviewerNotes } = req.body;
-
-    if (!resolution || !resolvedBy) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing required fields: resolution, resolvedBy',
-      });
-      return;
-    }
 
     const escalation = await EscalationStore.resolve(
       req.params.id as string,
@@ -250,17 +242,9 @@ router.post('/:id/resolve', async (req: Request, res: Response) => {
 
 /* ─── POST /api/escalations/:id/dismiss — Dismiss escalation ─ */
 
-router.post('/:id/dismiss', async (req: Request, res: Response) => {
+router.post('/:id/dismiss', validate(escalationDismissSchema), async (req: Request, res: Response) => {
   try {
     const { reason, dismissedBy } = req.body;
-
-    if (!reason || !dismissedBy) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing required fields: reason, dismissedBy',
-      });
-      return;
-    }
 
     const escalation = await EscalationStore.dismiss(
       req.params.id as string,
@@ -293,17 +277,9 @@ router.post('/:id/dismiss', async (req: Request, res: Response) => {
 
 /* ─── POST /api/escalations/:id/assign — Assign escalation ─── */
 
-router.post('/:id/assign', async (req: Request, res: Response) => {
+router.post('/:id/assign', validate(escalationAssignSchema), async (req: Request, res: Response) => {
   try {
     const { assignedTo } = req.body;
-
-    if (!assignedTo) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing required field: assignedTo',
-      });
-      return;
-    }
 
     const escalation = await EscalationStore.assign(req.params.id as string, assignedTo);
 

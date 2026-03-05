@@ -11,7 +11,7 @@
 }
 
 .loading-spinner__icon {
-  color: var(--accent, #6366f1);
+  color: var(--accent, #e07a3a);
   animation: spin 1s linear infinite;
 }
 

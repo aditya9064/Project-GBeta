@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { CalendarEvent } from '../types/calendar';
+import { log } from '../utils/logger';
 
 interface NotificationOptions {
   title: string;
@@ -12,7 +13,7 @@ interface NotificationOptions {
 // Request notification permission
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!('Notification' in window)) {
-    console.warn('This browser does not support notifications');
+    log.warn('This browser does not support notifications');
     return false;
   }
 
@@ -44,7 +45,7 @@ export function showNotification(options: NotificationOptions): Notification | n
 
     return notification;
   } catch (error) {
-    console.error('Error showing notification:', error);
+    log.error('Error showing notification:', error);
     return null;
   }
 }
@@ -103,7 +104,7 @@ export function useReminders(events: CalendarEvent[]) {
           // For email type, we would integrate with a backend service
           // For now, we just log it
           if (reminder.type === 'email') {
-            console.log(`[Email Reminder] ${event.title} starts ${timeDescription}`);
+            log.info(`[Email Reminder] ${event.title} starts ${timeDescription}`);
           }
         }
       });

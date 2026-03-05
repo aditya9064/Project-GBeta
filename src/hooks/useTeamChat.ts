@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { log } from '../utils/logger';
 
 // Message type for the app
 export interface ChatMessage {
@@ -210,7 +211,7 @@ export function useTeamChat(teamId: string | null, channelId: string | null = 'g
         setChannels(channelsList);
       },
       (err) => {
-        console.error('Error fetching channels:', err);
+        log.error('Error fetching channels:', err);
       }
     );
 
@@ -248,7 +249,7 @@ export function useTeamChat(teamId: string | null, channelId: string | null = 'g
         setError(null);
       },
       (err) => {
-        console.error('Error fetching messages:', err);
+        log.error('Error fetching messages:', err);
         setError(err);
         setLoading(false);
       }

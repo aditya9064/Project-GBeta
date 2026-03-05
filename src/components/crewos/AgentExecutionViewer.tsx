@@ -5,6 +5,7 @@ import {
   Clock, Database, ChevronRight,
 } from 'lucide-react';
 import './AgentExecutionViewer.css';
+import { getAuthHeaders } from '../../lib/firebase';
 
 /* ─── Types ──────────────────────────────────────────────── */
 
@@ -105,11 +106,13 @@ export function AgentExecutionViewer({
     if (taskStarted.current) return;
     taskStarted.current = true;
 
-    fetch(`${BACKEND}/api/browser/vision/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task, url, appName, sessionId }),
-    }).catch(err => {
+    getAuthHeaders().then(headers =>
+      fetch(`${BACKEND}/api/browser/vision/start`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ task, url, appName, sessionId }),
+      })
+    ).catch(err => {
       setStatus('error');
       addLogs([{ type: 'error', message: `Failed to start: ${err.message}`, timestamp: new Date().toISOString() }]);
     });
@@ -123,7 +126,8 @@ export function AgentExecutionViewer({
     const pollInterval = setInterval(async () => {
       if (stopped) return;
       try {
-        const res = await fetch(`${BACKEND}/api/browser/vision/poll/${sessionId}?since=${logOffsetRef.current}`);
+        const headers = await getAuthHeaders();
+        const res = await fetch(`${BACKEND}/api/browser/vision/poll/${sessionId}?since=${logOffsetRef.current}`, { headers });
         const data = await res.json();
         if (!data.success) return;
 
@@ -166,7 +170,8 @@ export function AgentExecutionViewer({
     const screenshotInterval = setInterval(async () => {
       if (stopped) return;
       try {
-        const res = await fetch(`${BACKEND}/api/browser/vision/screenshot/${sessionId}`);
+        const headers = await getAuthHeaders();
+        const res = await fetch(`${BACKEND}/api/browser/vision/screenshot/${sessionId}`, { headers });
         const data = await res.json();
         if (data.success && data.screenshot) {
           setCurrentScreenshot(data.screenshot);

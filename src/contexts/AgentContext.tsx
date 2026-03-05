@@ -19,14 +19,42 @@ import {
 import type { AutomationStatus, ExecutionLog } from '../services/automation';
 import type { AIGeneratedAgent } from '../services/automation/planGenerator';
 import type { AgentRegistryEntry, AgentBusEvent, Crew } from '../services/automation/types';
-import { ExecutionEngine } from '../services/automation/executionEngine';
+import { ExecutionEngine, activeExecutions } from '../services/automation/executionEngine';
 import { CrewService, type Crew as CrewType } from '../services/workforce';
+import { log } from '../utils/logger';
 import { MetricsService } from '../services/workforce';
+import { auth } from '../lib/firebase';
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
-const DEMO_USER_ID = 'demo-user-123';
-// In production, use relative /api paths. In dev, VITE_API_URL points to localhost:3001
 const BACKEND_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || '');
+
+function getCurrentUserId(): string {
+  return auth.currentUser?.uid || '';
+}
+
+// ─── Version history types ────────────────────────────────
+export interface AgentVersion {
+  version: number;
+  workflow: WorkflowDefinition;
+  savedAt: string;
+}
+
+const MAX_VERSIONS_PER_AGENT = 10;
+
+function loadVersionHistory(): Record<string, AgentVersion[]> {
+  try {
+    const raw = localStorage.getItem('agent_version_history');
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveVersionHistory(history: Record<string, AgentVersion[]>): void {
+  try {
+    localStorage.setItem('agent_version_history', JSON.stringify(history));
+  } catch { /* ignore */ }
+}
 
 // ─── Schedule types ──────────────────────────────────────
 interface AgentSchedule {
@@ -51,6 +79,7 @@ interface AgentContextType {
   deleteAgent: (agentId: string) => Promise<void>;
   updateAgent: (agentId: string, workflow: WorkflowDefinition, name?: string, description?: string) => Promise<void>;
   runAgent: (agentId: string, triggerData?: any) => Promise<{ success: boolean; output?: any; error?: string; logs?: ExecutionLog[] }>;
+  cancelAgent: (agentId: string) => void;
   getExecutionHistory: (agentId: string) => Promise<ExecutionRecord[]>;
   checkBackend: () => Promise<void>;
   // Memory
@@ -66,6 +95,14 @@ interface AgentContextType {
   getScheduleInfo: (agentId: string) => AgentSchedule | null;
   // Prompt-to-Agent
   createAgentFromPrompt: (prompt: string) => Promise<{ success: boolean; agent?: DeployedAgent; error?: string }>;
+  // Clone
+  cloneAgent: (agentId: string) => Promise<DeployedAgent>;
+  // Sharing
+  shareAgent: (agentId: string, emails: string[]) => Promise<void>;
+  publishToMarketplace: (agentId: string) => Promise<any>;
+  // Version history
+  getAgentVersions: (agentId: string) => AgentVersion[];
+  restoreAgentVersion: (agentId: string, version: number) => Promise<void>;
   // Crews
   crews: CrewType[];
   loadCrews: () => Promise<void>;
@@ -88,6 +125,7 @@ const defaultAgentContext: AgentContextType = {
   deleteAgent: async () => {},
   updateAgent: async () => {},
   runAgent: async () => ({ success: false, error: 'AgentProvider not available' }),
+  cancelAgent: () => {},
   getExecutionHistory: async () => [],
   checkBackend: async () => {},
   getAgentMemory: async () => ({}),
@@ -99,6 +137,11 @@ const defaultAgentContext: AgentContextType = {
   scheduleAgent: () => {},
   getScheduleInfo: () => null,
   createAgentFromPrompt: async () => ({ success: false, error: 'AgentProvider not available' }),
+  cloneAgent: async () => { throw new Error('AgentProvider not available'); },
+  shareAgent: async () => {},
+  publishToMarketplace: async () => ({}),
+  getAgentVersions: () => [],
+  restoreAgentVersion: async () => {},
   crews: [],
   loadCrews: async () => {},
   getCrewForAgent: () => null,
@@ -117,11 +160,11 @@ async function apiPost(path: string, body: any): Promise<any> {
     });
     const data = await res.json();
     if (!res.ok) {
-      console.warn(`[API POST] ${path} failed:`, data.error || res.statusText);
+      log.warn(`[API POST] ${path} failed:`, data.error || res.statusText);
     }
     return data;
   } catch (err) {
-    console.warn(`[API POST] ${path} error:`, err instanceof Error ? err.message : 'Network error');
+    log.warn(`[API POST] ${path} error:`, err instanceof Error ? err.message : 'Network error');
     return null;
   }
 }
@@ -135,11 +178,11 @@ async function apiPut(path: string, body: any): Promise<any> {
     });
     const data = await res.json();
     if (!res.ok) {
-      console.warn(`[API PUT] ${path} failed:`, data.error || res.statusText);
+      log.warn(`[API PUT] ${path} failed:`, data.error || res.statusText);
     }
     return data;
   } catch (err) {
-    console.warn(`[API PUT] ${path} error:`, err instanceof Error ? err.message : 'Network error');
+    log.warn(`[API PUT] ${path} error:`, err instanceof Error ? err.message : 'Network error');
     return null;
   }
 }
@@ -149,11 +192,11 @@ async function apiDelete(path: string): Promise<any> {
     const res = await fetch(`${BACKEND_URL}${path}`, { method: 'DELETE' });
     const data = await res.json();
     if (!res.ok) {
-      console.warn(`[API DELETE] ${path} failed:`, data.error || res.statusText);
+      log.warn(`[API DELETE] ${path} failed:`, data.error || res.statusText);
     }
     return data;
   } catch (err) {
-    console.warn(`[API DELETE] ${path} error:`, err instanceof Error ? err.message : 'Network error');
+    log.warn(`[API DELETE] ${path} error:`, err instanceof Error ? err.message : 'Network error');
     return null;
   }
 }
@@ -163,11 +206,11 @@ async function apiGet(path: string): Promise<any> {
     const res = await fetch(`${BACKEND_URL}${path}`);
     const data = await res.json();
     if (!res.ok) {
-      console.warn(`[API GET] ${path} failed:`, data.error || res.statusText);
+      log.warn(`[API GET] ${path} failed:`, data.error || res.statusText);
     }
     return data;
   } catch (err) {
-    console.warn(`[API GET] ${path} error:`, err instanceof Error ? err.message : 'Network error');
+    log.warn(`[API GET] ${path} error:`, err instanceof Error ? err.message : 'Network error');
     return null;
   }
 }
@@ -247,9 +290,7 @@ const DEFAULT_AGENT: DeployedAgent = {
   version: 1,
 };
 
-// Helper to load agents from localStorage (DEMO_MODE only: fallback to defaults when backend unavailable)
 function loadAgentsFromStorage(): DeployedAgent[] {
-  if (!DEMO_MODE) return [];
   try {
     const stored = localStorage.getItem('demo_agents');
     if (stored) {
@@ -264,9 +305,9 @@ function loadAgentsFromStorage(): DeployedAgent[] {
       if (agents.length > 0) return agents;
     }
   } catch (e) {
-    console.error('Error loading agents from storage:', e);
+    log.error('Error loading agents from storage:', e);
   }
-  return [DEFAULT_AGENT];
+  return DEMO_MODE ? [DEFAULT_AGENT] : [];
 }
 
 // Helper to save agents to localStorage
@@ -274,7 +315,7 @@ function saveAgentsToStorage(agents: DeployedAgent[]): void {
   try {
     localStorage.setItem('demo_agents', JSON.stringify(agents));
   } catch (e) {
-    console.error('Error saving agents to storage:', e);
+    log.error('Error saving agents to storage:', e);
   }
 }
 
@@ -286,7 +327,7 @@ function loadExecutionHistory(): Record<string, ExecutionRecord[]> {
       return JSON.parse(stored);
     }
   } catch (e) {
-    console.error('Error loading execution history:', e);
+    log.error('Error loading execution history:', e);
   }
   return {};
 }
@@ -295,7 +336,7 @@ function saveExecutionHistory(history: Record<string, ExecutionRecord[]>): void 
   try {
     localStorage.setItem('demo_executions', JSON.stringify(history));
   } catch (e) {
-    console.error('Error saving execution history:', e);
+    log.error('Error saving execution history:', e);
   }
 }
 
@@ -318,15 +359,15 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       const status = await checkAutomationBackend();
       setBackendStatus(status);
       if (status) {
-        console.log('🟢 Automation backend is connected');
-        console.log('   Gmail:', status.gmail.connected ? `✅ ${status.gmail.email}` : '❌ Not connected');
-        console.log('   Slack:', status.slack.connected ? `✅ ${status.slack.workspace}` : '❌ Not connected');
-        console.log('   AI:', status.ai.configured ? '✅ Configured' : '❌ Not configured');
+        log.info('Automation backend is connected');
+        log.info('Gmail:', status.gmail.connected ? status.gmail.email : 'Not connected');
+        log.info('Slack:', status.slack.connected ? status.slack.workspace : 'Not connected');
+        log.info('AI:', status.ai.configured ? 'Configured' : 'Not configured');
       } else {
-        console.log('🟡 Automation backend offline — running in demo mode');
+        log.info('Automation backend offline — running in demo mode');
       }
     } catch {
-      console.log('🟡 Could not reach automation backend — running in demo mode');
+      log.info('Could not reach automation backend — running in demo mode');
     }
   }, []);
 
@@ -339,7 +380,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   // ─── Initial load: merge backend agents into localStorage ──
   useEffect(() => {
     (async () => {
-      const resp = await apiGet(`/api/agents?userId=${DEMO_USER_ID}`);
+      const resp = await apiGet(`/api/agents?userId=${getCurrentUserId()}`);
       if (!resp?.success || !Array.isArray(resp.data)) return;
       const remote: DeployedAgent[] = resp.data.map((a: any) => ({
         ...a,
@@ -381,7 +422,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const loaded = loadAgentsFromStorage();
-      const resp = await apiGet(`/api/agents?userId=${DEMO_USER_ID}`);
+      const resp = await apiGet(`/api/agents?userId=${getCurrentUserId()}`);
       if (resp?.success && Array.isArray(resp.data)) {
         const localIds = new Set(loaded.map((a) => a.id));
         const remote = resp.data
@@ -434,7 +475,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
     const newAgent: DeployedAgent = {
       id: `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      userId: DEMO_USER_ID,
+      userId: getCurrentUserId(),
       name,
       description,
       icon: icon || 'Zap',
@@ -539,6 +580,26 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     name?: string, 
     description?: string
   ) => {
+    // Save current workflow state as a version before applying the update
+    const currentAgent = agents.find(a => a.id === agentId);
+    if (currentAgent) {
+      const versionHistory = loadVersionHistory();
+      const agentVersions = versionHistory[agentId] || [];
+      const nextVersion = agentVersions.length > 0
+        ? Math.max(...agentVersions.map(v => v.version)) + 1
+        : 1;
+      agentVersions.unshift({
+        version: nextVersion,
+        workflow: currentAgent.workflow,
+        savedAt: new Date().toISOString(),
+      });
+      if (agentVersions.length > MAX_VERSIONS_PER_AGENT) {
+        agentVersions.length = MAX_VERSIONS_PER_AGENT;
+      }
+      versionHistory[agentId] = agentVersions;
+      saveVersionHistory(versionHistory);
+    }
+
     setAgents(prev => {
       const updated = prev.map(a => 
         a.id === agentId 
@@ -564,7 +625,15 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       ...(name ? { name } : {}),
       ...(description ? { description } : {}),
     });
-  }, [selectedAgent]);
+  }, [selectedAgent, agents]);
+
+  const cancelAgent = useCallback((agentId: string) => {
+    const controller = activeExecutions.get(agentId);
+    if (controller) {
+      controller.abort();
+      activeExecutions.delete(agentId);
+    }
+  }, []);
 
   const runAgent = useCallback(async (
     agentId: string, 
@@ -578,13 +647,16 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      console.log(`\n🤖 Running agent: "${agent.name}"`);
-      console.log(`   Backend: ${isBackendAvailable() ? '✅ REAL execution' : '⚠️ SIMULATED execution'}`);
+      log.info(`Running agent: "${agent.name}"`);
+      log.info(`Backend: ${isBackendAvailable() ? 'REAL execution' : 'SIMULATED execution'}`);
+
+      const controller = new AbortController();
+      activeExecutions.set(agentId, controller);
 
       // Use the real execution engine
       const result = await ExecutionEngine.executeWorkflow(
         agentId,
-        DEMO_USER_ID,
+        getCurrentUserId(),
         agent.workflow,
         'manual',
         triggerData,
@@ -599,7 +671,9 @@ export function AgentProvider({ children }: { children: ReactNode }) {
             }
             return [...prev, log];
           });
-        }
+        },
+        undefined,
+        controller.signal,
       );
 
       // Update agent stats
@@ -626,7 +700,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       const executionRecord: ExecutionRecord = {
         id: `exec-${Date.now()}`,
         agentId,
-        userId: DEMO_USER_ID,
+        userId: getCurrentUserId(),
         status: execStatus,
         triggeredBy: 'manual',
         triggerData,
@@ -694,6 +768,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       setError(err.message || 'Failed to run agent');
       return { success: false, error: err.message || 'Failed to run agent' };
     } finally {
+      activeExecutions.delete(agentId);
       setLoading(false);
     }
   }, [agents]);
@@ -744,7 +819,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
       const result = await ExecutionEngine.executeWorkflow(
         agentId,
-        DEMO_USER_ID,
+        getCurrentUserId(),
         agent.workflow,
         'manual',
         triggerData,
@@ -777,6 +852,64 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     }
   }, [deployNewAgent]);
 
+  // ─── Clone agent ────────────────────────────────────────
+
+  const cloneAgent = useCallback(async (agentId: string): Promise<DeployedAgent> => {
+    const source = agents.find(a => a.id === agentId);
+    if (!source) throw new Error('Agent not found');
+
+    const clonedName = source.name.endsWith('(Copy)')
+      ? source.name
+      : `${source.name} (Copy)`;
+
+    return deployNewAgent(
+      clonedName,
+      source.description,
+      JSON.parse(JSON.stringify(source.workflow)),
+      source.icon,
+      source.color,
+    );
+  }, [agents, deployNewAgent]);
+
+  // ─── Sharing ──────────────────────────────────────────
+
+  const shareAgent = useCallback(async (agentId: string, emails: string[]) => {
+    const stored = JSON.parse(localStorage.getItem('crewos-shared-agents') || '{}');
+    stored[agentId] = { emails, sharedAt: new Date().toISOString() };
+    localStorage.setItem('crewos-shared-agents', JSON.stringify(stored));
+  }, []);
+
+  const publishToMarketplace = useCallback(async (agentId: string) => {
+    const agent = agents.find(a => a.id === agentId);
+    if (!agent) throw new Error('Agent not found');
+    const resp = await apiPost('/api/templates', {
+      name: agent.name,
+      description: agent.description || '',
+      workflow: agent.workflow,
+      category: 'community',
+      author: getCurrentUserId(),
+    });
+    return resp;
+  }, [agents]);
+
+  // ─── Version history ───────────────────────────────────
+
+  const getAgentVersions = useCallback((agentId: string): AgentVersion[] => {
+    const history = loadVersionHistory();
+    return history[agentId] || [];
+  }, []);
+
+  const restoreAgentVersion = useCallback(async (agentId: string, version: number) => {
+    const history = loadVersionHistory();
+    const agentVersions = history[agentId];
+    if (!agentVersions) throw new Error('No version history for this agent');
+
+    const target = agentVersions.find(v => v.version === version);
+    if (!target) throw new Error(`Version ${version} not found`);
+
+    await updateAgentHandler(agentId, target.workflow);
+  }, [updateAgentHandler]);
+
   // ─── Scheduling ──────────────────────────────────────────
 
   const scheduleAgentFn = useCallback((agentId: string, schedule: AgentSchedule) => {
@@ -797,7 +930,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       const loadedCrews = await CrewService.list();
       setCrews(loadedCrews);
     } catch (err) {
-      console.warn('Failed to load crews:', err);
+      log.warn('Failed to load crews:', err);
     }
   }, []);
 
@@ -823,7 +956,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         const lastRun = scheduleLastRun.current[agentId] || 0;
         if (now - lastRun < 59_000) continue; // debounce within same minute
         scheduleLastRun.current[agentId] = now;
-        console.log(`⏰ Scheduled run for "${agent.name}"`);
+        log.info(`Scheduled run for "${agent.name}"`);
         runAgent(agentId, { triggeredBy: 'schedule' });
       }
     }, 60_000);
@@ -846,7 +979,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       resumeAgent, 
       deleteAgent: deleteAgentHandler, 
       updateAgent: updateAgentHandler, 
-      runAgent, 
+      runAgent,
+      cancelAgent,
       getExecutionHistory,
       checkBackend,
       getAgentMemory,
@@ -858,6 +992,11 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       scheduleAgent: scheduleAgentFn,
       getScheduleInfo: getScheduleInfoFn,
       createAgentFromPrompt,
+      cloneAgent,
+      shareAgent,
+      publishToMarketplace,
+      getAgentVersions,
+      restoreAgentVersion,
       crews,
       loadCrews,
       getCrewForAgent,

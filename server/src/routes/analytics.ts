@@ -16,7 +16,7 @@ const router = Router();
 
 router.get('/quick-stats', async (req: Request, res: Response) => {
   try {
-    const userId = (req.query.userId as string) || 'demo-user';
+    const userId = req.userId || '';
     const stats = await AnalyticsService.getQuickStats(userId);
     res.json({ success: true, data: stats });
   } catch (err) {
@@ -32,7 +32,7 @@ router.get('/quick-stats', async (req: Request, res: Response) => {
 
 router.get('/report', async (req: Request, res: Response) => {
   try {
-    const userId = (req.query.userId as string) || 'demo-user';
+    const userId = req.userId || '';
     const startDate = (req.query.startDate as string) || 
       new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const endDate = (req.query.endDate as string) || 
@@ -58,23 +58,22 @@ router.get('/report', async (req: Request, res: Response) => {
 
 router.get('/report/pdf', async (req: Request, res: Response) => {
   try {
-    const userId = (req.query.userId as string) || 'demo-user';
+    const userId = req.userId || '';
     const startDate = (req.query.startDate as string) || 
       new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const endDate = (req.query.endDate as string) || 
       new Date().toISOString().split('T')[0];
 
-    const pdfBase64 = await AnalyticsService.generatePDFReport({
+    const report = await AnalyticsService.generateReport({
       userId,
       startDate,
       endDate,
     });
 
-    // Return as downloadable PDF
-    const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=workforce-report-${startDate}-${endDate}.pdf`);
-    res.send(pdfBuffer);
+    const markdown = AnalyticsService.reportToMarkdown(report);
+    res.setHeader('Content-Type', 'text/markdown');
+    res.setHeader('Content-Disposition', `attachment; filename=workforce-report-${startDate}-${endDate}.md`);
+    res.send(markdown);
   } catch (err) {
     logger.error('Generate PDF error:', err);
     res.status(500).json({
@@ -88,7 +87,7 @@ router.get('/report/pdf', async (req: Request, res: Response) => {
 
 router.get('/report/markdown', async (req: Request, res: Response) => {
   try {
-    const userId = (req.query.userId as string) || 'demo-user';
+    const userId = req.userId || '';
     const startDate = (req.query.startDate as string) || 
       new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const endDate = (req.query.endDate as string) || 

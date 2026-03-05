@@ -5,6 +5,8 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { log } from '../utils/logger';
+import { getAuthHeaders } from '../lib/firebase';
 
 const BACKEND_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || '');
 
@@ -133,7 +135,7 @@ export function useExecutionStream(options: UseExecutionStreamOptions = {}) {
 
           onEvent?.(data);
         } catch (err) {
-          console.error('Failed to parse SSE event:', err);
+          log.error('Failed to parse SSE event:', err);
         }
       });
     }
@@ -197,15 +199,16 @@ export function useExecutionStream(options: UseExecutionStreamOptions = {}) {
  */
 export async function cancelExecution(executionId: string, agentId: string): Promise<boolean> {
   try {
+    const headers = await getAuthHeaders();
     const res = await fetch(`${BACKEND_URL}/api/stream/cancel/${executionId}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ agentId }),
     });
     const result = await res.json();
     return result.success;
   } catch (err) {
-    console.error('Failed to cancel execution:', err);
+    log.error('Failed to cancel execution:', err);
     return false;
   }
 }

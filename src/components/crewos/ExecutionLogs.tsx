@@ -21,7 +21,9 @@ import {
   CircleDot,
   Terminal,
   Layers,
+  Download,
 } from 'lucide-react';
+import { exportToCsv } from '../../utils/exportCsv';
 import './ExecutionLogs.css';
 
 interface ExecutionLogsProps {
@@ -219,6 +221,22 @@ export function ExecutionLogs({ agentId, onBack }: ExecutionLogsProps) {
               </p>
             </div>
           </div>
+          <button className="el-refresh" onClick={() => {
+            const headers = ['Agent', 'Status', 'Timestamp', 'Duration', 'Node Count'];
+            const rows = filteredLogs.flatMap(entry =>
+              entry.executions.map(exec => [
+                entry.agent.name,
+                exec.status,
+                exec.startedAt ? new Date(exec.startedAt).toLocaleString() : '',
+                exec.duration ? `${(exec.duration / 1000).toFixed(1)}s` : '',
+                String(exec.nodeExecutions?.length || 0),
+              ])
+            );
+            exportToCsv('execution-logs-export.csv', headers, rows);
+          }} title="Export logs">
+            <Download size={15} />
+            Export
+          </button>
           <button className="el-refresh" onClick={loadLogs} title="Refresh logs">
             <RotateCcw size={15} />
             Refresh

@@ -16,6 +16,8 @@ import { SlackService } from '../services/slack.service.js';
 import { TeamsService } from '../services/teams.service.js';
 import { AIEngine } from '../services/ai-engine.js';
 import { logger } from '../services/logger.js';
+import { validate } from '../middleware/validate.js';
+import { messageDraftSchema, messageSendSchema, messageUpdateSchema } from '../middleware/schemas.js';
 import type { UnifiedMessage, APIResponse, MessagesResponse, Channel } from '../types.js';
 
 const router = Router();
@@ -23,11 +25,15 @@ const router = Router();
 /* ─── Middleware: Restore tokens from Firestore ────────── */
 
 router.use(async (_req: Request, _res: Response, next: Function) => {
-  await Promise.all([
-    GmailService.restoreFromStore(),
-    SlackService.restoreFromStore(),
-    TeamsService.restoreFromStore(),
-  ]);
+  try {
+    await Promise.all([
+      GmailService.restoreFromStore(),
+      SlackService.restoreFromStore(),
+      TeamsService.restoreFromStore(),
+    ]);
+  } catch (err) {
+    logger.warn('Token restore partially failed', { error: err instanceof Error ? err.message : String(err) });
+  }
   next();
 });
 
@@ -103,9 +109,19 @@ router.get('/', async (req: Request, res: Response) => {
     // Auto-fetch messages on cold start (stateless Cloud Functions)
     await autoSyncIfEmpty();
 
-    const { channel, status, priority, search, limit } = req.query;
+    const { channel, status, priority, search, limit, threadId } = req.query;
 
     let filtered = [...messageStore];
+
+    // Thread filter: return only messages belonging to a specific thread
+    if (threadId) {
+      const tid = threadId as string;
+      filtered = filtered.filter(m =>
+        m.externalId === tid ||
+        (m.metadata as any)?.threadId === tid ||
+        (m.metadata as any)?.threadTs === tid
+      );
+    }
 
     // Apply filters
     if (channel && channel !== 'all') {
@@ -170,7 +186,7 @@ router.get('/:id', (req: Request, res: Response) => {
 
 /* ─── POST /api/messages/:id/draft ─────────────────────── */
 
-router.post('/:id/draft', async (req: Request, res: Response) => {
+router.post('/:id/draft', validate(messageDraftSchema), async (req: Request, res: Response) => {
   try {
     const message = messageStore.find(m => m.id === req.params.id);
     if (!message) {
@@ -210,7 +226,7 @@ router.post('/:id/draft', async (req: Request, res: Response) => {
 
 /* ─── POST /api/messages/:id/send ──────────────────────── */
 
-router.post('/:id/send', async (req: Request, res: Response) => {
+router.post('/:id/send', validate(messageSendSchema), async (req: Request, res: Response) => {
   try {
     const message = messageStore.find(m => m.id === req.params.id);
     if (!message) {
@@ -276,7 +292,7 @@ router.post('/:id/send', async (req: Request, res: Response) => {
 
 /* ─── PUT /api/messages/:id ────────────────────────────── */
 
-router.put('/:id', (req: Request, res: Response) => {
+router.put('/:id', validate(messageUpdateSchema), (req: Request, res: Response) => {
   const message = messageStore.find(m => m.id === req.params.id);
   if (!message) {
     res.status(404).json({ success: false, error: 'Message not found' });

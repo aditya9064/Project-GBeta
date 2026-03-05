@@ -25,6 +25,14 @@ jobs:
       - name: Install frontend deps
         run: npm ci
       
+      - name: Cache server node_modules
+        uses: actions/cache@v4
+        with:
+          path: server/node_modules
+          key: ${{ runner.os }}-server-node-modules-${{ hashFiles('server/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-server-node-modules-
+      
       - name: Install server deps
         run: cd server && npm ci
       
@@ -35,7 +43,7 @@ jobs:
         run: cd server && npx tsc --noEmit --skipLibCheck
       
       - name: Lint frontend
-        run: npm run lint || true
+        run: npm run lint
 
   # Unit tests
   test-unit:
@@ -53,14 +61,22 @@ jobs:
       - name: Install frontend deps
         run: npm ci
       
+      - name: Cache server node_modules
+        uses: actions/cache@v4
+        with:
+          path: server/node_modules
+          key: ${{ runner.os }}-server-node-modules-${{ hashFiles('server/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-server-node-modules-
+      
       - name: Install server deps
         run: cd server && npm ci
       
       - name: Frontend tests
-        run: npm test -- --passWithNoTests || true
+        run: npm test -- --passWithNoTests
       
       - name: Server tests
-        run: cd server && npm test -- --passWithNoTests || true
+        run: cd server && npm test -- --passWithNoTests
 
   # Build
   build:
@@ -78,13 +94,21 @@ jobs:
       - name: Install frontend deps
         run: npm ci
       
+      - name: Cache server node_modules
+        uses: actions/cache@v4
+        with:
+          path: server/node_modules
+          key: ${{ runner.os }}-server-node-modules-${{ hashFiles('server/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-server-node-modules-
+      
       - name: Install server deps
         run: cd server && npm ci
       
       - name: Build frontend
         run: npm run build
         env:
-          VITE_API_URL: ${{ secrets.STAGING_API_URL || 'http://localhost:3001' }}
+          VITE_API_URL: ${{ secrets.STAGING_API_URL }}
       
       - name: Build server
         run: cd server && npm run build
@@ -120,7 +144,7 @@ jobs:
         run: npm ci
       
       - name: Audit frontend
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high --production
       
       - name: Audit server
-        run: cd server && npm audit --audit-level=high || true
+        run: cd server && npm audit --audit-level=high --production

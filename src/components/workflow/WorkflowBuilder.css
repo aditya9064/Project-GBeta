@@ -685,7 +685,7 @@
 .react-flow__edge.selected .react-flow__edge-path {
   stroke: var(--wf-accent) !important;
   stroke-width: 2.5 !important;
-  filter: drop-shadow(0 0 3px rgba(139, 92, 246, 0.4));
+  filter: drop-shadow(0 0 3px rgba(224, 122, 58, 0.4));
 }
 
 .react-flow__edge.animated .react-flow__edge-path {
@@ -964,6 +964,84 @@ marker[id*="arrowclosed"] path {
 .deploy-stat-label {
   font-size: 0.75rem;
   color: var(--wf-text-secondary);
+}
+
+.deploy-schedule {
+  background: #f9fafb;
+  border: 1px solid var(--wf-border);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-top: 0.75rem;
+}
+
+.deploy-schedule h4 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--wf-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.25rem 0;
+}
+
+.deploy-schedule-desc {
+  font-size: 0.8125rem;
+  color: var(--wf-text-muted);
+  margin: 0 0 0.75rem 0;
+}
+
+.deploy-schedule-fields {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.deploy-schedule-fields .deploy-form-group {
+  flex: 1;
+  min-width: 140px;
+  margin-bottom: 0;
+}
+
+.deploy-form-group select {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: var(--wf-bg);
+  color: var(--wf-text);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2rem;
+}
+
+.deploy-form-group select:focus {
+  border-color: var(--wf-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.15);
+}
+
+.deploy-form-group select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.deploy-form-group input[type="time"] {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: var(--wf-bg);
+  color: var(--wf-text);
+}
+
+.deploy-form-group input[type="time"]:focus {
+  border-color: var(--wf-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.15);
 }
 
 .deploy-modal-footer {

@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Tesseract from 'tesseract.js';
 import './WhiteboardPage.css';
 import { AIBrainstormPanel, BrainstormIdea } from './AIBrainstormPanel';
+import { log } from '../../utils/logger';
 
 // ============================================
 // TYPES
@@ -975,6 +977,9 @@ export function WhiteboardPage() {
   // Canvas refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // URL params for shared board loading
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // State
   const [whiteboards, setWhiteboards] = useState<Whiteboard[]>([]);
@@ -1119,6 +1124,34 @@ export function WhiteboardPage() {
       setActiveWhiteboard(defaultBoard);
     }
   }, [whiteboards.length]);
+
+  // Load shared board from URL parameter (?board=boardId)
+  useEffect(() => {
+    const boardId = searchParams.get('board');
+    if (!boardId) return;
+
+    try {
+      const raw = localStorage.getItem(`crewos-shared-board-${boardId}`);
+      if (raw) {
+        const sharedBoard: Whiteboard = JSON.parse(raw);
+        sharedBoard.createdAt = new Date(sharedBoard.createdAt);
+        sharedBoard.updatedAt = new Date(sharedBoard.updatedAt);
+
+        const existing = whiteboards.find(wb => wb.id === sharedBoard.id);
+        if (existing) {
+          setWhiteboards(prev => prev.map(wb => wb.id === sharedBoard.id ? sharedBoard : wb));
+        } else {
+          setWhiteboards(prev => [...prev, sharedBoard]);
+        }
+        setActiveWhiteboard(sharedBoard);
+      }
+    } catch {
+      // Ignore parse errors from invalid shared data
+    }
+
+    setSearchParams({}, { replace: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Redraw canvas when anything changes
   useEffect(() => {
@@ -3364,15 +3397,26 @@ export function WhiteboardPage() {
     }
   }, [activeWhiteboard]);
 
-  // Share link generation
+  // Share link generation — saves board data to localStorage for async sharing
   const generateShareLink = useCallback(() => {
     if (activeWhiteboard) {
-      const shareLink = `${window.location.origin}/whiteboard/share/${activeWhiteboard.id}`;
+      const boardId = activeWhiteboard.id;
+      const shareLink = `${window.location.origin}/whiteboard?board=${boardId}`;
+
+      // Persist board snapshot so another tab/user on this machine can load it
+      localStorage.setItem(
+        `crewos-shared-board-${boardId}`,
+        JSON.stringify({ ...activeWhiteboard, isShared: true, shareLink }),
+      );
+
       setActiveWhiteboard(prev => prev ? {
         ...prev,
         isShared: true,
         shareLink,
       } : null);
+      setWhiteboards(prev =>
+        prev.map(wb => wb.id === boardId ? { ...wb, isShared: true, shareLink } : wb),
+      );
       return shareLink;
     }
     return '';
@@ -3608,7 +3652,7 @@ stream
         videoRef.current.play();
       }
     } catch (error) {
-      console.error('Error accessing camera:', error);
+      log.error('Error accessing camera:', error);
       alert('Could not access camera. Please check permissions or try uploading an image instead.');
     }
   }, []);
@@ -3885,7 +3929,7 @@ stream
       });
       
     } catch (error) {
-      console.error('Error processing image:', error);
+      log.error('Error processing image:', error);
       setScanProgressMessage('Error processing image. Please try again.');
     } finally {
       setScanProcessing(false);
@@ -4014,7 +4058,7 @@ stream
             y: 50 + comp.minY * scale,
             width: Math.max(40, width),
             height: Math.max(40, height),
-            color: '#3B82F6',
+            color: '#e07a3a',
             fill: 'transparent',
             strokeWidth: 2,
           });
@@ -4094,8 +4138,8 @@ stream
   // Get color for brainstorm idea category
   const getIdeaCategoryColor = useCallback((category: string): string => {
     const colors: Record<string, string> = {
-      strategy: '#E0E7FF',      // Light indigo
-      technical: '#DBEAFE',     // Light blue
+      strategy: '#FFF1E6',      // Light orange
+      technical: '#fef3eb',     // Light peach
       financial: '#D1FAE5',     // Light green
       marketing: '#FEF3C7',     // Light amber
       operations: '#fef3eb',    // Light orange
@@ -5196,7 +5240,7 @@ stream
                     {linkCopied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
-                <p className="share-hint">Anyone with this link can view and collaborate</p>
+                <p className="share-hint">Share this link to let others open the board on this machine (saved to local storage)</p>
               </div>
 
               <div className="share-section">

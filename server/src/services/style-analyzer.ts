@@ -17,6 +17,7 @@
 
 import OpenAI from 'openai';
 import { config } from '../config.js';
+import { logger } from './logger.js';
 import type {
   UnifiedMessage,
   StyleProfile,
@@ -467,7 +468,7 @@ Return ONLY the JSON object, no explanation.`,
     const parsed = JSON.parse(content);
     return parsed;
   } catch (err) {
-    console.error('AI style analysis failed:', err);
+    logger.error('AI style analysis failed', { error: err });
     return null;
   }
 }
@@ -600,7 +601,7 @@ export const StyleAnalyzer = {
       contacts,
     };
 
-    console.log(`📊 Style Analyzer: Created ${profiles.length} profiles from ${totalAnalyzed} messages (avg confidence: ${avgConfidence}%)`);
+    logger.info(`Style Analyzer: Created ${profiles.length} profiles from ${totalAnalyzed} messages (avg confidence: ${avgConfidence}%)`);
     return { profiles, result };
   },
 

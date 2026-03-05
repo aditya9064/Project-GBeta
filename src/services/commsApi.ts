@@ -12,6 +12,9 @@
    ═══════════════════════════════════════════════════════════ */
 
 // With Firebase Hosting rewrites, /api works in both dev (Vite proxy) and production
+import { log } from '../utils/logger';
+import { getAuthHeaders } from '../lib/firebase';
+
 const API_BASE = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
 /* ─── Types (mirror of server types) ───────────────────── */
@@ -187,9 +190,10 @@ async function apiFetch<T>(
   options?: RequestInit
 ): Promise<{ success: boolean; data?: T; error?: string }> {
   try {
+    const authHeaders = await getAuthHeaders();
     const res = await fetch(`${API_BASE}${endpoint}`, {
-      headers: { 'Content-Type': 'application/json' },
       ...options,
+      headers: { ...authHeaders, ...(options?.headers as Record<string, string>) },
     });
     const json = await res.json();
     return json;
@@ -351,6 +355,14 @@ export const AIAPI = {
     });
     return result.success ? result.data : null;
   },
+
+  /** Learn user's writing voice from connected channel history */
+  async learnVoice(): Promise<{ learned: boolean; samplesAnalyzed: number; confidence: number } | null> {
+    const result = await apiFetch<{ learned: boolean; samplesAnalyzed: number; confidence: number }>('/ai/learn-voice', {
+      method: 'POST',
+    });
+    return result.success ? result.data ?? null : null;
+  },
 };
 
 /* ─── Health check ─────────────────────────────────────── */
@@ -365,7 +377,7 @@ export async function checkBackendHealth(): Promise<{
     const ok = data.status === 'ok';
     return { ok, services: data.services || {} };
   } catch (err) {
-    console.error('❌ Health check failed:', err);
+    log.error('Health check failed:', err);
     return { ok: false, services: {} };
   }
 }

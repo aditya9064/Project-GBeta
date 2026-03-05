@@ -65,7 +65,7 @@ router.post('/session', async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('Browser session create error:', err);
+    logger.error('Browser session create error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to create browser session',
@@ -81,7 +81,7 @@ router.delete('/session/:id', async (req: Request, res: Response) => {
     await BrowserService.closeSession(id);
     res.json({ success: true, data: { sessionId: id, closed: true } });
   } catch (err) {
-    console.error('Browser session close error:', err);
+    logger.error('Browser session close error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to close session',
@@ -174,8 +174,8 @@ router.post('/action', async (req: Request, res: Response) => {
         break;
 
       case 'evaluate':
-        result = await BrowserService.evaluate(sessionId, params.script);
-        break;
+        res.status(403).json({ success: false, error: 'Arbitrary script evaluation is disabled for security.' });
+        return;
 
       case 'page_info':
         result = await BrowserService.getPageInfo(sessionId);
@@ -204,7 +204,7 @@ router.post('/action', async (req: Request, res: Response) => {
 
     res.json({ success: result.success, data: result });
   } catch (err) {
-    console.error('Browser action error:', err);
+    logger.error('Browser action error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Browser action failed',

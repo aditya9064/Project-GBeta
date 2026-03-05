@@ -14,28 +14,24 @@
 import { Router, Request, Response } from 'express';
 import { AgentStore, type StoredAgent } from '../services/agentStore.js';
 import { AgentExecutor } from '../services/agentExecutor.js';
+import { logger } from '../services/logger.js';
+import { validate } from '../middleware/validate.js';
+import { agentCreateSchema, agentStatusUpdateSchema, agentRunSchema } from '../middleware/schemas.js';
 
 const router = Router();
 
-const DEFAULT_USER = 'demo-user-123';
-
 /* ─── POST /api/agents — Deploy a new agent ─────────────── */
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', validate(agentCreateSchema), async (req: Request, res: Response) => {
   try {
     const { id, name, description, workflow, triggerType, triggerConfig, userId } = req.body;
-
-    if (!name || !workflow) {
-      res.status(400).json({ success: false, error: 'Missing required fields: name, workflow' });
-      return;
-    }
 
     const agent: StoredAgent = {
       id: id || `agent-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       name,
       description: description || '',
       status: 'active',
-      userId: userId || DEFAULT_USER,
+      userId: userId || req.userId || '',
       workflow,
       triggerType: triggerType || 'manual',
       triggerConfig: triggerConfig || {},
@@ -47,14 +43,14 @@ router.post('/', async (req: Request, res: Response) => {
 
     await AgentStore.save(agent);
 
-    console.log(`🤖 Agent deployed: "${name}" (${agent.id}) — trigger: ${agent.triggerType}`);
+    logger.info(`Agent deployed: "${name}" (${agent.id}) — trigger: ${agent.triggerType}`);
 
     res.json({
       success: true,
       data: agent,
     });
   } catch (err) {
-    console.error('Agent deploy error:', err);
+    logger.error('Agent deploy error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to deploy agent',
@@ -66,7 +62,7 @@ router.post('/', async (req: Request, res: Response) => {
 
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const userId = String(req.query.userId || DEFAULT_USER);
+    const userId = req.userId || '';
     const agents = await AgentStore.getByUser(userId);
 
     res.json({
@@ -74,7 +70,7 @@ router.get('/', async (req: Request, res: Response) => {
       data: agents,
     });
   } catch (err) {
-    console.error('Agent list error:', err);
+    logger.error('Agent list error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to list agents',
@@ -86,7 +82,7 @@ router.get('/', async (req: Request, res: Response) => {
 
 router.get('/logs/recent', async (req: Request, res: Response) => {
   try {
-    const userId = String(req.query.userId || DEFAULT_USER);
+    const userId = req.userId || '';
     const limit = parseInt(String(req.query.limit || '50'), 10);
     const logs = await AgentStore.getRecentExecutions(userId, limit);
 
@@ -95,7 +91,7 @@ router.get('/logs/recent', async (req: Request, res: Response) => {
       data: logs,
     });
   } catch (err) {
-    console.error('Recent logs error:', err);
+    logger.error('Recent logs error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to fetch logs',
@@ -116,7 +112,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     res.json({ success: true, data: agent });
   } catch (err) {
-    console.error('Agent get error:', err);
+    logger.error('Agent get error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to get agent',
@@ -126,21 +122,17 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 /* ─── PUT /api/agents/:id/status — Update status ────────── */
 
-router.put('/:id/status', async (req: Request, res: Response) => {
+router.put('/:id/status', validate(agentStatusUpdateSchema), async (req: Request, res: Response) => {
   try {
     const { status } = req.body;
-    if (!['active', 'paused', 'draft', 'archived'].includes(status)) {
-      res.status(400).json({ success: false, error: 'Invalid status' });
-      return;
-    }
 
     const id = String(req.params.id);
     await AgentStore.updateStatus(id, status);
-    console.log(`🤖 Agent ${id} → ${status}`);
+    logger.info(`Agent ${id} status changed to ${status}`);
 
     res.json({ success: true, data: { id, status } });
   } catch (err) {
-    console.error('Agent status update error:', err);
+    logger.error('Agent status update error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to update agent status',
@@ -155,7 +147,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     await AgentStore.delete(String(req.params.id));
     res.json({ success: true });
   } catch (err) {
-    console.error('Agent delete error:', err);
+    logger.error('Agent delete error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to delete agent',
@@ -165,7 +157,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
 /* ─── POST /api/agents/:id/run — Manually run an agent ──── */
 
-router.post('/:id/run', async (req: Request, res: Response) => {
+router.post('/:id/run', validate(agentRunSchema), async (req: Request, res: Response) => {
   try {
     const agent = await AgentStore.get(String(req.params.id));
     if (!agent) {
@@ -181,7 +173,7 @@ router.post('/:id/run', async (req: Request, res: Response) => {
       data: record,
     });
   } catch (err) {
-    console.error('Agent run error:', err);
+    logger.error('Agent run error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to run agent',
@@ -201,7 +193,7 @@ router.get('/:id/logs', async (req: Request, res: Response) => {
       data: logs,
     });
   } catch (err) {
-    console.error('Agent logs error:', err);
+    logger.error('Agent logs error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to fetch agent logs',
@@ -215,16 +207,16 @@ router.get('/:id/logs', async (req: Request, res: Response) => {
 router.post('/scheduler/tick', async (_req: Request, res: Response) => {
   try {
     const { runScheduledTick } = await import('../services/agentScheduler.js');
-    console.log('⏰ Scheduler tick via HTTP...');
+    logger.info('Scheduler tick via HTTP...');
     const result = await runScheduledTick();
-    console.log('⏰ Tick result:', JSON.stringify(result));
+    logger.info('Tick result', { result });
 
     res.json({
       success: true,
       data: result,
     });
   } catch (err) {
-    console.error('Scheduler tick error:', err);
+    logger.error('Scheduler tick error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Scheduler tick failed',

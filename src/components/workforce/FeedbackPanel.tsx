@@ -96,7 +96,7 @@ export function FeedbackPanel({
       case 'success': return <CheckCircle2 size={16} style={{ color: '#10b981' }} />;
       case 'failure': return <AlertCircle size={16} style={{ color: '#ef4444' }} />;
       case 'partial': return <Edit3 size={16} style={{ color: '#f59e0b' }} />;
-      case 'user_corrected': return <Edit3 size={16} style={{ color: '#3b82f6' }} />;
+      case 'user_corrected': return <Edit3 size={16} style={{ color: '#e07a3a' }} />;
     }
   };
 

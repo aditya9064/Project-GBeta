@@ -3,20 +3,32 @@ import {
   X, Sparkles, ArrowRight, ArrowLeft, Loader2, CheckCircle, AlertTriangle,
   GripVertical, Trash2, Plus, Edit2, ChevronDown, ChevronUp, Globe, Brain,
   Cloud, Zap, HardDrive, Clock, Shield, ShieldAlert, ShieldCheck, Eye,
-  Rocket, AlertCircle, Cpu,
+  Rocket, AlertCircle, Cpu, Mail, Calendar, Link, Play, Timer,
 } from 'lucide-react';
 import { generatePlan, generateAgentFromPrompt, type GeneratedPlan, type PlanStep, type PlanInputField, type AIGeneratedAgent } from '../../services/automation/planGenerator';
 import type { WorkflowDefinition } from '../../services/automation/types';
+import { executeWorkflow, type ExecutionResult } from '../../services/automation/executionEngine';
+import { log } from '../../utils/logger';
 import './AgentSetupWizard.css';
+
+type TriggerSelection = 'manual' | 'schedule' | 'email' | 'webhook';
+type ScheduleFrequency = 'every_5m' | 'every_15m' | 'every_hour' | 'every_day' | 'every_week';
+
+interface TriggerConfig {
+  type: TriggerSelection;
+  schedule?: ScheduleFrequency;
+  scheduleDay?: string;
+  scheduleTime?: string;
+}
 
 interface AgentSetupWizardProps {
   onClose: () => void;
-  onDeploy: (plan: GeneratedPlan, userInputs: Record<string, string>) => void;
-  onDeployWorkflow?: (name: string, description: string, workflow: WorkflowDefinition, userInputs: Record<string, string>) => void;
+  onDeploy: (plan: GeneratedPlan, userInputs: Record<string, string>, trigger?: TriggerConfig) => void;
+  onDeployWorkflow?: (name: string, description: string, workflow: WorkflowDefinition, userInputs: Record<string, string>, trigger?: TriggerConfig) => void;
   isDeploying?: boolean;
 }
 
-type WizardStep = 'prompt' | 'review' | 'inputs' | 'confirm';
+type WizardStep = 'prompt' | 'review' | 'inputs' | 'trigger' | 'confirm';
 
 const stepIcon = (type: string) => {
   switch (type) {
@@ -70,6 +82,12 @@ export function AgentSetupWizard({ onClose, onDeploy, onDeployWorkflow, isDeploy
   const [newStepType, setNewStepType] = useState<PlanStep['type']>('browser_task');
   const [newStepDesc, setNewStepDesc] = useState('');
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [triggerType, setTriggerType] = useState<TriggerSelection>('manual');
+  const [scheduleFrequency, setScheduleFrequency] = useState<ScheduleFrequency>('every_hour');
+  const [scheduleDay, setScheduleDay] = useState('monday');
+  const [scheduleTime, setScheduleTime] = useState('09:00');
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<ExecutionResult | null>(null);
 
   // Drag and drop state
   const dragItem = useRef<number | null>(null);
@@ -116,7 +134,7 @@ export function AgentSetupWizard({ onClose, onDeploy, onDeployWorkflow, isDeploy
         throw new Error(result.error || 'Generation returned empty workflow');
       }
     } catch (err: any) {
-      console.warn('AI generation failed, falling back:', err.message);
+      log.warn('AI generation failed, falling back:', err.message);
       setGenerationStatus('Using local generation...');
       // Fallback to keyword-based
       const generated = generatePlan(prompt);
@@ -232,18 +250,55 @@ export function AgentSetupWizard({ onClose, onDeploy, onDeployWorkflow, isDeploy
   const canProceedToInputs = plan && plan.requiredInputs.length > 0;
   const canProceedToConfirm = plan && (!canProceedToInputs || plan.requiredInputs.every((f) => !f.required || userInputs[f.key]));
 
+  const triggerConfig: TriggerConfig = { type: triggerType, schedule: scheduleFrequency, scheduleDay, scheduleTime };
+
   const handleDeploy = () => {
     if (!plan) return;
 
-    // If we have an AI-generated workflow, deploy it directly
     if (aiResult && onDeployWorkflow) {
-      onDeployWorkflow(aiResult.name, aiResult.description, aiResult.workflow, userInputs);
+      onDeployWorkflow(aiResult.name, aiResult.description, aiResult.workflow, userInputs, triggerConfig);
       return;
     }
 
-    // Fallback to plan-based deployment
-    onDeploy(plan, userInputs);
+    onDeploy(plan, userInputs, triggerConfig);
   };
+
+  const handleTestRun = useCallback(async () => {
+    if (!plan) return;
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const workflow: WorkflowDefinition = aiResult
+        ? aiResult.workflow
+        : {
+            nodes: plan.steps.map((step) => ({
+              id: step.id,
+              type: step.type as any,
+              label: step.description,
+              position: { x: 0, y: 0 },
+              config: step.details || {},
+              description: step.description,
+            })),
+            edges: plan.steps.slice(1).map((step, i) => ({
+              id: `e-${plan.steps[i].id}-${step.id}`,
+              source: plan.steps[i].id,
+              target: step.id,
+            })),
+          };
+      const result = await executeWorkflow(
+        `test-${Date.now()}`,
+        'local-user',
+        workflow,
+        'manual',
+        userInputs,
+      );
+      setTestResult(result);
+    } catch (err: any) {
+      setTestResult({ success: false, error: err.message, logs: [] });
+    } finally {
+      setIsTesting(false);
+    }
+  }, [plan, aiResult, userInputs]);
 
   return (
     <div className="wizard-overlay" onClick={onClose}>
@@ -258,6 +313,7 @@ export function AgentSetupWizard({ onClose, onDeploy, onDeployWorkflow, isDeploy
                 {wizardStep === 'prompt' && 'Describe what you want the agent to do'}
                 {wizardStep === 'review' && 'Review and edit the execution plan'}
                 {wizardStep === 'inputs' && 'Provide the required information'}
+                {wizardStep === 'trigger' && 'Choose when this agent should run'}
                 {wizardStep === 'confirm' && 'Confirm and deploy your agent'}
               </p>
             </div>
@@ -267,21 +323,21 @@ export function AgentSetupWizard({ onClose, onDeploy, onDeployWorkflow, isDeploy
 
         {/* Progress */}
         <div className="wizard-progress">
-          {(['prompt', 'review', 'inputs', 'confirm'] as WizardStep[]).map((step, i) => (
+          {(['prompt', 'review', 'inputs', 'trigger', 'confirm'] as WizardStep[]).map((step, i) => (
             <div
               key={step}
               className={`wizard-progress-step ${wizardStep === step ? 'active' : ''} ${
-                ['prompt', 'review', 'inputs', 'confirm'].indexOf(wizardStep) > i ? 'done' : ''
+                ['prompt', 'review', 'inputs', 'trigger', 'confirm'].indexOf(wizardStep) > i ? 'done' : ''
               }`}
             >
               <div className="wizard-progress-dot">
-                {['prompt', 'review', 'inputs', 'confirm'].indexOf(wizardStep) > i
+                {['prompt', 'review', 'inputs', 'trigger', 'confirm'].indexOf(wizardStep) > i
                   ? <CheckCircle size={14} />
                   : i + 1
                 }
               </div>
               <span className="wizard-progress-label">
-                {step === 'prompt' ? 'Describe' : step === 'review' ? 'Review Plan' : step === 'inputs' ? 'Details' : 'Deploy'}
+                {step === 'prompt' ? 'Describe' : step === 'review' ? 'Review' : step === 'inputs' ? 'Details' : step === 'trigger' ? 'Trigger' : 'Deploy'}
               </span>
             </div>
           ))}
@@ -610,7 +666,106 @@ export function AgentSetupWizard({ onClose, onDeploy, onDeployWorkflow, isDeploy
             </div>
           )}
 
-          {/* ═══ STEP 4: CONFIRM ═══ */}
+          {/* ═══ STEP 4: CONFIGURE TRIGGER ═══ */}
+          {wizardStep === 'trigger' && plan && (
+            <div className="wizard-trigger-step">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                <Timer size={20} style={{ color: '#e07a3a' }} />
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', color: '#f3f4f6' }}>When should this agent run?</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#9ca3af' }}>Choose how this agent gets triggered</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {([
+                  { value: 'manual' as TriggerSelection, icon: <Play size={18} />, label: 'Manual', desc: 'Run on demand from the dashboard' },
+                  { value: 'schedule' as TriggerSelection, icon: <Calendar size={18} />, label: 'Schedule', desc: 'Run automatically on a schedule' },
+                  { value: 'email' as TriggerSelection, icon: <Mail size={18} />, label: 'Email Trigger', desc: 'Run when matching emails arrive' },
+                  { value: 'webhook' as TriggerSelection, icon: <Link size={18} />, label: 'Webhook', desc: 'Run via HTTP webhook URL' },
+                ]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={`wizard-trigger-option ${triggerType === opt.value ? 'selected' : ''}`}
+                    onClick={() => setTriggerType(opt.value)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
+                      background: triggerType === opt.value ? '#1e293b' : '#111827',
+                      border: triggerType === opt.value ? '2px solid #e07a3a' : '1px solid #374151',
+                      borderRadius: '10px', cursor: 'pointer', width: '100%', textAlign: 'left',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <div style={{ color: triggerType === opt.value ? '#e07a3a' : '#6b7280', flexShrink: 0 }}>{opt.icon}</div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: triggerType === opt.value ? '#f3f4f6' : '#d1d5db' }}>{opt.label}</div>
+                      <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>{opt.desc}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {triggerType === 'schedule' && (
+                <div style={{ marginTop: '16px', padding: '16px', background: '#111827', borderRadius: '10px', border: '1px solid #374151' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#d1d5db', marginBottom: '8px', display: 'block' }}>Frequency</label>
+                  <select
+                    value={scheduleFrequency}
+                    onChange={(e) => setScheduleFrequency(e.target.value as ScheduleFrequency)}
+                    style={{ width: '100%', padding: '8px 12px', background: '#1e293b', border: '1px solid #374151', borderRadius: '8px', color: '#f3f4f6', fontSize: '14px', marginBottom: '12px' }}
+                  >
+                    <option value="every_5m">Every 5 minutes</option>
+                    <option value="every_15m">Every 15 minutes</option>
+                    <option value="every_hour">Every hour</option>
+                    <option value="every_day">Every day at a specific time</option>
+                    <option value="every_week">Every week on a specific day</option>
+                  </select>
+                  {(scheduleFrequency === 'every_day' || scheduleFrequency === 'every_week') && (
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                      {scheduleFrequency === 'every_week' && (
+                        <div style={{ flex: 1, minWidth: '140px' }}>
+                          <label style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '4px', display: 'block' }}>Day</label>
+                          <select
+                            value={scheduleDay}
+                            onChange={(e) => setScheduleDay(e.target.value)}
+                            style={{ width: '100%', padding: '8px 12px', background: '#1e293b', border: '1px solid #374151', borderRadius: '8px', color: '#f3f4f6', fontSize: '14px' }}
+                          >
+                            {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((d) => (
+                              <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: '140px' }}>
+                        <label style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '4px', display: 'block' }}>Time</label>
+                        <input
+                          type="time"
+                          value={scheduleTime}
+                          onChange={(e) => setScheduleTime(e.target.value)}
+                          style={{ width: '100%', padding: '8px 12px', background: '#1e293b', border: '1px solid #374151', borderRadius: '8px', color: '#f3f4f6', fontSize: '14px' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {triggerType === 'webhook' && (
+                <div style={{ marginTop: '16px', padding: '14px 16px', background: '#172554', borderRadius: '10px', border: '1px solid #1e3a5f', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Link size={16} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                  <span style={{ fontSize: '13px', color: '#93c5fd' }}>A webhook URL will be generated after deployment</span>
+                </div>
+              )}
+
+              {triggerType === 'email' && (
+                <div style={{ marginTop: '16px', padding: '14px 16px', background: '#172554', borderRadius: '10px', border: '1px solid #1e3a5f', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Mail size={16} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                  <span style={{ fontSize: '13px', color: '#93c5fd' }}>Agent will trigger when matching emails arrive</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ═══ STEP 5: CONFIRM ═══ */}
           {wizardStep === 'confirm' && plan && (
             <div className="wizard-confirm-step">
               <div className="wizard-confirm-card">
@@ -634,12 +789,10 @@ export function AgentSetupWizard({ onClose, onDeploy, onDeployWorkflow, isDeploy
                     <span className="wizard-confirm-stat-val">{plan.estimatedTotalDuration}</span>
                     <span className="wizard-confirm-stat-label">Est. Duration</span>
                   </div>
-                  {aiResult && (
-                    <div className="wizard-confirm-stat">
-                      <span className="wizard-confirm-stat-val" style={{ color: '#e07a3a' }}>{aiResult.triggerType}</span>
-                      <span className="wizard-confirm-stat-label">Trigger</span>
-                    </div>
-                  )}
+                  <div className="wizard-confirm-stat">
+                    <span className="wizard-confirm-stat-val" style={{ color: '#e07a3a', textTransform: 'capitalize' }}>{triggerType}</span>
+                    <span className="wizard-confirm-stat-label">Trigger</span>
+                  </div>
                 </div>
 
                 {plan.requiresBrowser && (
@@ -659,6 +812,85 @@ export function AgentSetupWizard({ onClose, onDeploy, onDeployWorkflow, isDeploy
                     ))}
                   </div>
                 )}
+
+                {/* Credential check */}
+                {(() => {
+                  const serviceKeywords = ['gmail', 'slack', 'notion', 'sheets', 'drive', 'calendar', 'trello', 'jira', 'github', 'outlook', 'teams', 'discord', 'asana', 'hubspot', 'salesforce', 'twilio', 'sendgrid', 'stripe'];
+                  const neededServices = new Set<string>();
+                  plan.steps.forEach((step) => {
+                    const text = `${step.action} ${step.description} ${JSON.stringify(step.details)}`.toLowerCase();
+                    serviceKeywords.forEach((svc) => {
+                      if (text.includes(svc)) neededServices.add(svc);
+                    });
+                    if (step.type === 'app') {
+                      const appName = (step.details?.app || step.details?.service || step.action || '').toLowerCase();
+                      if (appName && appName !== 'custom') neededServices.add(appName);
+                    }
+                  });
+                  if (neededServices.size === 0) return null;
+                  return (
+                    <div style={{ margin: '16px 0 0', padding: '12px 16px', background: '#451a03', borderRadius: '10px', border: '1px solid #92400e', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                      <AlertTriangle size={16} style={{ color: '#fbbf24', flexShrink: 0, marginTop: '2px' }} />
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#fcd34d', marginBottom: '4px' }}>Services may need credentials</div>
+                        <div style={{ fontSize: '12px', color: '#fde68a', lineHeight: 1.5 }}>
+                          This workflow references: <strong>{[...neededServices].join(', ')}</strong>. Make sure these services are connected in your account settings before running.
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Trigger summary */}
+                <div style={{ margin: '16px 0 0', padding: '12px 16px', background: '#111827', borderRadius: '10px', border: '1px solid #374151', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Timer size={16} style={{ color: '#e07a3a' }} />
+                  <span style={{ fontSize: '13px', color: '#d1d5db' }}>
+                    <strong style={{ color: '#f3f4f6' }}>Trigger:</strong>{' '}
+                    {triggerType === 'manual' && 'Manual \u2014 run on demand'}
+                    {triggerType === 'schedule' && `Scheduled \u2014 ${
+                      scheduleFrequency === 'every_5m' ? 'every 5 minutes' :
+                      scheduleFrequency === 'every_15m' ? 'every 15 minutes' :
+                      scheduleFrequency === 'every_hour' ? 'every hour' :
+                      scheduleFrequency === 'every_day' ? `daily at ${scheduleTime}` :
+                      `weekly on ${scheduleDay} at ${scheduleTime}`
+                    }`}
+                    {triggerType === 'email' && 'Email \u2014 when matching emails arrive'}
+                    {triggerType === 'webhook' && 'Webhook \u2014 via HTTP request'}
+                  </span>
+                </div>
+
+                {/* Test result panel */}
+                {testResult && (
+                  <div style={{ margin: '16px 0 0', padding: '14px 16px', background: testResult.success ? '#052e16' : '#450a0a', borderRadius: '10px', border: `1px solid ${testResult.success ? '#166534' : '#991b1b'}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: testResult.logs.length > 0 ? '10px' : '0' }}>
+                      {testResult.success
+                        ? <CheckCircle size={16} style={{ color: '#4ade80' }} />
+                        : <AlertCircle size={16} style={{ color: '#f87171' }} />
+                      }
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: testResult.success ? '#4ade80' : '#f87171' }}>
+                        {testResult.success ? 'Test Passed' : 'Test Failed'}
+                      </span>
+                      {testResult.error && (
+                        <span style={{ fontSize: '12px', color: '#fca5a5', marginLeft: 'auto' }}>{testResult.error}</span>
+                      )}
+                    </div>
+                    {testResult.logs.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {testResult.logs.map((l, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', padding: '4px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px' }}>
+                            {l.status === 'completed' && <CheckCircle size={12} style={{ color: '#4ade80' }} />}
+                            {l.status === 'failed' && <AlertCircle size={12} style={{ color: '#f87171' }} />}
+                            {l.status === 'skipped' && <ArrowRight size={12} style={{ color: '#6b7280' }} />}
+                            {l.status === 'running' && <Loader2 size={12} className="spin" style={{ color: '#60a5fa' }} />}
+                            {l.status === 'awaiting_input' && <Clock size={12} style={{ color: '#fbbf24' }} />}
+                            <span style={{ color: '#d1d5db' }}>{l.nodeName}</span>
+                            <span style={{ color: '#6b7280', marginLeft: 'auto' }}>{l.status}{l.duration ? ` \u00B7 ${l.duration}ms` : ''}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -673,7 +905,8 @@ export function AgentSetupWizard({ onClose, onDeploy, onDeployWorkflow, isDeploy
                 onClick={() => {
                   if (wizardStep === 'review') setWizardStep('prompt');
                   if (wizardStep === 'inputs') setWizardStep('review');
-                  if (wizardStep === 'confirm') setWizardStep(canProceedToInputs ? 'inputs' : 'review');
+                  if (wizardStep === 'trigger') setWizardStep(canProceedToInputs ? 'inputs' : 'review');
+                  if (wizardStep === 'confirm') setWizardStep('trigger');
                 }}
               >
                 <ArrowLeft size={16} /> Back
@@ -684,32 +917,54 @@ export function AgentSetupWizard({ onClose, onDeploy, onDeployWorkflow, isDeploy
             {wizardStep === 'review' && (
               <button
                 className="wizard-btn wizard-btn-next"
-                onClick={() => setWizardStep(canProceedToInputs ? 'inputs' : 'confirm')}
+                onClick={() => setWizardStep(canProceedToInputs ? 'inputs' : 'trigger')}
               >
-                {canProceedToInputs ? 'Fill in Details' : 'Review & Deploy'} <ArrowRight size={16} />
+                {canProceedToInputs ? 'Fill in Details' : 'Configure Trigger'} <ArrowRight size={16} />
               </button>
             )}
             {wizardStep === 'inputs' && (
               <button
                 className="wizard-btn wizard-btn-next"
-                onClick={() => setWizardStep('confirm')}
+                onClick={() => setWizardStep('trigger')}
                 disabled={!canProceedToConfirm}
+              >
+                Configure Trigger <ArrowRight size={16} />
+              </button>
+            )}
+            {wizardStep === 'trigger' && (
+              <button
+                className="wizard-btn wizard-btn-next"
+                onClick={() => setWizardStep('confirm')}
               >
                 Review & Deploy <ArrowRight size={16} />
               </button>
             )}
             {wizardStep === 'confirm' && (
-              <button
-                className="wizard-btn wizard-btn-deploy"
-                onClick={handleDeploy}
-                disabled={isDeploying}
-              >
-                {isDeploying ? (
-                  <><Loader2 size={16} className="spin" /> Deploying...</>
-                ) : (
-                  <><Rocket size={16} /> Deploy Agent</>
-                )}
-              </button>
+              <>
+                <button
+                  className="wizard-btn wizard-btn-back"
+                  onClick={handleTestRun}
+                  disabled={isTesting || isDeploying}
+                  style={{ borderColor: '#e07a3a', color: '#f0a060' }}
+                >
+                  {isTesting ? (
+                    <><Loader2 size={16} className="spin" /> Testing...</>
+                  ) : (
+                    <><Play size={16} /> Test Run</>
+                  )}
+                </button>
+                <button
+                  className="wizard-btn wizard-btn-deploy"
+                  onClick={handleDeploy}
+                  disabled={isDeploying || isTesting}
+                >
+                  {isDeploying ? (
+                    <><Loader2 size={16} className="spin" /> Deploying...</>
+                  ) : (
+                    <><Rocket size={16} /> Deploy Agent</>
+                  )}
+                </button>
+              </>
             )}
           </div>
         </div>

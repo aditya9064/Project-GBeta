@@ -52,8 +52,12 @@ import {
   Pause,
   MoreHorizontal,
   X,
+  Plus,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import './SalesIntelligence.css';
+import { log } from '../../utils/logger';
 
 /* ─── TYPES ──────────────────────────────────────────────── */
 
@@ -84,6 +88,14 @@ interface Lead {
   industry: string;
   companySize: string;
   tags: string[];
+  activities?: LeadActivity[];
+}
+
+interface LeadActivity {
+  id: string;
+  type: 'call' | 'email' | 'meeting' | 'note';
+  description: string;
+  timestamp: string;
 }
 
 interface Signal {
@@ -395,6 +407,31 @@ export function SalesIntelligence() {
   const [backendConfigured, setBackendConfigured] = useState(false);
   const fetchedRef = useRef(false);
 
+  // ─── CRUD State ───
+  const [localLeads, setLocalLeads] = useState<Lead[]>(() => {
+    try {
+      const stored = localStorage.getItem('crewos-leads');
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+  });
+  const [deletedLeadIds, setDeletedLeadIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('crewos-leads-deleted');
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+  });
+  const [showLeadForm, setShowLeadForm] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<Lead | null>(null);
+  const [showActivityForm, setShowActivityForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '', company: '', email: '', phone: '', dealValue: '',
+    stage: 'prospect' as Lead['stage'],
+  });
+  const [activityData, setActivityData] = useState({
+    type: 'call' as LeadActivity['type'], description: '',
+  });
+
   // Fetch data from backend on mount
   useEffect(() => {
     if (fetchedRef.current) return;
@@ -443,7 +480,7 @@ export function SalesIntelligence() {
           if (data.success && data.insights?.length > 0) setLiveInsights(data.insights);
         }
       } catch (err) {
-        console.warn('[SalesIntelligence] Backend unavailable, using sample data:', err);
+        log.warn('[SalesIntelligence] Backend unavailable, using sample data:', err);
         setBackendConfigured(false);
       } finally {
         clearTimeout(timeout);
@@ -454,6 +491,100 @@ export function SalesIntelligence() {
     fetchSalesData();
     return () => { clearTimeout(timeout); controller.abort(); };
   }, []);
+
+  // Persist local leads to localStorage
+  useEffect(() => {
+    localStorage.setItem('crewos-leads', JSON.stringify(localLeads));
+  }, [localLeads]);
+  useEffect(() => {
+    localStorage.setItem('crewos-leads-deleted', JSON.stringify(deletedLeadIds));
+  }, [deletedLeadIds]);
+
+  // Merge local + backend leads (local overrides backend by id, excludes deleted)
+  const deletedSet = new Set(deletedLeadIds);
+  const localMap = new Map(localLeads.map(l => [l.id, l]));
+  const allLeads: Lead[] = [
+    ...liveLeads.filter(l => !deletedSet.has(l.id)).map(l => localMap.get(l.id) || l),
+    ...localLeads.filter(l => !liveLeads.some(bl => bl.id === l.id) && !deletedSet.has(l.id)),
+  ];
+
+  // ─── CRUD Handlers ───
+  const openCreateForm = () => {
+    setFormData({ name: '', company: '', email: '', phone: '', dealValue: '', stage: 'prospect' });
+    setEditingLead(null);
+    setShowLeadForm(true);
+  };
+
+  const openEditForm = (lead: Lead) => {
+    setFormData({
+      name: lead.name, company: lead.company, email: lead.email,
+      phone: lead.phone || '', dealValue: String(lead.dealValue), stage: lead.stage,
+    });
+    setEditingLead(lead);
+    setShowLeadForm(true);
+  };
+
+  const handleLeadSubmit = () => {
+    if (!formData.name || !formData.company || !formData.email) return;
+    if (editingLead) {
+      const updated: Lead = {
+        ...editingLead, name: formData.name, company: formData.company,
+        email: formData.email, phone: formData.phone || undefined,
+        dealValue: Number(formData.dealValue) || 0, stage: formData.stage,
+      };
+      setLocalLeads(prev => prev.some(l => l.id === updated.id)
+        ? prev.map(l => l.id === updated.id ? updated : l)
+        : [...prev, updated]);
+      if (selectedLead?.id === updated.id) setSelectedLead(updated);
+    } else {
+      const initials = formData.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+      const palette = ['#e07a3a','#1a1a2e','#059669','#d46b2c','#3a3a52','#D97706'];
+      const stageProbability: Record<string, number> = {
+        prospect: 10, qualified: 30, proposal: 50, negotiation: 70, closed_won: 100, closed_lost: 0,
+      };
+      const newLead: Lead = {
+        id: `local-${Date.now()}`, name: formData.name, company: formData.company,
+        title: '', email: formData.email, phone: formData.phone || undefined,
+        location: '', avatar: initials || '?',
+        avatarColor: palette[Math.floor(Math.random() * palette.length)],
+        score: 50, scoreChange: 0, scoreTrend: 'stable', stage: formData.stage,
+        dealValue: Number(formData.dealValue) || 0,
+        probability: stageProbability[formData.stage] ?? 10,
+        expectedClose: '', lastActivity: 'Just now', lastActivityType: 'email',
+        engagementScore: 0, signals: [], nextAction: 'Initial outreach',
+        nextActionPriority: 'medium', source: 'Manual Entry', industry: '', companySize: '',
+        tags: ['Local'], activities: [],
+      };
+      setLocalLeads(prev => [...prev, newLead]);
+    }
+    setShowLeadForm(false);
+    setEditingLead(null);
+  };
+
+  const handleDeleteLead = (lead: Lead) => {
+    setDeletedLeadIds(prev => [...prev, lead.id]);
+    setLocalLeads(prev => prev.filter(l => l.id !== lead.id));
+    if (selectedLead?.id === lead.id) setSelectedLead(null);
+    setShowDeleteConfirm(null);
+  };
+
+  const handleAddActivity = () => {
+    if (!selectedLead || !activityData.description) return;
+    const activity: LeadActivity = {
+      id: `act-${Date.now()}`, type: activityData.type,
+      description: activityData.description, timestamp: new Date().toLocaleString(),
+    };
+    const updated: Lead = {
+      ...selectedLead, activities: [...(selectedLead.activities || []), activity],
+      lastActivity: 'Just now',
+    };
+    setLocalLeads(prev => prev.some(l => l.id === updated.id)
+      ? prev.map(l => l.id === updated.id ? updated : l)
+      : [...prev, updated]);
+    setSelectedLead(updated);
+    setActivityData({ type: 'call', description: '' });
+    setShowActivityForm(false);
+  };
 
   // Re-fetch all data from backend
   const handleSyncCRM = useCallback(async () => {
@@ -542,7 +673,7 @@ export function SalesIntelligence() {
   }, [isScoring, backendConfigured, selectedLead]);
 
   // Filtered and sorted leads
-  const filteredLeads = liveLeads
+  const filteredLeads = allLeads
     .filter(lead => {
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -558,10 +689,10 @@ export function SalesIntelligence() {
     });
 
   // Summary metrics
-  const totalPipeline = liveLeads.reduce((sum, l) => sum + l.dealValue, 0);
-  const weightedPipeline = liveLeads.reduce((sum, l) => sum + (l.dealValue * l.probability / 100), 0);
-  const avgScore = Math.round(liveLeads.reduce((sum, l) => sum + l.score, 0) / (liveLeads.length || 1));
-  const hotLeads = liveLeads.filter(l => l.score >= 85).length;
+  const totalPipeline = allLeads.reduce((sum, l) => sum + l.dealValue, 0);
+  const weightedPipeline = allLeads.reduce((sum, l) => sum + (l.dealValue * l.probability / 100), 0);
+  const avgScore = Math.round(allLeads.reduce((sum, l) => sum + l.score, 0) / (allLeads.length || 1));
+  const hotLeads = allLeads.filter(l => l.score >= 85).length;
 
   /* ─── DASHBOARD VIEW ─────────────────────────────────────── */
   const renderDashboard = () => (
@@ -642,7 +773,7 @@ export function SalesIntelligence() {
               <div className="sales-scoring-fill" style={{ width: `${Math.min(scoringProgress, 100)}%` }} />
             </div>
             <span className="sales-scoring-label">
-              Analyzing {Math.min(Math.round(scoringProgress), 100)}% — scoring {liveLeads.length} leads across {models.length} models
+              Analyzing {Math.min(Math.round(scoringProgress), 100)}% — scoring {allLeads.length} leads across {models.length} models
             </span>
           </div>
         )}
@@ -680,7 +811,7 @@ export function SalesIntelligence() {
                       <div className="sales-insight-deals">
                         <span>Related:</span>
                         {insight.relatedDeals.map(dealId => {
-                          const deal = liveLeads.find(l => l.id === dealId);
+                          const deal = allLeads.find(l => l.id === dealId);
                           return deal ? (
                             <button
                               key={dealId}
@@ -770,7 +901,7 @@ export function SalesIntelligence() {
           </button>
         </div>
         <div className="sales-top-deals-grid">
-          {liveLeads.filter(l => l.score >= 80).slice(0, 4).map(lead => (
+          {allLeads.filter(l => l.score >= 80).slice(0, 4).map(lead => (
             <div
               key={lead.id}
               className="sales-top-deal-card"
@@ -845,6 +976,10 @@ export function SalesIntelligence() {
             <option value="value">Sort by Value</option>
             <option value="activity">Sort by Activity</option>
           </select>
+          <button className="sales-btn-primary" onClick={openCreateForm} style={{ marginLeft: 8, gap: 4 }}>
+            <Plus size={14} />
+            New Lead
+          </button>
         </div>
       </div>
 
@@ -877,6 +1012,25 @@ export function SalesIntelligence() {
                   </div>
                 </div>
               </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginRight: 8, opacity: 0.7, transition: 'opacity 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
+              >
+                <button
+                  title="Edit lead"
+                  onClick={(e) => { e.stopPropagation(); openEditForm(lead); }}
+                  style={{ background: 'rgba(224,122,58,0.08)', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', color: '#e07a3a', display: 'flex', alignItems: 'center' }}
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  title="Delete lead"
+                  onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(lead); }}
+                  style={{ background: 'rgba(220,38,38,0.06)', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', color: '#DC2626', display: 'flex', alignItems: 'center' }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
               <div className="sales-lead-score-col">
                 <div className="sales-lead-score-ring" style={{ borderColor: getScoreColor(lead.score) }}>
                   <span style={{ color: getScoreColor(lead.score) }}>{lead.score}</span>
@@ -906,7 +1060,21 @@ export function SalesIntelligence() {
                     {selectedLead.avatar}
                   </div>
                   <div className="sales-detail-header-info">
-                    <h3>{selectedLead.name}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <h3 style={{ margin: 0 }}>{selectedLead.name}</h3>
+                      <button
+                        onClick={() => openEditForm(selectedLead)}
+                        style={{ background: 'rgba(224,122,58,0.08)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#e07a3a', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
+                      >
+                        <Pencil size={12} /> Edit
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm(selectedLead)}
+                        style={{ background: 'rgba(220,38,38,0.06)', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#DC2626', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
+                      >
+                        <Trash2 size={12} /> Delete
+                      </button>
+                    </div>
                     <span className="sales-detail-title">{selectedLead.title} at {selectedLead.company}</span>
                     <div className="sales-detail-contact-row">
                       <span><Mail size={12} /> {selectedLead.email}</span>
@@ -986,6 +1154,40 @@ export function SalesIntelligence() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Activity Timeline */}
+              <div className="sales-detail-section">
+                <div className="sales-detail-section-header">
+                  <MessageSquare size={14} />
+                  <span>Activity Timeline</span>
+                  <button
+                    className="sales-btn-secondary"
+                    onClick={() => setShowActivityForm(true)}
+                    style={{ marginLeft: 'auto', padding: '4px 10px', fontSize: 12, gap: 4 }}
+                  >
+                    <Plus size={12} /> Add Activity
+                  </button>
+                </div>
+                {(selectedLead.activities && selectedLead.activities.length > 0) ? (
+                  <div className="sales-signals-list">
+                    {[...selectedLead.activities].reverse().map(act => (
+                      <div key={act.id} className="sales-signal-item impact-neutral">
+                        <div className="sales-signal-icon">
+                          {act.type === 'call' ? <Phone size={13} /> : act.type === 'email' ? <Mail size={13} /> : act.type === 'meeting' ? <Calendar size={13} /> : <FileText size={13} />}
+                        </div>
+                        <div className="sales-signal-content">
+                          <span className="sales-signal-desc">
+                            <strong style={{ textTransform: 'capitalize' }}>{act.type}</strong> — {act.description}
+                          </span>
+                          <span className="sales-signal-time">{act.timestamp}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ color: '#9a9ab0', fontSize: 13, padding: '12px 0', margin: 0 }}>No activities logged yet.</p>
+                )}
               </div>
 
               {/* Tags */}
@@ -1316,6 +1518,115 @@ export function SalesIntelligence() {
         {activeView === 'pipeline' && renderPipelineView()}
         {activeView === 'models' && renderModelsView()}
       </div>
+
+      {/* Lead Form Modal */}
+      {showLeadForm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setShowLeadForm(false)}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 440, maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 18, color: '#1a1a2e' }}>{editingLead ? 'Edit Lead' : 'New Lead'}</h3>
+              <button onClick={() => setShowLeadForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9a9ab0' }}><X size={18} /></button>
+            </div>
+            {([
+              { label: 'Name *', key: 'name', type: 'text', placeholder: 'Full name' },
+              { label: 'Company *', key: 'company', type: 'text', placeholder: 'Company name' },
+              { label: 'Email *', key: 'email', type: 'email', placeholder: 'email@company.com' },
+              { label: 'Phone', key: 'phone', type: 'tel', placeholder: '+1 (555) 000-0000' },
+              { label: 'Deal Value ($)', key: 'dealValue', type: 'number', placeholder: '0' },
+            ] as const).map(f => (
+              <div key={f.key} style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#3a3a52', marginBottom: 5 }}>{f.label}</label>
+                <input
+                  type={f.type}
+                  placeholder={f.placeholder}
+                  value={formData[f.key]}
+                  onChange={e => setFormData(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e0e0e6', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+            ))}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#3a3a52', marginBottom: 5 }}>Stage</label>
+              <select
+                value={formData.stage}
+                onChange={e => setFormData(prev => ({ ...prev, stage: e.target.value as Lead['stage'] }))}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e0e0e6', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+              >
+                <option value="prospect">Prospect</option>
+                <option value="qualified">Qualified</option>
+                <option value="proposal">Proposal</option>
+                <option value="negotiation">Negotiation</option>
+                <option value="closed_won">Closed Won</option>
+                <option value="closed_lost">Closed Lost</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowLeadForm(false)} style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #e0e0e6', background: '#fff', cursor: 'pointer', fontSize: 14, color: '#3a3a52' }}>Cancel</button>
+              <button onClick={handleLeadSubmit} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#e07a3a', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>{editingLead ? 'Save Changes' : 'Create Lead'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      {showDeleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setShowDeleteConfirm(null)}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ background: '#FEE2E2', borderRadius: 10, padding: 10, display: 'flex' }}>
+                <AlertTriangle size={22} color="#DC2626" />
+              </div>
+              <h3 style={{ margin: 0, fontSize: 17, color: '#1a1a2e' }}>Delete Lead</h3>
+            </div>
+            <p style={{ color: '#5a5a72', fontSize: 14, lineHeight: 1.5, margin: '0 0 20px' }}>
+              Are you sure you want to delete <strong>{showDeleteConfirm.name}</strong> ({showDeleteConfirm.company})? This action cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowDeleteConfirm(null)} style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #e0e0e6', background: '#fff', cursor: 'pointer', fontSize: 14, color: '#3a3a52' }}>Cancel</button>
+              <button onClick={() => handleDeleteLead(showDeleteConfirm)} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#DC2626', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Activity Form Modal */}
+      {showActivityForm && selectedLead && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setShowActivityForm(false)}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 18, color: '#1a1a2e' }}>Log Activity — {selectedLead.name}</h3>
+              <button onClick={() => setShowActivityForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9a9ab0' }}><X size={18} /></button>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#3a3a52', marginBottom: 5 }}>Activity Type</label>
+              <select
+                value={activityData.type}
+                onChange={e => setActivityData(prev => ({ ...prev, type: e.target.value as LeadActivity['type'] }))}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e0e0e6', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+              >
+                <option value="call">Call</option>
+                <option value="email">Email</option>
+                <option value="meeting">Meeting</option>
+                <option value="note">Note</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#3a3a52', marginBottom: 5 }}>Description *</label>
+              <textarea
+                placeholder="What happened?"
+                value={activityData.description}
+                onChange={e => setActivityData(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e0e0e6', fontSize: 14, outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowActivityForm(false)} style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #e0e0e6', background: '#fff', cursor: 'pointer', fontSize: 14, color: '#3a3a52' }}>Cancel</button>
+              <button onClick={handleAddActivity} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#e07a3a', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>Log Activity</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

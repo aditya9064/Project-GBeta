@@ -15,6 +15,7 @@ import {
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { CalendarEvent, EventReminder } from '../types/calendar';
+import { log } from '../utils/logger';
 
 // Firestore event document interface
 interface FirestoreEvent {
@@ -167,7 +168,7 @@ export function useEvents(): UseEventsReturn {
         setLoading(false);
       },
       (err) => {
-        console.error('Error fetching events:', err);
+        log.error('Error fetching events:', err);
         setError('Failed to load events');
         setLoading(false);
       }
@@ -196,7 +197,7 @@ export function useEvents(): UseEventsReturn {
       const docRef = await addDoc(collection(db, 'events'), eventData);
       return docRef.id;
     } catch (err) {
-      console.error('Error creating event:', err);
+      log.error('Error creating event:', err);
       setError('Failed to create event');
       return null;
     }
@@ -222,7 +223,7 @@ export function useEvents(): UseEventsReturn {
       await updateDoc(eventRef, updateData);
       return true;
     } catch (err) {
-      console.error('Error updating event:', err);
+      log.error('Error updating event:', err);
       setError('Failed to update event');
       return false;
     }
@@ -240,7 +241,7 @@ export function useEvents(): UseEventsReturn {
       await deleteDoc(eventRef);
       return true;
     } catch (err) {
-      console.error('Error deleting event:', err);
+      log.error('Error deleting event:', err);
       setError('Failed to delete event');
       return false;
     }

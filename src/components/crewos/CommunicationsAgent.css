@@ -567,7 +567,7 @@
 
 .comms-status-badge.status-approved {
   background: #fde8d8;
-  color: #2563EB;
+  color: #e07a3a;
 }
 
 .comms-status-badge.status-sent {
@@ -1060,7 +1060,7 @@
 
 .comms-ai-action-btn.approve {
   background: #fde8d8;
-  color: #2563EB;
+  color: #e07a3a;
 }
 
 .comms-ai-action-btn.approve:hover {

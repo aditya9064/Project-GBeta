@@ -80,6 +80,7 @@ import { WorkflowSetupModal } from './WorkflowSetupModal';
 import { AgentSetupWizard } from './AgentSetupWizard';
 import { planToWorkflow } from '../../services/automation/planConverter';
 import type { WorkflowDefinition as WFDef } from '../../services/automation/types';
+import { log } from '../../utils/logger';
 
 // Node types
 export type NodeType = 'trigger' | 'action' | 'app' | 'knowledge' | 'condition' | 'ai' | 'memory' | 'agent_call' | 'browser_task';
@@ -148,7 +149,7 @@ interface WorkflowBuilderProps {
   initialWorkflow?: { nodes: Node[]; edges: Edge[] };
   initialName?: string;
   onToggleSidebar?: () => void;
-  onDeploy?: (name: string, description: string, workflow: WorkflowDefinition) => Promise<void>;
+  onDeploy?: (name: string, description: string, workflow: WorkflowDefinition, schedule?: { frequency: string; time?: string; dayOfWeek?: number }) => Promise<void>;
   isDeploying?: boolean;
 }
 
@@ -186,6 +187,9 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
   const [isRunning, setIsRunning] = useState(false);
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [deploySuccess, setDeploySuccess] = useState(false);
+  const [scheduleFrequency, setScheduleFrequency] = useState('manual');
+  const [scheduleTime, setScheduleTime] = useState('09:00');
+  const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState(1);
   const [backendStatus, setBackendStatus] = useState<AutomationStatus | null>(null);
   const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const [showSetupModal, setShowSetupModal] = useState(false);
@@ -770,16 +774,19 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
 
   // Handle deploy
   const handleDeploy = useCallback(async () => {
-    console.log('handleDeploy called', { hasOnDeploy: !!onDeploy, nodesLength: nodes.length, workflowName, workflowDescription });
+    log.debug('handleDeploy called', { hasOnDeploy: !!onDeploy, nodesLength: nodes.length, workflowName, workflowDescription });
     if (!onDeploy || nodes.length === 0) {
-      console.log('handleDeploy early return', { onDeploy: !!onDeploy, nodesLength: nodes.length });
+      log.debug('handleDeploy early return', { onDeploy: !!onDeploy, nodesLength: nodes.length });
       return;
     }
     
     const workflow = convertToWorkflowDefinition();
+    const schedule = scheduleFrequency !== 'manual'
+      ? { frequency: scheduleFrequency, time: scheduleTime, dayOfWeek: scheduleDayOfWeek }
+      : undefined;
     
     try {
-      await onDeploy(workflowName, workflowDescription, workflow);
+      await onDeploy(workflowName, workflowDescription, workflow, schedule);
       setDeploySuccess(true);
       setTimeout(() => {
         setShowDeployModal(false);
@@ -787,9 +794,9 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
         if (onClose) onClose();
       }, 2000);
     } catch (error) {
-      console.error('Deploy error:', error);
+      log.error('Deploy error:', error);
     }
-  }, [onDeploy, nodes, workflowName, workflowDescription, convertToWorkflowDefinition, onClose]);
+  }, [onDeploy, nodes, workflowName, workflowDescription, convertToWorkflowDefinition, onClose, scheduleFrequency, scheduleTime, scheduleDayOfWeek]);
 
   // Apply a workflow definition to the canvas (shared by template import + setup modal)
   const applyWorkflowToCanvas = useCallback((workflow: WFDef, templateName: string) => {
@@ -866,7 +873,7 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
       try {
         await onDeploy(plan.title, plan.description, workflow);
       } catch (error) {
-        console.error('Auto-deploy from wizard failed:', error);
+        log.error('Auto-deploy from wizard failed:', error);
       }
     }
   }, [applyWorkflowToCanvas, onDeploy]);
@@ -887,7 +894,7 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
       try {
         await onDeploy(name, description, workflow);
       } catch (error) {
-        console.error('Auto-deploy AI workflow failed:', error);
+        log.error('Auto-deploy AI workflow failed:', error);
       }
     }
   }, [applyWorkflowToCanvas, onDeploy]);
@@ -1161,7 +1168,7 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
                 )}
                 {log.status === 'completed' && !log.isReal && (
                   <div className="exec-log-hint">
-                    This node returned fake data. Configure real credentials to execute for real.
+                    Simulated output — sign in and ensure the backend is running to execute with real data.
                   </div>
                 )}
               </div>
@@ -1298,6 +1305,56 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
                         </span>
                         <span className="deploy-stat-label">Trigger</span>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="deploy-schedule">
+                    <h4>Schedule</h4>
+                    <p className="deploy-schedule-desc">Choose how often this agent should run automatically.</p>
+                    <div className="deploy-schedule-fields">
+                      <div className="deploy-form-group">
+                        <label>Frequency</label>
+                        <select
+                          value={scheduleFrequency}
+                          onChange={(e) => setScheduleFrequency(e.target.value)}
+                          disabled={isDeploying}
+                        >
+                          <option value="manual">Manual only</option>
+                          <option value="every_minute">Every minute</option>
+                          <option value="hourly">Hourly</option>
+                          <option value="daily">Daily</option>
+                          <option value="weekly">Weekly</option>
+                        </select>
+                      </div>
+                      {(scheduleFrequency === 'daily' || scheduleFrequency === 'weekly') && (
+                        <div className="deploy-form-group">
+                          <label>Time</label>
+                          <input
+                            type="time"
+                            value={scheduleTime}
+                            onChange={(e) => setScheduleTime(e.target.value)}
+                            disabled={isDeploying}
+                          />
+                        </div>
+                      )}
+                      {scheduleFrequency === 'weekly' && (
+                        <div className="deploy-form-group">
+                          <label>Day of week</label>
+                          <select
+                            value={scheduleDayOfWeek}
+                            onChange={(e) => setScheduleDayOfWeek(Number(e.target.value))}
+                            disabled={isDeploying}
+                          >
+                            <option value={0}>Sunday</option>
+                            <option value={1}>Monday</option>
+                            <option value={2}>Tuesday</option>
+                            <option value={3}>Wednesday</option>
+                            <option value={4}>Thursday</option>
+                            <option value={5}>Friday</option>
+                            <option value={6}>Saturday</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

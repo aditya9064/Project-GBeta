@@ -17,17 +17,19 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { Router, Request, Response } from 'express';
+import { config } from '../config.js';
+import { logger } from '../services/logger.js';
 
 const router = Router();
 
 /* ─── Helpers ─────────────────────────────────────────── */
 
 function getN8nBaseUrl(): string {
-  return process.env.N8N_BASE_URL || 'http://localhost:5678';
+  return config.n8n.baseUrl;
 }
 
 function getN8nApiKey(): string {
-  return process.env.N8N_API_KEY || '';
+  return config.n8n.apiKey;
 }
 
 async function n8nFetch(path: string, options: RequestInit = {}): Promise<any> {
@@ -45,7 +47,7 @@ async function n8nFetch(path: string, options: RequestInit = {}): Promise<any> {
   }
 
   const url = `${baseUrl}${path}`;
-  console.log(`[n8n API] ${options.method || 'GET'} ${url}`);
+  logger.info(`[n8n API] ${options.method || 'GET'} ${url}`);
 
   const resp = await fetch(url, {
     ...options,
@@ -126,7 +128,7 @@ router.get('/status', async (_req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('[n8n] Status check error:', err);
+    logger.error('[n8n] Status check error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to check n8n status',
@@ -172,7 +174,7 @@ router.post('/workflows', async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('[n8n] Create workflow error:', err);
+    logger.error('[n8n] Create workflow error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to create workflow in n8n',
@@ -188,7 +190,7 @@ router.get('/workflows/:id', async (req: Request, res: Response) => {
     const result = await n8nFetch(`/api/v1/workflows/${req.params.id}`);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('[n8n] Get workflow error:', err);
+    logger.error('[n8n] Get workflow error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to get workflow from n8n',
@@ -209,7 +211,7 @@ router.post('/workflows/:id/activate', async (req: Request, res: Response) => {
       data: { id: result.id, active: result.active },
     });
   } catch (err) {
-    console.error('[n8n] Activate workflow error:', err);
+    logger.error('[n8n] Activate workflow error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to activate workflow',
@@ -230,7 +232,7 @@ router.post('/workflows/:id/deactivate', async (req: Request, res: Response) => 
       data: { id: result.id, active: result.active },
     });
   } catch (err) {
-    console.error('[n8n] Deactivate workflow error:', err);
+    logger.error('[n8n] Deactivate workflow error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to deactivate workflow',
@@ -276,7 +278,7 @@ router.post('/workflows/:id/run', async (req: Request, res: Response) => {
       });
       return;
     } catch (runErr) {
-      console.log('[n8n] Public run API not available, trying webhook approach');
+      logger.info('[n8n] Public run API not available, trying webhook approach');
     }
 
     // Fallback: Check if workflow has a webhook trigger and call it
@@ -359,7 +361,7 @@ router.post('/workflows/:id/run', async (req: Request, res: Response) => {
     });
 
   } catch (err) {
-    console.error('[n8n] Execute workflow error:', err);
+    logger.error('[n8n] Execute workflow error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to execute workflow',
@@ -387,7 +389,7 @@ router.get('/executions/:id', async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('[n8n] Get execution error:', err);
+    logger.error('[n8n] Get execution error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to get execution',

@@ -14,6 +14,7 @@ import { GmailService } from './gmail.service.js';
 import { SlackService } from './slack.service.js';
 import { AgentStore, type StoredAgent } from './agentStore.js';
 import { AgentExecutor } from './agentExecutor.js';
+import { logger } from './logger.js';
 
 const SCHEDULER_STATE_DOC = 'scheduler_state/email_polling';
 const MAX_SEEN_IDS = 500;
@@ -113,11 +114,11 @@ export async function runScheduledTick(): Promise<{
 
     const allAgents = await AgentStore.getActive();
     if (allAgents.length === 0) {
-      console.log('⏰ Scheduler: No active agents');
+      logger.info('Scheduler: No active agents');
       return result;
     }
 
-    console.log(`⏰ Scheduler tick: ${allAgents.length} active agent(s)`);
+    logger.info(`Scheduler tick: ${allAgents.length} active agent(s)`);
 
     // ── 1. Email-triggered agents ──
 
@@ -127,7 +128,7 @@ export async function runScheduledTick(): Promise<{
       if (gmailConn.status === 'connected') {
         await processEmailTriggers(emailAgents, result);
       } else {
-        console.log('⏰ Scheduler: Gmail not connected, skipping email triggers');
+        logger.info('Scheduler: Gmail not connected, skipping email triggers');
         result.errors.push('Gmail not connected');
       }
     }
@@ -138,20 +139,20 @@ export async function runScheduledTick(): Promise<{
     for (const agent of scheduledAgents) {
       if (shouldRunSchedule(agent)) {
         try {
-          console.log(`⏰ Scheduler: Running scheduled agent "${agent.name}"`);
+          logger.info(`Scheduler: Running scheduled agent "${agent.name}"`);
           await AgentExecutor.execute(agent, 'schedule', {
             scheduledAt: new Date().toISOString(),
           });
           result.scheduledRuns++;
         } catch (err: any) {
-          console.error(`❌ Scheduler: Failed to run "${agent.name}":`, err.message);
+          logger.error(`Scheduler: Failed to run "${agent.name}"`, { error: err.message });
           result.errors.push(`${agent.name}: ${err.message}`);
         }
       }
     }
 
   } catch (err: any) {
-    console.error('❌ Scheduler tick error:', err.message);
+    logger.error('Scheduler tick error', { error: err.message });
     result.errors.push(err.message);
   }
 
@@ -177,7 +178,7 @@ async function processEmailTriggers(
         lastPollAt: new Date().toISOString(),
         initialized: true,
       });
-      console.log(`⏰ Scheduler: Seeded with ${currentIds.length} existing emails`);
+      logger.info(`Scheduler: Seeded with ${currentIds.length} existing emails`);
       return;
     }
 
@@ -192,7 +193,7 @@ async function processEmailTriggers(
       return;
     }
 
-    console.log(`📬 Scheduler: ${newEmails.length} new email(s) detected`);
+    logger.info(`Scheduler: ${newEmails.length} new email(s) detected`);
 
     // Update seen IDs
     const allSeenIds = [...state.lastSeenEmailIds, ...newEmails.map(m => m.externalId)].slice(-MAX_SEEN_IDS);
@@ -215,7 +216,7 @@ async function processEmailTriggers(
 
       if (matchingEmails.length === 0) continue;
 
-      console.log(`🤖 Scheduler: Triggering "${agent.name}" with ${matchingEmails.length} email(s)`);
+      logger.info(`Scheduler: Triggering "${agent.name}" with ${matchingEmails.length} email(s)`);
 
       for (const email of matchingEmails) {
         try {
@@ -238,13 +239,13 @@ async function processEmailTriggers(
           });
           result.agentsTriggered++;
         } catch (err: any) {
-          console.error(`❌ Scheduler: Agent "${agent.name}" failed:`, err.message);
+          logger.error(`Scheduler: Agent "${agent.name}" failed`, { error: err.message });
           result.errors.push(`${agent.name}: ${err.message}`);
         }
       }
     }
   } catch (err: any) {
-    console.error('❌ Scheduler email poll error:', err.message);
+    logger.error('Scheduler email poll error', { error: err.message });
     result.errors.push(`Email poll: ${err.message}`);
   }
 }

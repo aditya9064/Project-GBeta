@@ -12,6 +12,7 @@
 import { google, gmail_v1 } from 'googleapis';
 import { config } from '../config.js';
 import { TokenStore } from './tokenStore.js';
+import { logger } from './logger.js';
 import type { UnifiedMessage, ChannelConnection, Attachment } from '../types.js';
 
 const { OAuth2 } = google.auth;
@@ -135,18 +136,18 @@ export const GmailService = {
       oauth2Client.setCredentials(stored.tokens as any);
       gmailClient = google.gmail({ version: 'v1', auth: oauth2Client });
       connectionState = stored.connection as unknown as ChannelConnection;
-      console.log('🔄 Gmail: Restored tokens from Firestore');
+      logger.info('Gmail: Restored tokens from Firestore');
     } catch (err) {
-      console.error('❌ Gmail: Failed to restore tokens:', err);
+      logger.error('Gmail: Failed to restore tokens', { error: err });
     }
   },
 
   /** Generate the OAuth2 consent URL for Gmail */
   getAuthUrl(): string {
-    console.log('🔍 Gmail OAuth Debug:');
-    console.log('  - Client ID:', config.google.clientId ? `${config.google.clientId.substring(0, 20)}...` : 'NOT SET');
-    console.log('  - Redirect URI:', config.google.redirectUri);
-    console.log('  - Redirect URI from env:', process.env.GOOGLE_REDIRECT_URI || 'NOT SET (using default)');
+    logger.info('Gmail: Generating OAuth consent URL', {
+      redirectUri: config.google.redirectUri,
+      clientIdConfigured: !!config.google.clientId,
+    });
     
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
@@ -154,7 +155,6 @@ export const GmailService = {
       prompt: 'consent',
     });
     
-    console.log('  - Generated Auth URL:', authUrl.substring(0, 100) + '...');
     return authUrl;
   },
 
@@ -231,10 +231,10 @@ export const GmailService = {
         allMessageRefs.push(...listRes.data.messages);
       }
       pageToken = listRes.data.nextPageToken || undefined;
-      console.log(`📬 Fetched page: ${allMessageRefs.length} message refs so far...`);
+      logger.info(`Fetched page: ${allMessageRefs.length} message refs so far...`);
     } while (pageToken && allMessageRefs.length < maxTotal);
 
-    console.log(`📬 Total inbox messages to process: ${allMessageRefs.length}`);
+    logger.info(`Total inbox messages to process: ${allMessageRefs.length}`);
     return this.processMessages(allMessageRefs, false);
   },
 
@@ -265,7 +265,7 @@ export const GmailService = {
       pageToken = listRes.data.nextPageToken || undefined;
     } while (pageToken && allMessageRefs.length < maxTotal);
 
-    console.log(`📬 Total sent messages to process: ${allMessageRefs.length}`);
+    logger.info(`Total sent messages to process: ${allMessageRefs.length}`);
     return this.processMessages(allMessageRefs, false);
   },
 
@@ -352,7 +352,7 @@ export const GmailService = {
           },
         });
       } catch (err) {
-        console.error(`Error fetching Gmail message ${msg.id}:`, err);
+        logger.error(`Error fetching Gmail message ${msg.id}`, { error: err });
       }
     }
 
@@ -481,13 +481,13 @@ export const GmailService = {
         },
       });
       
-      console.log('📬 Gmail watch established:', result.data);
+      logger.info('Gmail watch established', { data: result.data });
       return {
         historyId: result.data.historyId || '',
         expiration: result.data.expiration || '',
       };
     } catch (err: any) {
-      console.error('❌ Gmail watch setup failed:', err.message);
+      logger.error('Gmail watch setup failed', { error: err.message });
       return null;
     }
   },
@@ -498,9 +498,9 @@ export const GmailService = {
     
     try {
       await gmailClient.users.stop({ userId: 'me' });
-      console.log('📬 Gmail watch stopped');
+      logger.info('Gmail watch stopped');
     } catch (err: any) {
-      console.error('❌ Gmail watch stop failed:', err.message);
+      logger.error('Gmail watch stop failed', { error: err.message });
     }
   },
 
@@ -590,7 +590,7 @@ export const GmailService = {
             },
           });
         } catch (err) {
-          console.error(`Error fetching Gmail message ${msgId}:`, err);
+          logger.error(`Error fetching Gmail message ${msgId}`, { error: err });
         }
       }
 
@@ -598,7 +598,7 @@ export const GmailService = {
     } catch (err: any) {
       // History ID might be too old
       if (err.code === 404) {
-        console.log('📬 Gmail history ID expired, falling back to full fetch');
+        logger.info('Gmail history ID expired, falling back to full fetch');
         return this.fetchMessages(20);
       }
       throw err;

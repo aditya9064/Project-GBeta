@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import type { MemoryEntry, MemoryScope } from './types';
+import { log } from '../../utils/logger';
 
 const MEMORY_COLLECTION = 'agent_memory';
 const SHARED_MEMORY_COLLECTION = 'shared_memory';
@@ -38,7 +39,7 @@ function saveLocalMemory(store: Record<string, MemoryEntry>): void {
   try {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(store));
   } catch (e) {
-    console.error('Failed to persist memory to localStorage:', e);
+    log.error('Failed to persist memory to localStorage:', e);
   }
 }
 

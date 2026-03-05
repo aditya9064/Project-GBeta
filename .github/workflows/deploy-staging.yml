@@ -31,6 +31,14 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       
+      - name: Cache server node_modules
+        uses: actions/cache@v4
+        with:
+          path: server/node_modules
+          key: ${{ runner.os }}-server-node-modules-${{ hashFiles('server/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-server-node-modules-
+      
       - name: Install deps
         run: |
           npm ci
@@ -43,8 +51,8 @@ jobs:
       
       - name: Run tests
         run: |
-          npm test -- --passWithNoTests || true
-          cd server && npm test -- --passWithNoTests || true
+          npm test -- --passWithNoTests
+          cd server && npm test -- --passWithNoTests
 
   # Build and deploy frontend to Firebase Hosting (staging channel)
   deploy-frontend:

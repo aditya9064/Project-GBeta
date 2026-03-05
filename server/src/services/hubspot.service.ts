@@ -5,10 +5,11 @@
    - Lead/contact fetching with deal enrichment
    - Pipeline stage retrieval
    - Deal forecasting data
-   - Graceful fallback to sample data when not configured
+   - Returns empty data when not configured (logs warning)
    ═══════════════════════════════════════════════════════════ */
 
 import { config } from '../config.js';
+import { logger } from './logger.js';
 
 /* ─── Types ─────────────────────────────────────────────── */
 
@@ -112,155 +113,149 @@ function getInitials(name: string): string {
 /* ─── HubSpot API: Leads ────────────────────────────────── */
 
 export async function getLeads(): Promise<HubSpotLead[]> {
-  if (!isHubSpotConfigured()) return SAMPLE_LEADS;
-
-  try {
-    const contactProps = 'firstname,lastname,email,phone,company,jobtitle,city,state,hs_lead_status,hubspot_owner_id';
-    const dealProps = 'dealname,amount,dealstage,closedate,pipeline,hs_deal_stage_probability';
-
-    const [contactsRes, dealsRes] = await Promise.all([
-      hubspotFetch<any>(`/crm/v3/objects/contacts?limit=100&properties=${contactProps}`),
-      hubspotFetch<any>(`/crm/v3/objects/deals?limit=100&properties=${dealProps}`),
-    ]);
-
-    const contacts: any[] = contactsRes.results || [];
-    const deals: any[] = dealsRes.results || [];
-
-    const dealsByContact = new Map<string, any>();
-    for (const deal of deals) {
-      const key = deal.properties.dealname || deal.id;
-      dealsByContact.set(key, deal);
-    }
-
-    const leads: HubSpotLead[] = contacts.map((c, i) => {
-      const props = c.properties || {};
-      const firstName = props.firstname || '';
-      const lastName = props.lastname || '';
-      const fullName = `${firstName} ${lastName}`.trim() || `Contact ${c.id}`;
-      const company = props.company || 'Unknown Company';
-
-      const matchedDeal = deals[i] || null;
-      const dealProps2 = matchedDeal?.properties || {};
-      const dealAmount = parseFloat(dealProps2.amount) || 0;
-      const probability = parseFloat(dealProps2.hs_deal_stage_probability) || 50;
-      const closeDate = dealProps2.closedate || '';
-
-      const stageMap: Record<string, string> = {
-        appointmentscheduled: 'prospect',
-        qualifiedtobuy: 'qualified',
-        presentationscheduled: 'proposal',
-        decisionmakerboughtin: 'negotiation',
-        contractsent: 'negotiation',
-        closedwon: 'closed_won',
-        closedlost: 'closed_lost',
-      };
-      const rawStage = (dealProps2.dealstage || 'appointmentscheduled').toLowerCase().replace(/\s+/g, '');
-      const stage = stageMap[rawStage] || 'prospect';
-
-      const score = Math.min(100, Math.round(probability * 0.6 + (dealAmount > 100000 ? 30 : dealAmount > 50000 ? 20 : 10)));
-
-      return {
-        id: String(c.id),
-        name: fullName,
-        company,
-        title: props.jobtitle || 'Contact',
-        email: props.email || '',
-        phone: props.phone || undefined,
-        location: [props.city, props.state].filter(Boolean).join(', ') || 'Unknown',
-        avatar: getInitials(fullName),
-        avatarColor: generateColor(fullName),
-        score,
-        scoreChange: 0,
-        scoreTrend: 'stable',
-        stage,
-        dealValue: dealAmount,
-        probability,
-        expectedClose: closeDate
-          ? new Date(closeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-          : 'TBD',
-        lastActivity: 'Recently',
-        lastActivityType: 'email',
-        engagementScore: Math.round(score * 0.9),
-        signals: [],
-        nextAction: `Follow up with ${firstName || 'contact'}`,
-        nextActionPriority: score >= 80 ? 'high' : score >= 60 ? 'medium' : 'low',
-        source: 'HubSpot CRM',
-        industry: 'Unknown',
-        companySize: 'Unknown',
-        tags: [stage === 'negotiation' ? 'Closing' : stage === 'proposal' ? 'Active' : 'Nurture'],
-      };
-    });
-
-    return leads.length > 0 ? leads : SAMPLE_LEADS;
-  } catch (err) {
-    console.error('HubSpot getLeads error:', err);
-    return SAMPLE_LEADS;
+  if (!isHubSpotConfigured()) {
+    logger.warn('HubSpot is not configured — returning empty leads array');
+    return [];
   }
+
+  const contactProps = 'firstname,lastname,email,phone,company,jobtitle,city,state,hs_lead_status,hubspot_owner_id';
+  const dealProps = 'dealname,amount,dealstage,closedate,pipeline,hs_deal_stage_probability';
+
+  const [contactsRes, dealsRes] = await Promise.all([
+    hubspotFetch<any>(`/crm/v3/objects/contacts?limit=100&properties=${contactProps}`),
+    hubspotFetch<any>(`/crm/v3/objects/deals?limit=100&properties=${dealProps}`),
+  ]);
+
+  const contacts: any[] = contactsRes.results || [];
+  const deals: any[] = dealsRes.results || [];
+
+  const dealsByContact = new Map<string, any>();
+  for (const deal of deals) {
+    const key = deal.properties.dealname || deal.id;
+    dealsByContact.set(key, deal);
+  }
+
+  const leads: HubSpotLead[] = contacts.map((c, i) => {
+    const props = c.properties || {};
+    const firstName = props.firstname || '';
+    const lastName = props.lastname || '';
+    const fullName = `${firstName} ${lastName}`.trim() || `Contact ${c.id}`;
+    const company = props.company || 'Unknown Company';
+
+    const matchedDeal = deals[i] || null;
+    const dealProps2 = matchedDeal?.properties || {};
+    const dealAmount = parseFloat(dealProps2.amount) || 0;
+    const probability = parseFloat(dealProps2.hs_deal_stage_probability) || 50;
+    const closeDate = dealProps2.closedate || '';
+
+    const stageMap: Record<string, string> = {
+      appointmentscheduled: 'prospect',
+      qualifiedtobuy: 'qualified',
+      presentationscheduled: 'proposal',
+      decisionmakerboughtin: 'negotiation',
+      contractsent: 'negotiation',
+      closedwon: 'closed_won',
+      closedlost: 'closed_lost',
+    };
+    const rawStage = (dealProps2.dealstage || 'appointmentscheduled').toLowerCase().replace(/\s+/g, '');
+    const stage = stageMap[rawStage] || 'prospect';
+
+    const score = Math.min(100, Math.round(probability * 0.6 + (dealAmount > 100000 ? 30 : dealAmount > 50000 ? 20 : 10)));
+
+    return {
+      id: String(c.id),
+      name: fullName,
+      company,
+      title: props.jobtitle || 'Contact',
+      email: props.email || '',
+      phone: props.phone || undefined,
+      location: [props.city, props.state].filter(Boolean).join(', ') || 'Unknown',
+      avatar: getInitials(fullName),
+      avatarColor: generateColor(fullName),
+      score,
+      scoreChange: 0,
+      scoreTrend: 'stable',
+      stage,
+      dealValue: dealAmount,
+      probability,
+      expectedClose: closeDate
+        ? new Date(closeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : 'TBD',
+      lastActivity: 'Recently',
+      lastActivityType: 'email',
+      engagementScore: Math.round(score * 0.9),
+      signals: [],
+      nextAction: `Follow up with ${firstName || 'contact'}`,
+      nextActionPriority: score >= 80 ? 'high' : score >= 60 ? 'medium' : 'low',
+      source: 'HubSpot CRM',
+      industry: 'Unknown',
+      companySize: 'Unknown',
+      tags: [stage === 'negotiation' ? 'Closing' : stage === 'proposal' ? 'Active' : 'Nurture'],
+    };
+  });
+
+  return leads;
 }
 
 /* ─── HubSpot API: Pipeline ─────────────────────────────── */
 
 export async function getPipeline(): Promise<PipelineStage[]> {
-  if (!isHubSpotConfigured()) return SAMPLE_PIPELINE;
-
-  try {
-    const pipelineRes = await hubspotFetch<any>('/crm/v3/pipelines/deals/default');
-    const dealsRes = await hubspotFetch<any>(
-      '/crm/v3/objects/deals?limit=100&properties=dealname,amount,dealstage,closedate',
-    );
-
-    const hubStages: any[] = pipelineRes.stages || [];
-    const deals: any[] = dealsRes.results || [];
-
-    const stageColors = ['#9a9ab0', '#e07a3a', '#d46b2c', '#1a1a2e', '#059669', '#DC2626'];
-
-    const stages: PipelineStage[] = hubStages.map((s, i) => {
-      const stageDeals = deals.filter(
-        d => d.properties?.dealstage === s.id,
-      );
-      const value = stageDeals.reduce(
-        (sum, d) => sum + (parseFloat(d.properties?.amount) || 0), 0,
-      );
-      return {
-        id: s.id,
-        name: s.label || s.id,
-        count: stageDeals.length,
-        value,
-        conversionRate: i < hubStages.length - 1 ? Math.round(70 + Math.random() * 20) : 100,
-        avgDays: Math.round(8 + Math.random() * 15),
-        color: stageColors[i % stageColors.length],
-      };
-    });
-
-    return stages.length > 0 ? stages : SAMPLE_PIPELINE;
-  } catch (err) {
-    console.error('HubSpot getPipeline error:', err);
-    return SAMPLE_PIPELINE;
+  if (!isHubSpotConfigured()) {
+    logger.warn('HubSpot is not configured — returning empty pipeline array');
+    return [];
   }
+
+  const pipelineRes = await hubspotFetch<any>('/crm/v3/pipelines/deals/default');
+  const dealsRes = await hubspotFetch<any>(
+    '/crm/v3/objects/deals?limit=100&properties=dealname,amount,dealstage,closedate',
+  );
+
+  const hubStages: any[] = pipelineRes.stages || [];
+  const deals: any[] = dealsRes.results || [];
+
+  const stageColors = ['#9a9ab0', '#e07a3a', '#d46b2c', '#1a1a2e', '#059669', '#DC2626'];
+
+  const stages: PipelineStage[] = hubStages.map((s, i) => {
+    const stageDeals = deals.filter(
+      d => d.properties?.dealstage === s.id,
+    );
+    const value = stageDeals.reduce(
+      (sum, d) => sum + (parseFloat(d.properties?.amount) || 0), 0,
+    );
+    return {
+      id: s.id,
+      name: s.label || s.id,
+      count: stageDeals.length,
+      value,
+      conversionRate: i < hubStages.length - 1 ? Math.round(70 + Math.random() * 20) : 100,
+      avgDays: Math.round(8 + Math.random() * 15),
+      color: stageColors[i % stageColors.length],
+    };
+  });
+
+  return stages;
 }
 
 /* ─── HubSpot API: Deals for Forecasting ────────────────── */
 
 export async function getDealsForForecast(): Promise<HubSpotDeal[]> {
-  if (!isHubSpotConfigured()) return SAMPLE_DEALS_FOR_FORECAST;
-
-  try {
-    const res = await hubspotFetch<any>(
-      '/crm/v3/objects/deals?limit=100&properties=dealname,amount,dealstage,closedate,hs_deal_stage_probability',
-    );
-    const deals: any[] = res.results || [];
-
-    return deals.map(d => ({
-      name: d.properties?.dealname || 'Unnamed Deal',
-      amount: parseFloat(d.properties?.amount) || 0,
-      probability: parseFloat(d.properties?.hs_deal_stage_probability) || 50,
-      closeDate: d.properties?.closedate || null,
-      stage: d.properties?.dealstage || 'unknown',
-    }));
-  } catch (err) {
-    console.error('HubSpot getDealsForForecast error:', err);
-    return SAMPLE_DEALS_FOR_FORECAST;
+  if (!isHubSpotConfigured()) {
+    logger.warn('HubSpot is not configured — returning empty deals array');
+    return [];
   }
+
+  const res = await hubspotFetch<any>(
+    '/crm/v3/objects/deals?limit=100&properties=dealname,amount,dealstage,closedate,hs_deal_stage_probability',
+  );
+  const deals: any[] = res.results || [];
+
+  return deals.map(d => ({
+    name: d.properties?.dealname || 'Unnamed Deal',
+    amount: parseFloat(d.properties?.amount) || 0,
+    probability: parseFloat(d.properties?.hs_deal_stage_probability) || 50,
+    closeDate: d.properties?.closedate || null,
+    stage: d.properties?.dealstage || 'unknown',
+  }));
 }
 
 /* ─── Sample Data (demo mode fallback) ──────────────────── */

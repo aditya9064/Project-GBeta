@@ -16,23 +16,23 @@ declare global {
 }
 
 /**
- * Middleware to require a specific permission
+ * Middleware to require a specific permission.
+ * Relies on firebaseAuthMiddleware having already set req.userId.
  */
 export function requirePermission(permission: Permission) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = req.query.userId as string || req.body?.userId || req.headers['x-user-id'] as string;
+      const userId = req.userId;
       
       if (!userId) {
         res.status(401).json({
           success: false,
-          error: 'User ID required',
+          error: 'Authentication required',
         });
         return;
       }
       
       const userRole = await RBACService.getUserRole(userId);
-      req.userId = userId;
       req.userRole = userRole;
       
       if (!RBACService.hasPermission(userRole, permission)) {
@@ -61,13 +61,13 @@ export function requirePermission(permission: Permission) {
 export function requireResourceAccess(resource: Resource, action: 'read' | 'write' | 'execute' | 'delete') {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = req.query.userId as string || req.body?.userId || req.headers['x-user-id'] as string;
+      const userId = req.userId;
       const resourceId = req.params.id || req.body?.resourceId;
       
       if (!userId) {
         res.status(401).json({
           success: false,
-          error: 'User ID required',
+          error: 'Authentication required',
         });
         return;
       }
@@ -83,7 +83,7 @@ export function requireResourceAccess(resource: Resource, action: 'read' | 'writ
       const canAccess = await RBACService.canAccessResource(userId, resource, resourceId, action);
       
       if (!canAccess) {
-        logger.warn(`🚫 Resource access denied: ${userId} -> ${resource}:${resourceId} (${action})`);
+        logger.warn(`Resource access denied: ${userId} -> ${resource}:${resourceId} (${action})`);
         res.status(403).json({
           success: false,
           error: `Access denied to ${resource}`,
@@ -91,7 +91,6 @@ export function requireResourceAccess(resource: Resource, action: 'read' | 'writ
         return;
       }
       
-      req.userId = userId;
       req.userRole = await RBACService.getUserRole(userId);
       next();
     } catch (err) {
@@ -107,12 +106,11 @@ export function requireResourceAccess(resource: Resource, action: 'read' | 'writ
 /**
  * Middleware to attach user role to request (optional auth)
  */
-export async function attachUserRole(req: Request, res: Response, next: NextFunction) {
+export async function attachUserRole(req: Request, _res: Response, next: NextFunction) {
   try {
-    const userId = req.query.userId as string || req.body?.userId || req.headers['x-user-id'] as string;
+    const userId = req.userId;
     
     if (userId) {
-      req.userId = userId;
       req.userRole = await RBACService.getUserRole(userId);
     }
     
@@ -128,12 +126,12 @@ export async function attachUserRole(req: Request, res: Response, next: NextFunc
 export function requireAdmin() {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = req.query.userId as string || req.body?.userId || req.headers['x-user-id'] as string;
+      const userId = req.userId;
       
       if (!userId) {
         res.status(401).json({
           success: false,
-          error: 'User ID required',
+          error: 'Authentication required',
         });
         return;
       }
@@ -148,7 +146,6 @@ export function requireAdmin() {
         return;
       }
       
-      req.userId = userId;
       req.userRole = userRole;
       next();
     } catch (err) {
@@ -167,12 +164,12 @@ export function requireAdmin() {
 export function requireManager() {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = req.query.userId as string || req.body?.userId || req.headers['x-user-id'] as string;
+      const userId = req.userId;
       
       if (!userId) {
         res.status(401).json({
           success: false,
-          error: 'User ID required',
+          error: 'Authentication required',
         });
         return;
       }
@@ -187,7 +184,6 @@ export function requireManager() {
         return;
       }
       
-      req.userId = userId;
       req.userRole = userRole;
       next();
     } catch (err) {

@@ -7,12 +7,12 @@
 }
 
 .operonai-settings-inner {
-  max-width: 640px;
+  max-width: 860px;
   margin: 0 auto;
 }
 
 .operonai-settings-header {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .operonai-settings-title {
@@ -29,12 +29,56 @@
   margin: 0;
 }
 
-.operonai-settings-form {
+/* ── Tab navigation ── */
+.operonai-settings-tabs {
   display: flex;
-  flex-direction: column;
-  gap: 40px;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 2px solid #e5e5eb;
+  margin-bottom: 28px;
+  padding-bottom: 0;
 }
 
+.operonai-settings-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b6b80;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  border-radius: 8px 8px 0 0;
+}
+
+.operonai-settings-tab:hover {
+  color: #1a1a2e;
+  background: rgba(233, 116, 40, 0.04);
+}
+
+.operonai-settings-tab--active {
+  color: #e97428;
+  border-bottom-color: #e97428;
+  font-weight: 600;
+}
+
+.operonai-settings-tab--active svg {
+  color: #e97428;
+}
+
+/* ── Content area ── */
+.operonai-settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Section card ── */
 .operonai-settings-section {
   background: #ffffff;
   border-radius: 16px;
@@ -57,6 +101,7 @@
   line-height: 1.5;
 }
 
+/* ── Form fields ── */
 .operonai-settings-fields {
   display: flex;
   flex-direction: column;
@@ -94,14 +139,44 @@
 }
 
 .operonai-settings-field input:focus {
-  border-color: #e07a3a;
-  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.12);
+  border-color: #e97428;
+  box-shadow: 0 0 0 3px rgba(233, 116, 40, 0.12);
+  outline: none;
 }
 
 .operonai-settings-field input::placeholder {
   color: #9a9ab0;
 }
 
+/* ── Password field with toggle ── */
+.operonai-settings-pw-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.operonai-settings-pw-wrap input {
+  width: 100%;
+  padding-right: 44px;
+}
+
+.operonai-settings-pw-toggle {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b6b80;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.operonai-settings-pw-toggle:hover {
+  color: #1a1a2e;
+}
+
+/* ── Actions / save button ── */
 .operonai-settings-actions {
   margin-top: 24px;
 }
@@ -111,7 +186,7 @@
   align-items: center;
   gap: 10px;
   padding: 12px 24px;
-  background: linear-gradient(135deg, #1a1a1a 0%, #e07a3a 100%);
+  background: linear-gradient(135deg, #1a1a1a 0%, #e97428 100%);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -131,6 +206,7 @@
   cursor: not-allowed;
 }
 
+/* ── Account card ── */
 .operonai-settings-account-card {
   display: flex;
   align-items: center;
@@ -145,7 +221,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: #e07a3a;
+  background: #e97428;
   color: #fff;
   display: flex;
   align-items: center;
@@ -169,4 +245,144 @@
 .operonai-settings-account-email {
   font-size: 13px;
   color: #6b6b80;
+}
+
+/* ── Notification toggle rows ── */
+.operonai-settings-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.operonai-settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid #f0f0f5;
+  cursor: pointer;
+}
+
+.operonai-settings-toggle-row:last-child {
+  border-bottom: none;
+}
+
+.operonai-settings-toggle-label {
+  font-size: 14px;
+  color: #1a1a2e;
+  font-weight: 500;
+}
+
+/* Toggle switch */
+.operonai-settings-switch-wrap {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.operonai-settings-switch-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.operonai-settings-switch-track {
+  position: absolute;
+  inset: 0;
+  background: #d1d1de;
+  border-radius: 12px;
+  transition: background 0.2s;
+}
+
+.operonai-settings-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.operonai-settings-switch-input:checked + .operonai-settings-switch-track {
+  background: #e97428;
+}
+
+.operonai-settings-switch-input:checked + .operonai-settings-switch-track::after {
+  transform: translateX(20px);
+}
+
+.operonai-settings-switch-input:focus-visible + .operonai-settings-switch-track {
+  box-shadow: 0 0 0 3px rgba(233, 116, 40, 0.2);
+}
+
+/* ── Success / error messages ── */
+.operonai-settings-msg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 18px;
+}
+
+.operonai-settings-msg--success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.operonai-settings-msg--error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* ── Theme options ── */
+.operonai-settings-theme-options {
+  display: flex;
+  gap: 14px;
+}
+
+.operonai-settings-theme-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 16px;
+  background: #f5f5f9;
+  border: 2px solid #e5e5eb;
+  border-radius: 14px;
+  cursor: pointer;
+  color: #6b6b80;
+  font-size: 14px;
+  font-weight: 500;
+  position: relative;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.operonai-settings-theme-btn:hover {
+  border-color: #c5c5d0;
+  color: #1a1a2e;
+}
+
+.operonai-settings-theme-btn--active {
+  border-color: #e97428;
+  color: #e97428;
+  background: rgba(233, 116, 40, 0.04);
+}
+
+.operonai-settings-theme-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: #e97428;
 }

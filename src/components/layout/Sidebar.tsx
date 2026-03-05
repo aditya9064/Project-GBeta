@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Home, Users, Building2, CheckSquare, BarChart3, Inbox, Calendar, Settings, Search, Star, ChevronDown, Plus, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { Avatar, IconButton } from '../ui';
-import { currentUser, workspaces } from '../../data/mockData';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface SidebarProps {
   currentView: string;
@@ -26,10 +26,13 @@ const favoriteItems = [
   { id: 'fav-2', label: 'Q1 Pipeline', icon: Star },
 ];
 
+const DEFAULT_WORKSPACE = { id: 'w1', name: 'Workspace', icon: '🏢', color: '#e07a3a' };
+
 export function Sidebar({ currentView, onViewChange, theme, onThemeToggle }: SidebarProps) {
+  const { user } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showWorkspaces, setShowWorkspaces] = useState(false);
-  const currentWorkspace = workspaces[0];
+  const currentWorkspace = DEFAULT_WORKSPACE;
 
   const sidebarWidth = isCollapsed ? 72 : 260;
 
@@ -180,11 +183,11 @@ export function Sidebar({ currentView, onViewChange, theme, onThemeToggle }: Sid
         </div>
 
         <button style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', borderRadius: '8px', background: 'transparent', cursor: 'pointer' }}>
-          <Avatar src={currentUser.avatar} name={currentUser.name} size="sm" />
+          <Avatar src={user?.photoURL ?? undefined} name={user?.displayName || 'User'} size="sm" />
           {!isCollapsed && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
-              <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{currentUser.name}</span>
-              <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)', textTransform: 'capitalize' }}>{currentUser.role}</span>
+              <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{user?.displayName || 'User'}</span>
+              <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)', textTransform: 'capitalize' }}>{user?.email || ''}</span>
             </div>
           )}
         </button>

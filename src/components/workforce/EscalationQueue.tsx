@@ -118,7 +118,7 @@ export function EscalationQueue({ userId = 'demo-user' }: EscalationQueueProps) 
     const colors: Record<EscalationPriority, { bg: string; text: string }> = {
       critical: { bg: 'rgba(239,68,68,0.15)', text: '#ef4444' },
       high: { bg: 'rgba(245,158,11,0.15)', text: '#f59e0b' },
-      medium: { bg: 'rgba(59,130,246,0.15)', text: '#3b82f6' },
+      medium: { bg: 'rgba(224,122,58,0.15)', text: '#e07a3a' },
       low: { bg: 'rgba(107,114,128,0.15)', text: '#6b7280' },
     };
     const { bg, text } = colors[priority];
@@ -141,7 +141,7 @@ export function EscalationQueue({ userId = 'demo-user' }: EscalationQueueProps) 
   const getStatusBadge = (status: EscalationStatus) => {
     const colors: Record<EscalationStatus, { bg: string; text: string }> = {
       pending: { bg: 'rgba(245,158,11,0.15)', text: '#f59e0b' },
-      in_review: { bg: 'rgba(59,130,246,0.15)', text: '#3b82f6' },
+      in_review: { bg: 'rgba(224,122,58,0.15)', text: '#e07a3a' },
       resolved: { bg: 'rgba(16,185,129,0.15)', text: '#10b981' },
       dismissed: { bg: 'rgba(107,114,128,0.15)', text: '#6b7280' },
       auto_resolved: { bg: 'rgba(16,185,129,0.15)', text: '#10b981' },
@@ -196,7 +196,7 @@ export function EscalationQueue({ userId = 'demo-user' }: EscalationQueueProps) 
             <span className="escalation-stat-label">Pending</span>
           </div>
           <div className="escalation-stat">
-            <span className="escalation-stat-value" style={{ color: '#3b82f6' }}>{summary.inReview}</span>
+            <span className="escalation-stat-value" style={{ color: '#e07a3a' }}>{summary.inReview}</span>
             <span className="escalation-stat-label">In Review</span>
           </div>
           <div className="escalation-stat">

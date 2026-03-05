@@ -7,6 +7,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { Router, Request, Response } from 'express';
+import { logger } from '../services/logger.js';
 import {
   extractText,
   detectVariablesWithOpenAI,
@@ -82,7 +83,7 @@ router.post('/upload', async (req: Request, res: Response) => {
       pages = extracted.pages ?? 1;
     } catch (extractErr) {
       const msg = extractErr instanceof Error ? extractErr.message : 'Text extraction failed';
-      console.error('Upload extractText error:', extractErr);
+      logger.error('Upload extractText error', { error: extractErr });
       res.status(500).json({ success: false, error: `Extraction failed: ${msg}` });
       return;
     }
@@ -93,7 +94,7 @@ router.post('/upload', async (req: Request, res: Response) => {
     try {
       fields = await detectVariablesWithOpenAI(text, fileName);
     } catch (aiErr) {
-      console.warn('AI detection failed, using fallback fields:', aiErr);
+      logger.warn('AI detection failed, using fallback fields', { error: aiErr });
       fields = [];
     }
     if (fields.length === 0 && text.trim()) {
@@ -132,7 +133,7 @@ router.post('/upload', async (req: Request, res: Response) => {
       try {
         await db.collection('documentTemplates').doc(templateId).set(templateMeta);
       } catch (fsErr) {
-        console.warn('Firestore template persist failed (non-fatal):', fsErr);
+        logger.warn('Firestore template persist failed (non-fatal)', { error: fsErr });
       }
     }
 
@@ -146,7 +147,7 @@ router.post('/upload', async (req: Request, res: Response) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Upload failed';
     const stack = err instanceof Error ? err.stack : undefined;
-    console.error('Documents upload error:', message, stack || '');
+    logger.error('Documents upload error', { error: err });
     res.status(500).json({
       success: false,
       error: message,
@@ -181,7 +182,7 @@ router.post('/analyze', async (req: Request, res: Response) => {
       structure,
     });
   } catch (err) {
-    console.error('Documents analyze error:', err);
+    logger.error('Documents analyze error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Analysis failed',
@@ -261,7 +262,7 @@ router.post('/generate', async (req: Request, res: Response) => {
       fileName: outFileName.replace(/\.pdf$/i, '') + '.pdf',
     });
   } catch (err) {
-    console.error('Documents generate error:', err);
+    logger.error('Documents generate error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Generation failed',
@@ -304,7 +305,7 @@ router.post('/generate-doc', async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('Document generate-doc error:', err);
+    logger.error('Document generate-doc error', { error: err });
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Document generation failed',
@@ -343,7 +344,7 @@ router.post('/templates/save', async (req: Request, res: Response) => {
     
     res.json({ success: true, template: templateData });
   } catch (err) {
-    console.error('Template save error:', err);
+    logger.error('Template save error', { error: err });
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Save failed' });
   }
 });
@@ -363,7 +364,7 @@ router.get('/templates', async (req: Request, res: Response) => {
     
     res.json({ success: true, templates });
   } catch (err) {
-    console.error('Templates list error:', err);
+    logger.error('Templates list error', { error: err });
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'List failed' });
   }
 });
@@ -412,7 +413,7 @@ router.post('/history/save', async (req: Request, res: Response) => {
     
     res.json({ success: true, id: docId, entry: historyEntry });
   } catch (err) {
-    console.error('History save error:', err);
+    logger.error('History save error', { error: err });
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Save failed' });
   }
 });
@@ -432,7 +433,7 @@ router.get('/history', async (req: Request, res: Response) => {
     
     res.json({ success: true, entries });
   } catch (err) {
-    console.error('History list error:', err);
+    logger.error('History list error', { error: err });
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'List failed' });
   }
 });
@@ -507,7 +508,7 @@ router.post('/batch-generate', async (req: Request, res: Response) => {
       results,
     });
   } catch (err) {
-    console.error('Batch generate error:', err);
+    logger.error('Batch generate error', { error: err });
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Batch failed' });
   }
 });

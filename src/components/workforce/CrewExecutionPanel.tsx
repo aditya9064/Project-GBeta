@@ -316,9 +316,9 @@ export function CrewExecutionPanel({ onClose }: CrewExecutionPanelProps) {
               padding: '4px 10px', 
               borderRadius: 6,
               background: phase === 'completed' ? 'rgba(16,185,129,0.1)' : 
-                         phase === 'failed' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)',
+                         phase === 'failed' ? 'rgba(239,68,68,0.1)' : 'rgba(224,122,58,0.1)',
               color: phase === 'completed' ? '#10b981' : 
-                     phase === 'failed' ? '#ef4444' : '#3b82f6',
+                     phase === 'failed' ? '#ef4444' : '#e07a3a',
             }}>
               {getPhaseLabel(phase)}
             </span>
@@ -345,7 +345,7 @@ export function CrewExecutionPanel({ onClose }: CrewExecutionPanelProps) {
                   >
                     {task.status === 'completed' && <CheckCircle2 size={16} style={{ color: '#10b981' }} />}
                     {task.status === 'failed' && <XCircle size={16} style={{ color: '#ef4444' }} />}
-                    {task.status === 'running' && <Loader2 size={16} className="spin" style={{ color: '#3b82f6' }} />}
+                    {task.status === 'running' && <Loader2 size={16} className="spin" style={{ color: '#e07a3a' }} />}
                     {task.status === 'pending' && <ChevronRight size={16} style={{ color: '#9ca3af' }} />}
                     <span style={{ flex: 1, fontSize: 13, color: '#3a3a52' }}>
                       {task.description}

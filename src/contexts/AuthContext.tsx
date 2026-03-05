@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { log } from '../utils/logger';
 
 interface ProfileExtras {
   fullName?: string;
@@ -49,8 +50,8 @@ const defaultAuthContext: AuthContextType = {
   signIn: async () => { throw new Error('Auth not available'); },
   signUp: async () => { throw new Error('Auth not available'); },
   signInWithGoogle: async () => { throw new Error('Auth not available'); },
-  demoSignIn: async () => { console.log('Demo sign-in (no-op)'); },
-  signOut: async () => { console.log('Sign-out (no-op)'); },
+  demoSignIn: async () => { log.debug('Demo sign-in (no-op)'); },
+  signOut: async () => { log.debug('Sign-out (no-op)'); },
   resetPassword: async () => { throw new Error('Auth not available'); },
   updateProfile: async () => { throw new Error('Auth not available'); },
   getProfileExtras: () => ({}),
@@ -74,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       return unsubscribe;
     } catch (err) {
-      console.warn('Firebase auth listener failed — running in demo mode:', err);
+      log.warn('Firebase auth listener failed — running in demo mode:', err);
       setLoading(false);
       return () => {};
     }

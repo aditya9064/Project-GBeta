@@ -198,8 +198,8 @@
   gap: 10px;
   padding: 14px;
   border-radius: 10px;
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%);
+  border: 1px solid rgba(224, 122, 58, 0.3);
+  background: linear-gradient(135deg, rgba(224, 122, 58, 0.15) 0%, rgba(212, 107, 44, 0.15) 100%);
   color: #e07a3a;
   font-size: 14px;
   font-weight: 500;
@@ -208,8 +208,8 @@
 }
 
 .uim-oauth-btn:hover {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(59, 130, 246, 0.25) 100%);
-  border-color: rgba(139, 92, 246, 0.5);
+  background: linear-gradient(135deg, rgba(224, 122, 58, 0.25) 0%, rgba(212, 107, 44, 0.25) 100%);
+  border-color: rgba(224, 122, 58, 0.5);
   transform: translateY(-1px);
 }
 

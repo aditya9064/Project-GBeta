@@ -6,6 +6,7 @@
 // 3. Direct Call     — one agent can invoke another and wait for its result
 
 import type { AgentBusEvent, AgentRegistryEntry, AgentStatus, DeployedAgent } from './types';
+import { log } from '../../utils/logger';
 
 type EventHandler = (event: AgentBusEvent) => void;
 
@@ -33,7 +34,7 @@ function saveRegistry(entries: AgentRegistryEntry[]): void {
   try {
     localStorage.setItem(LOCAL_REGISTRY_KEY, JSON.stringify(entries));
   } catch (e) {
-    console.error('Failed to save agent registry:', e);
+    log.error('Failed to save agent registry:', e);
   }
 }
 
@@ -51,7 +52,7 @@ function saveEvents(events: AgentBusEvent[]): void {
     const trimmed = events.slice(-200);
     localStorage.setItem(LOCAL_EVENTS_KEY, JSON.stringify(trimmed));
   } catch (e) {
-    console.error('Failed to save bus events:', e);
+    log.error('Failed to save bus events:', e);
   }
 }
 
@@ -199,7 +200,7 @@ export const AgentBus = {
       try {
         handler(fullEvent);
       } catch (err) {
-        console.error('AgentBus handler error:', err);
+        log.error('AgentBus handler error:', err);
       }
     }
 
@@ -269,7 +270,7 @@ export const AgentBus = {
         _callerAgentId: sourceAgentId,
         _callerAgentName: sourceAgentName,
       }).catch((err) =>
-        console.error(`Background agent call to ${target.name} failed:`, err),
+        log.error(`Background agent call to ${target.name} failed:`, err),
       );
       return { success: true, output: { status: 'dispatched', targetAgent: target.name } };
     }

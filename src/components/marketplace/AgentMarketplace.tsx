@@ -6,6 +6,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { useState, useEffect, useCallback } from 'react';
+import { log } from '../../utils/logger';
 import {
   Search,
   Star,
@@ -24,7 +25,7 @@ import {
 } from 'lucide-react';
 import './AgentMarketplace.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
 type TemplateCategory = 
   | 'productivity' 
@@ -126,7 +127,7 @@ export function AgentMarketplace() {
         setCategories(data.data || []);
       }
     } catch (err) {
-      console.error('Failed to fetch templates:', err);
+      log.error('Failed to fetch templates:', err);
     } finally {
       setLoading(false);
     }
@@ -149,7 +150,7 @@ export function AgentMarketplace() {
         setPopularTemplates(data.data || []);
       }
     } catch (err) {
-      console.error('Failed to fetch featured templates:', err);
+      log.error('Failed to fetch featured templates:', err);
     }
   }, []);
 
@@ -169,7 +170,7 @@ export function AgentMarketplace() {
         setReviews(data.data || []);
       }
     } catch (err) {
-      console.error('Failed to fetch reviews:', err);
+      log.error('Failed to fetch reviews:', err);
     }
   };
 
@@ -196,7 +197,7 @@ export function AgentMarketplace() {
         throw new Error('Clone failed');
       }
     } catch (err) {
-      console.error('Failed to clone template:', err);
+      log.error('Failed to clone template:', err);
       alert('Failed to clone template');
     } finally {
       setCloning(false);
@@ -229,7 +230,7 @@ export function AgentMarketplace() {
       <div className="template-card-header">
         <div 
           className="template-card-icon"
-          style={{ backgroundColor: template.color || '#6366f1' }}
+          style={{ backgroundColor: template.color || '#e07a3a' }}
         >
           {template.icon || CATEGORY_ICONS[template.category]}
         </div>
@@ -403,7 +404,7 @@ export function AgentMarketplace() {
             <div className="template-modal__header">
               <div 
                 className="template-modal__icon"
-                style={{ backgroundColor: selectedTemplate.color || '#6366f1' }}
+                style={{ backgroundColor: selectedTemplate.color || '#e07a3a' }}
               >
                 {selectedTemplate.icon || CATEGORY_ICONS[selectedTemplate.category]}
               </div>

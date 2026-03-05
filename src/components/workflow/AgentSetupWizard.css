@@ -372,7 +372,7 @@
 
 .wizard-step-card:hover {
   border-color: #f0a060;
-  box-shadow: 0 1px 4px rgba(139, 92, 246, 0.08);
+  box-shadow: 0 1px 4px rgba(224, 122, 58, 0.08);
 }
 
 .wizard-step-card.editing {
@@ -706,6 +706,21 @@
 }
 
 /* ─── Confirm Step ──────────────────────────────────────── */
+
+.wizard-trigger-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 0;
+}
+
+.wizard-trigger-option:hover {
+  border-color: #6b7280 !important;
+}
+
+.wizard-trigger-option.selected:hover {
+  border-color: #e07a3a !important;
+}
 
 .wizard-confirm-step {
   display: flex;

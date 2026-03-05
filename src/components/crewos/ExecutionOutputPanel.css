@@ -253,7 +253,7 @@
 }
 
 .eop-node.selected {
-  background: rgba(99, 102, 241, 0.06);
+  background: rgba(224, 122, 58, 0.06);
 }
 
 /* Track (dot + line) */
@@ -293,8 +293,8 @@
 }
 
 .eop-node-dot.running {
-  background: rgba(59, 130, 246, 0.12);
-  color: #3b82f6;
+  background: rgba(224, 122, 58, 0.12);
+  color: #e07a3a;
 }
 
 .eop-node-line {
@@ -316,7 +316,7 @@
 }
 
 .eop-node-line.running {
-  background: rgba(59, 130, 246, 0.25);
+  background: rgba(224, 122, 58, 0.25);
 }
 
 /* Node content */
@@ -418,7 +418,7 @@
 }
 
 .eop-view-logs:hover {
-  background: rgba(99, 102, 241, 0.04);
+  background: rgba(224, 122, 58, 0.04);
 }
 
 /* ─── Inspector (right) ──────────────────────────────────── */
@@ -732,8 +732,8 @@
 }
 
 .eop-type-badge.string {
-  background: rgba(59, 130, 246, 0.08);
-  color: #2563eb;
+  background: rgba(224, 122, 58, 0.08);
+  color: #e07a3a;
 }
 
 .eop-type-badge.number {

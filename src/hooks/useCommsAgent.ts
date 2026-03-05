@@ -5,7 +5,7 @@
    - Message fetching & real-time state
    - Connection status for Gmail, Slack, Teams
    - AI draft generation & sending
-   - Backend health check with graceful fallback to mock data
+   - Backend health check
    ═══════════════════════════════════════════════════════════ */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -28,6 +28,7 @@ import {
   type ChannelGroupSummary,
   type EmailCategory,
 } from '../services/commsApi';
+import { log } from '../utils/logger';
 
 /* ─── Types ────────────────────────────────────────────── */
 
@@ -295,280 +296,6 @@ function isNonWorkEmail(msg: UnifiedMessage): boolean {
          msg.emailCategory === 'spam';
 }
 
-/* ─── Mock data fallback ───────────────────────────────── */
-
-const MOCK_MESSAGES: UnifiedMessage[] = [
-  {
-    id: 'msg-1', externalId: 'ext-1', channel: 'email',
-    from: 'Jennifer Walsh', fromEmail: 'jennifer@company.com',
-    fromInitial: 'JW', fromColor: '#e07a3a',
-    subject: 'Q1 Budget Approval Request',
-    preview: 'Hi team, I need approval on the Q1 budget allocation for the AI infrastructure upgrade...',
-    fullMessage: 'Hi team,\n\nI need approval on the Q1 budget allocation for the AI infrastructure upgrade. We\'re looking at $45,000 for GPU clusters and $12,000 for additional API credits.\n\nThe breakdown is as follows:\n- 4x NVIDIA A100 GPU rental: $32,000\n- Cloud storage expansion: $8,000\n- API credits (OpenAI, Anthropic): $12,000\n- Monitoring tools: $5,000\n\nPlease review and let me know if you have any questions. I need approval by Friday.\n\nBest regards,\nJennifer Walsh\nVP of Engineering',
-    receivedAt: new Date(Date.now() - 2 * 60000).toISOString(),
-    receivedTime: '10:34 AM', relativeTime: '2 min ago',
-    priority: 'high', status: 'ai_drafted', starred: true,
-    aiDraft: 'Hi Jennifer,\n\nThank you for the detailed budget breakdown. The Q1 allocation for AI infrastructure looks well-justified given our scaling needs.\n\nI\'ve reviewed the line items:\n- GPU cluster rental aligns with our projected compute requirements\n- API credit allocation matches our current usage trends\n- Monitoring tools investment will help with cost optimization\n\nI\'m approving this request. Please proceed with procurement and keep me updated on the timeline.\n\nBest regards',
-    aiConfidence: 94,
-    attachments: [{ name: 'Q1_Budget_AI_Infra.xlsx', size: '245 KB' }],
-    threadCount: 3,
-  },
-  {
-    id: 'msg-2', externalId: 'ext-2', channel: 'slack',
-    from: 'David Park', fromInitial: 'DP', fromColor: '#3B82F6',
-    slackChannel: '#engineering',
-    isGroupChat: true, mentionsUser: true,
-    preview: 'Hey everyone, the CI/CD pipeline is failing on the staging branch. @you can you check?',
-    fullMessage: 'Hey everyone, the CI/CD pipeline is failing on the staging branch. Looks like a dependency conflict with the new auth module. @you can someone take a look? Tests were passing locally but the Docker build is choking on node_modules resolution.',
-    receivedAt: new Date(Date.now() - 8 * 60000).toISOString(),
-    receivedTime: '10:28 AM', relativeTime: '8 min ago',
-    priority: 'high', status: 'pending', starred: false,
-    threadCount: 7,
-  },
-  {
-    id: 'msg-3', externalId: 'ext-3', channel: 'teams',
-    from: 'Sarah Chen', fromInitial: 'SC', fromColor: '#e07a3a',
-    teamsChannel: 'Product Launch',
-    isGroupChat: true, mentionsUser: true,
-    preview: 'Team, the client demo for Acme Corp is scheduled for Thursday. @you please confirm availability.',
-    fullMessage: 'Team, the client demo for Acme Corp is scheduled for Thursday at 2 PM EST. @you Can you confirm availability? We need to showcase:\n\n1. Document AI pipeline\n2. Agent workforce dashboard\n3. Real-time analytics\n\nPlease prepare your sections by Wednesday EOD.',
-    receivedAt: new Date(Date.now() - 15 * 60000).toISOString(),
-    receivedTime: '10:21 AM', relativeTime: '15 min ago',
-    priority: 'medium', status: 'pending', starred: false,
-    threadCount: 4,
-  },
-  {
-    id: 'msg-4', externalId: 'ext-4', channel: 'email',
-    from: 'Marcus Johnson', fromInitial: 'MJ', fromColor: '#1a1a2e',
-    subject: 'Re: Partnership Proposal — DataFlow Inc.',
-    preview: 'Following up on our call last week. DataFlow is interested in integrating their ETL pipeline...',
-    fullMessage: 'Hi,\n\nFollowing up on our call last week. DataFlow Inc. is interested in integrating their ETL pipeline with our AI agent platform. They\'re proposing a revenue-sharing model:\n\n- 70/30 split on joint enterprise deals\n- Shared API access for data transformation\n- Co-marketing at 3 industry events this year\n\nTheir CTO wants to schedule a technical deep-dive next week. Are you available Tuesday or Wednesday?\n\nBest,\nMarcus',
-    receivedAt: new Date(Date.now() - 32 * 60000).toISOString(),
-    receivedTime: '10:04 AM', relativeTime: '32 min ago',
-    priority: 'medium', status: 'pending', starred: true,
-    attachments: [{ name: 'DataFlow_Partnership_Brief.pdf', size: '1.2 MB' }, { name: 'Revenue_Model.xlsx', size: '89 KB' }],
-  },
-  {
-    id: 'msg-5', externalId: 'ext-5', channel: 'slack',
-    from: 'Priya Patel', fromInitial: 'PP', fromColor: '#d46b2c',
-    slackChannel: '#design',
-    isGroupChat: true, mentionsUser: true,
-    preview: '@you Sharing the updated mockups for the agent configuration panel. Need your feedback.',
-    fullMessage: '@you Sharing the updated mockups for the agent configuration panel. Let me know your thoughts:\n\n1. Agent type selection → capabilities config → testing sandbox\n2. Simplified the 5-step wizard down to 3 steps\n3. Added inline validation and preview\n\nFigma link: [Updated Agent Config Mockups]\n\nWould love your feedback by tomorrow.',
-    receivedAt: new Date(Date.now() - 60 * 60000).toISOString(),
-    receivedTime: '9:36 AM', relativeTime: '1 hr ago',
-    priority: 'low', status: 'pending', starred: false, threadCount: 2,
-  },
-  {
-    id: 'msg-6', externalId: 'ext-6', channel: 'teams',
-    from: 'Alex Rodriguez', fromInitial: 'AR', fromColor: '#3a3a52',
-    teamsChannel: 'Security',
-    isGroupChat: true, mentionsUser: true,
-    preview: 'Heads up — our SOC2 audit is next month. @you please assign an owner from your team.',
-    fullMessage: 'Heads up — our SOC2 audit is scheduled for March 15th. @you I need you to complete the security compliance checklist by March 1st.\n\nKey items:\n- Access control review for all production systems\n- Encryption audit for data at rest and in transit\n- Incident response plan update\n- Vendor security assessment for 3rd party integrations\n\nPlease assign an owner from your team.',
-    receivedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
-    receivedTime: '8:36 AM', relativeTime: '2 hrs ago',
-    priority: 'high', status: 'pending', starred: false,
-  },
-  {
-    id: 'msg-7', externalId: 'ext-7', channel: 'email',
-    from: 'Lisa Nguyen', fromInitial: 'LN', fromColor: '#EC4899',
-    subject: 'Interview Panel — Sr. ML Engineer',
-    preview: 'Can you join the interview panel for the Sr. ML Engineer candidate this Wednesday?',
-    fullMessage: 'Hi,\n\nCan you join the interview panel for the Sr. ML Engineer candidate this Wednesday at 3 PM?\n\nThe candidate has 8 years of experience with PyTorch, TensorFlow, MLOps pipelines, and NLP.\n\nResume attached. Your focus would be on the system design round.\n\nThanks,\nLisa Nguyen\nHead of Talent',
-    receivedAt: new Date(Date.now() - 3 * 3600000).toISOString(),
-    receivedTime: '7:36 AM', relativeTime: '3 hrs ago',
-    priority: 'medium', status: 'sent', starred: false,
-    aiDraft: 'Hi Lisa,\n\nYes, I\'m available for the Wednesday 3 PM interview panel. I\'ll review the resume beforehand.\n\nFor the system design round, I\'ll prepare questions around:\n- Designing a real-time ML inference pipeline\n- Model serving architecture at scale\n- Feature store design and management\n\nPlease send the calendar invite.',
-    aiConfidence: 96,
-    attachments: [{ name: 'Candidate_Resume.pdf', size: '340 KB' }],
-  },
-  {
-    id: 'msg-8', externalId: 'ext-8', channel: 'slack',
-    from: 'Tom Bradley', fromInitial: 'TB', fromColor: '#10B981',
-    slackChannel: '#random',
-    isGroupChat: true, mentionsUser: true,
-    preview: 'Who\'s in for team lunch on Friday? @you @team Thinking of trying that new ramen place...',
-    fullMessage: 'Who\'s in for team lunch on Friday? 🍜 @you @team Thinking of trying that new ramen place on 5th street. They apparently have amazing tonkotsu ramen. Let me know by Thursday so I can make a reservation!',
-    receivedAt: new Date(Date.now() - 4 * 3600000).toISOString(),
-    receivedTime: '6:36 AM', relativeTime: '4 hrs ago',
-    priority: 'low', status: 'pending', starred: false,
-    threadCount: 12,
-  },
-  /* ─── Additional Group Chat Messages ─────────────────── */
-  {
-    id: 'msg-9', externalId: 'ext-9', channel: 'slack',
-    from: 'Emily Carter', fromInitial: 'EC', fromColor: '#f0a060',
-    slackChannel: '#engineering',
-    isGroupChat: true, mentionsUser: true,
-    preview: '@you Can you review the auth middleware PR? It\'s blocking the release...',
-    fullMessage: '@you Can you review the auth middleware PR #342? It\'s blocking the release branch. The changes affect token refresh logic and session management. We need sign-off before EOD.',
-    receivedAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    receivedTime: '10:31 AM', relativeTime: '5 min ago',
-    priority: 'high', status: 'pending', starred: false, threadCount: 5,
-  },
-  {
-    id: 'msg-10', externalId: 'ext-10', channel: 'slack',
-    from: 'Ryan Kim', fromInitial: 'RK', fromColor: '#059669',
-    slackChannel: '#engineering',
-    isGroupChat: true, mentionsUser: true,
-    preview: 'The new API endpoints look good, @you just needs to sign off on the rate limiting config',
-    fullMessage: 'The new API endpoints look good. @you just needs to sign off on the rate limiting config before we deploy. Current settings: 100 req/min for free tier, 1000 req/min for pro. Looks reasonable to me.',
-    receivedAt: new Date(Date.now() - 20 * 60000).toISOString(),
-    receivedTime: '10:16 AM', relativeTime: '20 min ago',
-    priority: 'medium', status: 'pending', starred: false,
-  },
-  {
-    id: 'msg-11', externalId: 'ext-11', channel: 'slack',
-    from: 'Nina Patel', fromInitial: 'NP', fromColor: '#DC2626',
-    slackChannel: '#engineering',
-    isGroupChat: true, mentionsUser: true,
-    preview: 'FYI @you — updated the shared component library to v2.4.1. No breaking changes.',
-    fullMessage: 'FYI @you — updated the shared component library to v2.4.1. No breaking changes, just performance improvements and a few new utility hooks. Changelog in the PR description.',
-    receivedAt: new Date(Date.now() - 45 * 60000).toISOString(),
-    receivedTime: '9:51 AM', relativeTime: '45 min ago',
-    priority: 'low', status: 'pending', starred: false,
-  },
-  {
-    id: 'msg-12', externalId: 'ext-12', channel: 'teams',
-    from: 'James Wilson', fromInitial: 'JW', fromColor: '#2563EB',
-    teamsChannel: 'Product Launch',
-    isGroupChat: true, mentionsUser: true,
-    preview: '@you the client wants a custom integration demo — can you prepare the API walkthrough?',
-    fullMessage: '@you the Acme Corp client wants a custom integration demo for their workflow. Can you prepare the API walkthrough section? They specifically asked about webhook support and batch processing capabilities.',
-    receivedAt: new Date(Date.now() - 10 * 60000).toISOString(),
-    receivedTime: '10:26 AM', relativeTime: '10 min ago',
-    priority: 'high', status: 'pending', starred: false,
-  },
-  {
-    id: 'msg-13', externalId: 'ext-13', channel: 'teams',
-    from: 'Maria Garcia', fromInitial: 'MG', fromColor: '#F59E0B',
-    teamsChannel: 'Product Launch',
-    isGroupChat: true, mentionsUser: true,
-    preview: 'Updated the launch timeline. @you\'s section on analytics is due next Wednesday.',
-    fullMessage: 'Updated the launch timeline — see the attached doc. @you\'s section on real-time analytics dashboard is now due next Wednesday instead of Friday. Let me know if that works for your team.',
-    receivedAt: new Date(Date.now() - 40 * 60000).toISOString(),
-    receivedTime: '9:56 AM', relativeTime: '40 min ago',
-    priority: 'medium', status: 'pending', starred: false,
-  },
-  {
-    id: 'msg-14', externalId: 'ext-14', channel: 'teams',
-    from: 'Kevin Lee', fromInitial: 'KL', fromColor: '#e07a3a',
-    teamsChannel: 'Product Launch',
-    isGroupChat: true, mentionsUser: true,
-    preview: 'Great progress! @you the staging URL is now live for testing.',
-    fullMessage: 'Great progress on the demo environment! @you the staging URL is now live for testing: https://staging.demo.acme.com. Let me know if you spot any issues with the agent dashboard.',
-    receivedAt: new Date(Date.now() - 90 * 60000).toISOString(),
-    receivedTime: '9:06 AM', relativeTime: '1.5 hrs ago',
-    priority: 'low', status: 'pending', starred: false,
-  },
-  {
-    id: 'msg-15', externalId: 'ext-15', channel: 'teams',
-    from: 'Diana Ross', fromInitial: 'DR', fromColor: '#EF4444',
-    teamsChannel: 'Security',
-    isGroupChat: true, mentionsUser: true,
-    preview: '@you urgent: found a potential vulnerability in the file upload endpoint.',
-    fullMessage: '@you urgent: found a potential vulnerability in the file upload endpoint. The input validation on /api/upload doesn\'t check for path traversal attacks. Can you patch this ASAP? This is a P0.',
-    receivedAt: new Date(Date.now() - 3 * 60000).toISOString(),
-    receivedTime: '10:33 AM', relativeTime: '3 min ago',
-    priority: 'high', status: 'pending', starred: true,
-  },
-  {
-    id: 'msg-16', externalId: 'ext-16', channel: 'teams',
-    from: 'Sam Martinez', fromInitial: 'SM', fromColor: '#10B981',
-    teamsChannel: 'Security',
-    isGroupChat: true, mentionsUser: true,
-    preview: '@you please add 2FA to the admin panel before the audit.',
-    fullMessage: '@you please add 2FA to the admin panel before the SOC2 audit next month. Spec: TOTP-based, recovery codes, enforce for all admin roles. The library @simplewebauthn/server is already in our stack.',
-    receivedAt: new Date(Date.now() - 50 * 60000).toISOString(),
-    receivedTime: '9:46 AM', relativeTime: '50 min ago',
-    priority: 'medium', status: 'pending', starred: false,
-  },
-  {
-    id: 'msg-17', externalId: 'ext-17', channel: 'slack',
-    from: 'Anna Thompson', fromInitial: 'AT', fromColor: '#DB2777',
-    slackChannel: '#design',
-    isGroupChat: true, mentionsUser: true,
-    preview: '@you the new dashboard mockups need your tech feasibility review by tomorrow',
-    fullMessage: '@you the new dashboard mockups are ready for your tech feasibility review. Can you check if the real-time chart animations and the drag-and-drop widget layout are doable with our current React setup? Need your input by tomorrow EOD.',
-    receivedAt: new Date(Date.now() - 25 * 60000).toISOString(),
-    receivedTime: '10:11 AM', relativeTime: '25 min ago',
-    priority: 'medium', status: 'pending', starred: false,
-  },
-  /* ─── Promotional / Newsletter / Notification Emails ──── */
-  {
-    id: 'msg-18', externalId: 'ext-18', channel: 'email',
-    from: 'LinkedIn', fromEmail: 'notifications@linkedin.com',
-    fromInitial: 'LI', fromColor: '#0A66C2',
-    subject: 'You appeared in 24 searches this week',
-    preview: 'See who\'s looking at your profile. Your network has been busy this week...',
-    fullMessage: 'Hi there,\n\nYou appeared in 24 searches this week.\n\nSee who\'s looking at your profile and discover new opportunities.\n\nYour weekly search stats:\n- Profile views: 47 (+12%)\n- Search appearances: 24\n- Post impressions: 1,203\n\nView your full analytics on LinkedIn.\n\n---\nYou are receiving LinkedIn notification emails.\nUnsubscribe · Help\n© 2026 LinkedIn Corporation',
-    receivedAt: new Date(Date.now() - 1.5 * 3600000).toISOString(),
-    receivedTime: '9:06 AM', relativeTime: '1.5 hrs ago',
-    priority: 'low', status: 'pending', starred: false,
-    emailCategory: 'promotional',
-  },
-  {
-    id: 'msg-19', externalId: 'ext-19', channel: 'email',
-    from: 'AWS', fromEmail: 'no-reply@aws.amazon.com',
-    fromInitial: 'AW', fromColor: '#FF9900',
-    subject: 'Your AWS Monthly Cost Summary — January 2026',
-    preview: 'Your total AWS charges for January 2026 are $2,847.32. View your full billing dashboard...',
-    fullMessage: 'Hello,\n\nYour AWS account billing summary for January 2026 is ready.\n\nTotal charges: $2,847.32\nForecasted next month: $3,100.00\n\nTop services:\n- EC2: $1,240.00\n- S3: $420.00\n- RDS: $680.00\n- Lambda: $180.00\n- Other: $327.32\n\nView your full billing dashboard at aws.amazon.com/billing\n\nThis is an automated notification from Amazon Web Services.\nAmazon Web Services, Inc. is a subsidiary of Amazon.com, Inc.\n\nUnsubscribe from billing notifications.',
-    receivedAt: new Date(Date.now() - 5 * 3600000).toISOString(),
-    receivedTime: '5:36 AM', relativeTime: '5 hrs ago',
-    priority: 'low', status: 'pending', starred: false,
-    emailCategory: 'notification',
-  },
-  {
-    id: 'msg-20', externalId: 'ext-20', channel: 'email',
-    from: 'Vercel', fromEmail: 'ship@vercel.com',
-    fromInitial: 'VR', fromColor: '#000000',
-    subject: '🚀 Vercel Ship 2026 — Register Now (Free)',
-    preview: 'Join us for Vercel Ship 2026 — our annual conference featuring Next.js 16, AI SDK 5.0...',
-    fullMessage: 'Vercel Ship 2026 is here.\n\nJoin us on March 20th for our biggest conference ever.\n\n🎯 What\'s new:\n- Next.js 16 with React Server Components 2.0\n- AI SDK 5.0 — build intelligent apps faster\n- Edge Functions GA — zero cold starts worldwide\n- New Vercel Firewall — enterprise security\n\n📅 March 20, 2026 · Virtual · Free\n\nRegister now → vercel.com/ship-2026\n\nSee you there,\nThe Vercel Team\n\n---\nYou received this because you signed up for Vercel updates.\nUnsubscribe · Manage email preferences\n\n© 2026 Vercel, Inc. All rights reserved.',
-    receivedAt: new Date(Date.now() - 6 * 3600000).toISOString(),
-    receivedTime: '4:36 AM', relativeTime: '6 hrs ago',
-    priority: 'low', status: 'pending', starred: false,
-    emailCategory: 'promotional',
-  },
-  {
-    id: 'msg-21', externalId: 'ext-21', channel: 'email',
-    from: 'TLDR Newsletter', fromEmail: 'dan@tldrnewsletter.com',
-    fromInitial: 'TL', fromColor: '#d46b2c',
-    subject: 'TLDR: OpenAI Launches GPT-5, Google Announces Gemini Ultra 2.0',
-    preview: 'Big Tech & Startups — OpenAI launches GPT-5 with real-time reasoning capabilities...',
-    fullMessage: 'TLDR 2026-02-14\n\n📱 Big Tech & Startups\n\nOpenAI Launches GPT-5 with Real-Time Reasoning (3 minute read)\nOpenAI announced GPT-5 with breakthrough reasoning capabilities...\n\nGoogle Announces Gemini Ultra 2.0 (2 minute read)\nGoogle\'s latest model achieves state-of-the-art on all benchmarks...\n\n🚀 Science & Futuristic Technology\n\nNASA\'s Artemis III Successfully Lands on the Moon (4 minute read)\n...\n\n💻 Programming, Design & Data Science\n\nReact 20 Released with Automatic Memoization (GitHub Repo)\n...\n\n---\nIf you have any comments or feedback, just respond to this email!\n\nThanks for reading,\nDan Ni (@tldrdan)\n\nIf you don\'t want to receive future editions of TLDR, please unsubscribe.',
-    receivedAt: new Date(Date.now() - 7 * 3600000).toISOString(),
-    receivedTime: '3:36 AM', relativeTime: '7 hrs ago',
-    priority: 'low', status: 'pending', starred: false,
-    emailCategory: 'newsletter',
-  },
-  {
-    id: 'msg-22', externalId: 'ext-22', channel: 'email',
-    from: 'GitHub', fromEmail: 'notifications@github.com',
-    fromInitial: 'GH', fromColor: '#24292F',
-    subject: '[operonai/platform] Build #4521 failed — main branch',
-    preview: 'Build #4521 on main failed. 2 tests failing in auth module. View the workflow run...',
-    fullMessage: 'Run #4521 of CI/CD Pipeline on main branch has failed.\n\nCommit: a3f82d1 — "feat: add OAuth2 token refresh"\nAuthor: @david-park\n\nFailed jobs:\n- test-auth-module (2 failures)\n  ✗ should refresh expired token\n  ✗ should handle concurrent refresh requests\n- lint (passed)\n- build (passed)\n\nView the workflow run: https://github.com/operonai/platform/actions/runs/4521\n\n—\nYou are receiving this because you are subscribed to this repository.\nManage notification settings · Unsubscribe',
-    receivedAt: new Date(Date.now() - 30 * 60000).toISOString(),
-    receivedTime: '10:06 AM', relativeTime: '30 min ago',
-    priority: 'low', status: 'pending', starred: false,
-    emailCategory: 'notification',
-  },
-  {
-    id: 'msg-23', externalId: 'ext-23', channel: 'email',
-    from: 'Stripe', fromEmail: 'receipts@stripe.com',
-    fromInitial: 'ST', fromColor: '#635BFF',
-    subject: 'Your receipt from OperonAI Platform',
-    preview: 'Amount paid: $299.00. Your monthly subscription to OperonAI Platform Pro has been renewed...',
-    fullMessage: 'Receipt from OperonAI Platform\n\nAmount paid: $299.00\nDate: February 14, 2026\nPayment method: Visa ending in 4242\n\nDescription:\nOperonAI Platform — Pro Plan (Monthly)\nFebruary 14 - March 14, 2026\n\nSubtotal: $299.00\nTax: $0.00\nTotal: $299.00\n\nIf you have any questions, contact support@operonai.ai\n\nView receipt: https://pay.stripe.com/receipts/...\n\n---\nStripe, 354 Oyster Point Blvd, South San Francisco, CA 94080\nReceipts are sent for each payment. Manage email preferences.',
-    receivedAt: new Date(Date.now() - 8 * 3600000).toISOString(),
-    receivedTime: '2:36 AM', relativeTime: '8 hrs ago',
-    priority: 'low', status: 'pending', starred: false,
-    emailCategory: 'notification',
-  },
-];
 
 /* ─── Hook ─────────────────────────────────────────────── */
 
@@ -628,12 +355,9 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
     checkBackendHealth().then(({ ok }) => {
       setBackendConnected(ok);
       if (ok) {
-        // Fetch real data from backend
         loadFromBackend();
       }
-      // If backend is not available, we keep using mock data
-      // Classify mock messages on load
-      setMessages(prev => classifyMessages(prev.length > 0 ? prev : MOCK_MESSAGES));
+      setMessages(prev => classifyMessages(prev));
     });
   }, []);
 
@@ -689,7 +413,7 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
       setConnections(conns);
       if (config) setAiConfig(config);
     } catch (err) {
-      console.warn('Backend fetch failed, using mock data');
+      log.warn('Backend fetch failed, using mock data');
     } finally {
       setIsLoading(false);
     }
@@ -951,7 +675,7 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
               : m
           )
         );
-        console.log(`📧 ${promotionalPending.length} promotional/newsletter emails skipped — no reply needed`);
+        log.info(`${promotionalPending.length} promotional/newsletter emails skipped — no reply needed`);
       }
 
       // ── Step 2: Separate VIP messages from regular work emails ──
@@ -979,7 +703,7 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
               : m
           )
         );
-        console.log(`⚠️ ${highPriorityPending.length} high-importance messages require your input`);
+        log.info(`${highPriorityPending.length} high-importance messages require your input`);
       }
 
       // Show VIP notifications (do NOT auto-draft for VIPs)
@@ -1089,55 +813,53 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
 
   // Connection actions
   const connectGmail = useCallback(async () => {
-    console.log('🔍 connectGmail called:', { backendConnected });
+    log.debug('connectGmail called', { backendConnected });
     
-    // Always try to connect, even if backend health check failed
-    // The API call will fail gracefully if backend is down
-    console.log('📞 Calling ConnectionsAPI.connectGmail()...');
+    log.debug('Calling ConnectionsAPI.connectGmail()...');
     try {
       const authUrl = await ConnectionsAPI.connectGmail();
-      console.log('✅ Got auth URL:', authUrl ? 'Yes' : 'No');
+      log.debug('Got auth URL:', authUrl ? 'Yes' : 'No');
       if (authUrl) {
-        console.log('🚀 Opening OAuth popup:', authUrl.substring(0, 100) + '...');
+        log.info('Opening OAuth popup');
         window.open(authUrl, '_blank', 'width=600,height=700');
       } else {
-        console.error('❌ No auth URL returned - backend may not be accessible');
+        log.error('No auth URL returned - backend may not be accessible');
         alert('Failed to connect to Gmail. Please check if the backend is running.');
       }
     } catch (err) {
-      console.error('❌ Error connecting Gmail:', err);
+      log.error('Error connecting Gmail:', err);
       alert('Error connecting to Gmail: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   }, [backendConnected]);
 
   const connectSlack = useCallback(async () => {
-    console.log('🔍 connectSlack called:', { backendConnected });
+    log.debug('connectSlack called', { backendConnected });
     try {
       const authUrl = await ConnectionsAPI.connectSlack();
-      console.log('✅ Slack auth URL:', authUrl ? 'Yes' : 'No');
+      log.debug('Slack auth URL:', authUrl ? 'Yes' : 'No');
       if (authUrl) {
         window.open(authUrl, '_blank', 'width=600,height=700');
       } else {
         alert('Failed to connect to Slack. Backend may not be running.');
       }
     } catch (err) {
-      console.error('❌ Error connecting Slack:', err);
+      log.error('Error connecting Slack:', err);
       alert('Error connecting to Slack: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   }, [backendConnected]);
 
   const connectTeams = useCallback(async () => {
-    console.log('🔍 connectTeams called:', { backendConnected });
+    log.debug('connectTeams called', { backendConnected });
     try {
       const authUrl = await ConnectionsAPI.connectTeams();
-      console.log('✅ Teams auth URL:', authUrl ? 'Yes' : 'No');
+      log.debug('Teams auth URL:', authUrl ? 'Yes' : 'No');
       if (authUrl) {
         window.open(authUrl, '_blank', 'width=600,height=700');
       } else {
         alert('Teams integration is coming soon.');
       }
     } catch (err) {
-      console.error('❌ Error connecting Teams:', err);
+      log.error('Error connecting Teams:', err);
     }
   }, [backendConnected]);
 
@@ -1147,7 +869,7 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
       const conns = await ConnectionsAPI.getConnections();
       setConnections(conns);
     } catch (err) {
-      console.error('❌ Error disconnecting:', err);
+      log.error('Error disconnecting:', err);
     }
   }, []);
 
@@ -1156,7 +878,7 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
       const conns = await ConnectionsAPI.getConnections();
       setConnections(conns);
     } catch (err) {
-      console.error('❌ Error refreshing connections:', err);
+      log.error('Error refreshing connections:', err);
     }
   }, []);
 
@@ -1283,48 +1005,20 @@ export function useCommsAgent(): [CommsAgentState, CommsAgentActions] {
 
   const fetchThread = useCallback(async (messageId: string) => {
     try {
-      if (backendConnected) {
-        const apiBase = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
-        const res = await fetch(`${apiBase}/messages?threadId=${messageId}`, {
-          headers: { 'Content-Type': 'application/json' },
-        });
-        const json = await res.json();
-        if (json.success && json.data?.messages) {
-          setThreadMessages(json.data.messages);
-          return;
-        }
-      }
-      // Local fallback: generate mock thread replies from the parent message
-      const parent = messages.find(m => m.id === messageId);
-      if (parent && parent.threadCount && parent.threadCount > 0) {
-        const mockReplies: UnifiedMessage[] = Array.from({ length: Math.min(parent.threadCount, 3) }, (_, i) => ({
-          id: `${messageId}-reply-${i}`,
-          externalId: `${messageId}-reply-${i}`,
-          channel: parent.channel,
-          from: i === 0 ? 'You' : parent.from,
-          fromInitial: i === 0 ? 'Y' : parent.fromInitial,
-          fromColor: i === 0 ? '#3B82F6' : parent.fromColor,
-          subject: parent.subject ? `Re: ${parent.subject}` : undefined,
-          preview: i === 0 ? 'Thanks, looking into this now.' : 'Any updates on this?',
-          fullMessage: i === 0 ? 'Thanks, looking into this now. Will follow up shortly.' : 'Any updates on this? Let me know if you need anything.',
-          receivedAt: new Date(Date.now() - (parent.threadCount! - i) * 600000).toISOString(),
-          receivedTime: '',
-          relativeTime: `${(parent.threadCount! - i) * 10} min ago`,
-          priority: parent.priority,
-          status: 'sent' as MessageStatus,
-          starred: false,
-          slackChannel: parent.slackChannel,
-          teamsChannel: parent.teamsChannel,
-          isGroupChat: parent.isGroupChat,
-        }));
-        setThreadMessages(mockReplies);
+      const apiBase = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
+      const res = await fetch(`${apiBase}/messages?threadId=${messageId}`, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const json = await res.json();
+      if (json.success && json.data?.messages) {
+        setThreadMessages(json.data.messages);
       } else {
         setThreadMessages([]);
       }
     } catch {
       setThreadMessages([]);
     }
-  }, [backendConnected, messages]);
+  }, []);
 
   /* ─── Style analysis ────────────────────────────────── */
 

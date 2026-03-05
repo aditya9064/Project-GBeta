@@ -25,6 +25,7 @@ import type { WorkflowTemplate, TemplateSearchResult } from '../../services/n8n/
 import type { N8nWorkflow } from '../../services/n8n/converter';
 import type { WorkflowDefinition } from '../../services/automation/types';
 import './TemplateGallery.css';
+import { log } from '../../utils/logger';
 
 /* ═══ Icons for categories ════════════════════════════════ */
 
@@ -99,7 +100,7 @@ export function TemplateGallery({ onClose, onImport }: TemplateGalleryProps) {
         setError(null);
       } catch (err: any) {
         setError('Failed to load template library. Make sure workflows are downloaded.');
-        console.error('[TemplateGallery] Init error:', err);
+        log.error('[TemplateGallery] Init error:', err);
       } finally {
         setLoading(false);
       }
@@ -171,7 +172,7 @@ export function TemplateGallery({ onClose, onImport }: TemplateGalleryProps) {
       const workflow = await importTemplate(template);
       onImport(workflow, template.name);
     } catch (err) {
-      console.error('[TemplateGallery] Import failed:', err);
+      log.error('[TemplateGallery] Import failed:', err);
       setError('Failed to import template');
     } finally {
       setImporting(null);
@@ -189,7 +190,7 @@ export function TemplateGallery({ onClose, onImport }: TemplateGalleryProps) {
       setPreviewData(raw);
       setRelatedTemplates(related);
     } catch (err) {
-      console.error('[TemplateGallery] Preview failed:', err);
+      log.error('[TemplateGallery] Preview failed:', err);
     }
   }, []);
 

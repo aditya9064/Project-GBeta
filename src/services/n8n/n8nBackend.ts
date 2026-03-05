@@ -10,6 +10,7 @@
  */
 
 import type { N8nWorkflow } from './converter';
+import { getAuthHeaders } from '../../lib/firebase';
 
 /* ═══ Types ═══════════════════════════════════════════════ */
 
@@ -47,12 +48,13 @@ export interface N8nExecutionResult {
 /* ═══ Helpers ════════════════════════════════════════════ */
 
 async function apiCall<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const authHeaders = await getAuthHeaders();
   const resp = await fetch(path, {
+    ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...authHeaders,
       ...(options.headers as Record<string, string> || {}),
     },
-    ...options,
   });
 
   const json = await resp.json();
@@ -90,11 +92,11 @@ export async function checkN8nStatus(forceRefresh = false): Promise<N8nStatus> {
   } catch {
     const fallback: N8nStatus = {
       connected: false,
-      baseUrl: 'http://localhost:5678',
+      baseUrl: '',
       apiKeyConfigured: false,
       apiKeyValid: false,
       workflowCount: 0,
-      editorUrl: 'http://localhost:5678',
+      editorUrl: '',
       hint: 'Backend server is not running',
     };
     _cachedStatus = fallback;

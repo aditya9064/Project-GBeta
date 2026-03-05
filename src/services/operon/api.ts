@@ -1,3 +1,5 @@
+import { getAuthHeaders } from '../../lib/firebase';
+
 const BACKEND_URL = import.meta.env.PROD
   ? ''
   : (import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || '');
@@ -53,9 +55,10 @@ export async function queryOperon(
   message: string,
   options: OperonQueryOptions = {},
 ): Promise<OperonQueryResult> {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${BACKEND_URL}/api/operon/query`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       message,
       userId: options.userId,
@@ -86,7 +89,8 @@ export async function getOperonLogs(
   if (userId) params.set('userId', userId);
   if (limit) params.set('limit', String(limit));
 
-  const res = await fetch(`${BACKEND_URL}/api/operon/logs?${params.toString()}`);
+  const logHeaders = await getAuthHeaders();
+  const res = await fetch(`${BACKEND_URL}/api/operon/logs?${params.toString()}`, { headers: logHeaders });
 
   let data: any = null;
   try {

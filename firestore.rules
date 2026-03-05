@@ -2,69 +2,89 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // For now, allow all authenticated users
-    // To restrict to specific testers, uncomment the allowlist function
-    // and replace isAuthenticated() with isAllowedTester() below
-    
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    // Allowlist of approved tester emails (uncomment to use)
-    // function isAllowedTester() {
-    //   return request.auth != null && 
-    //     request.auth.token.email in [
-    //       "your-email@gmail.com",
-    //       "teammate1@gmail.com",
-    //       "teammate2@gmail.com"
-    //     ];
-    // }
-    
-    // All collections require authentication
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && request.auth.uid == userId;
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
     }
     
+    // Users — only the owner can read/write their own doc
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update, delete: if isOwner(userId);
+    }
+    
+    // Workspaces — only members can access
     match /workspaces/{workspaceId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid ||
+        request.auth.uid in resource.data.memberIds
+      );
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
     }
     
     match /workspaceMembers/{memberId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
+    // Events — owner-gated
     match /events/{eventId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
     match /eventParticipants/{participantId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
     
+    // Teams — owner-gated
     match /teams/{teamId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
     }
     
+    // Tasks — owner-gated
     match /tasks/{taskId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
+    // Projects — owner-gated
     match /projects/{projectId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
     }
     
+    // Goals — owner-gated
     match /goals/{goalId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
+    // Timesheets — owner-gated
     match /timesheets/{timesheetId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
+    // Workspace invitations
     match /workspaceInvitations/{invitationId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && resource.data.invitedBy == request.auth.uid;
     }
   }
 }

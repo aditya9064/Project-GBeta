@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { log } from '../utils/logger';
 
 // Team type for the app
 export interface Team {
@@ -106,7 +107,7 @@ export function useTeams() {
         setError(null);
       },
       (err) => {
-        console.error('Error fetching teams:', err);
+        log.error('Error fetching teams:', err);
         setError(err);
         setLoading(false);
       }

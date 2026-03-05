@@ -985,8 +985,8 @@
 }
 
 .code-language-select:focus {
-  border-color: #7c5cff;
-  box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.2);
+  border-color: #e07a3a;
+  box-shadow: 0 0 0 2px rgba(224, 122, 58, 0.2);
 }
 
 .code-language-select option {
@@ -2409,7 +2409,7 @@
 
 .media-placeholder:hover {
   border-color: var(--accent-purple);
-  background: rgba(103, 36, 222, 0.05);
+  background: rgba(224, 122, 58, 0.05);
 }
 
 .media-placeholder input {
@@ -2725,7 +2725,7 @@
 }
 
 .db-tag.tag-todo { background: rgba(155, 154, 151, 0.2); color: var(--text-secondary); }
-.db-tag.tag-progress { background: rgba(35, 131, 226, 0.2); color: #2383e2; }
+.db-tag.tag-progress { background: rgba(224, 122, 58, 0.15); color: #e07a3a; }
 .db-tag.tag-done { background: rgba(15, 123, 108, 0.2); color: #0f7b6c; }
 
 /* Kanban View */
@@ -2753,7 +2753,7 @@
 }
 
 .kanban-header.tag-todo { background: rgba(155, 154, 151, 0.15); }
-.kanban-header.tag-progress { background: rgba(35, 131, 226, 0.15); color: #2383e2; }
+.kanban-header.tag-progress { background: rgba(224, 122, 58, 0.12); color: #e07a3a; }
 .kanban-header.tag-done { background: rgba(15, 123, 108, 0.15); color: #0f7b6c; }
 
 .kanban-count {

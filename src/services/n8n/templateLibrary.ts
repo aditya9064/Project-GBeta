@@ -12,6 +12,7 @@
 
 import { convertN8nToCrewOS, N8nWorkflow } from './converter';
 import { WorkflowDefinition } from '../automation/types';
+import { log } from '../../utils/logger';
 
 /* ═══ Types ═══════════════════════════════════════════════ */
 
@@ -79,10 +80,10 @@ export async function loadTemplateIndex(): Promise<TemplateIndex> {
       if (!resp.ok) throw new Error(`Failed to load template index: ${resp.status}`);
       const data = await resp.json();
       _index = data as TemplateIndex;
-      console.log(`[TemplateLibrary] Loaded ${_index.totalWorkflows} workflow templates`);
+      log.info(`[TemplateLibrary] Loaded ${_index.totalWorkflows} workflow templates`);
       return _index;
     } catch (err) {
-      console.warn('[TemplateLibrary] Could not load index, using empty library:', err);
+      log.warn('[TemplateLibrary] Could not load index, using empty library:', err);
       _index = {
         version: '0.0.0',
         generatedAt: new Date().toISOString(),

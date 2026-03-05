@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Mail,
@@ -50,10 +50,13 @@ import {
   Tag,
   Bell,
   ShieldOff,
+  BookOpen,
+  Calendar,
 } from 'lucide-react';
 import { useCommsAgent } from '../../hooks/useCommsAgent';
 import { ApprovalPopup, VIPNotificationPopup } from './ApprovalPopup';
 import type { Channel, MessageStatus, Priority, EmailCategory } from '../../services/commsApi';
+import { AIAPI } from '../../services/commsApi';
 import './CommunicationsAgent.css';
 import './ApprovalPopup.css';
 
@@ -72,7 +75,7 @@ const channelLabels: Record<string, string> = {
 };
 
 const channelColors: Record<string, string> = {
-  email: '#3B82F6',
+  email: '#e07a3a',
   slack: '#E01E5A',
   teams: '#6264A7',
 };
@@ -117,6 +120,32 @@ const categoryColors: Record<EmailCategory, string> = {
   spam: '#EF4444',
 };
 
+/* ─── Scheduled Messages Store ─────────────────────────── */
+
+interface ScheduledMessage {
+  id: string;
+  messageId: string;
+  scheduledAt: string;
+  draft: string;
+  channel: string;
+  to: string;
+  subject: string;
+}
+
+const SCHEDULED_KEY = 'crewos-scheduled-messages';
+
+function loadScheduledMessages(): ScheduledMessage[] {
+  try {
+    return JSON.parse(localStorage.getItem(SCHEDULED_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveScheduledMessages(msgs: ScheduledMessage[]) {
+  localStorage.setItem(SCHEDULED_KEY, JSON.stringify(msgs));
+}
+
 /* ─── Component ────────────────────────────────────────── */
 
 export function CommunicationsAgent() {
@@ -132,6 +161,38 @@ export function CommunicationsAgent() {
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showVIPPanel, setShowVIPPanel] = useState(false);
   const [expandedThreadId, setExpandedThreadId] = useState<string | null>(null);
+  const [isLearningVoice, setIsLearningVoice] = useState(false);
+  const [voiceLearnResult, setVoiceLearnResult] = useState<'success' | 'error' | null>(null);
+
+  // Scheduled messages state
+  const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>(loadScheduledMessages);
+  const [showSchedulePopover, setShowSchedulePopover] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('');
+  const [showScheduledPanel, setShowScheduledPanel] = useState(false);
+  const scheduleTimerRef = useRef<ReturnType<typeof setInterval>>();
+
+  // Auto-send scheduled messages that are past due
+  useEffect(() => {
+    const checkScheduled = () => {
+      const now = Date.now();
+      const msgs = loadScheduledMessages();
+      const due = msgs.filter(m => new Date(m.scheduledAt).getTime() <= now);
+      if (due.length === 0) return;
+
+      for (const sm of due) {
+        actions.sendMessage(sm.messageId, sm.draft);
+      }
+      const remaining = msgs.filter(m => new Date(m.scheduledAt).getTime() > now);
+      saveScheduledMessages(remaining);
+      setScheduledMessages(remaining);
+    };
+
+    checkScheduled();
+    scheduleTimerRef.current = setInterval(checkScheduled, 30_000);
+    return () => clearInterval(scheduleTimerRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Handle OAuth callback (check for ?connected=gmail|slack|teams or ?error=...)
   useEffect(() => {
@@ -247,6 +308,47 @@ export function CommunicationsAgent() {
     setEditingDraft(false);
   }, [selectedMessage, draftText, actions]);
 
+  const handleLearnVoice = useCallback(async () => {
+    setIsLearningVoice(true);
+    setVoiceLearnResult(null);
+    try {
+      const result = await AIAPI.learnVoice();
+      setVoiceLearnResult(result?.learned ? 'success' : 'error');
+    } catch {
+      setVoiceLearnResult('error');
+    } finally {
+      setIsLearningVoice(false);
+      setTimeout(() => setVoiceLearnResult(null), 4000);
+    }
+  }, []);
+
+  const handleScheduleSend = useCallback(() => {
+    if (!selectedMessage || !scheduleDate || !scheduleTime) return;
+    const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
+    const sm: ScheduledMessage = {
+      id: `sched-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      messageId: selectedMessage.id,
+      scheduledAt,
+      draft: selectedMessage.aiDraft || draftText || '',
+      channel: selectedMessage.channel,
+      to: selectedMessage.from,
+      subject: selectedMessage.subject || '',
+    };
+    const updated = [...scheduledMessages, sm];
+    saveScheduledMessages(updated);
+    setScheduledMessages(updated);
+    setShowSchedulePopover(false);
+    setScheduleDate('');
+    setScheduleTime('');
+    actions.updateMessageStatus(selectedMessage.id, 'approved');
+  }, [selectedMessage, scheduleDate, scheduleTime, scheduledMessages, draftText, actions]);
+
+  const handleCancelScheduled = useCallback((id: string) => {
+    const updated = scheduledMessages.filter(m => m.id !== id);
+    saveScheduledMessages(updated);
+    setScheduledMessages(updated);
+  }, [scheduledMessages]);
+
   const channelTabs: { id: Channel | 'all'; label: string; icon: React.ReactNode; count: number }[] = [
     { id: 'all', label: 'All Channels', icon: <Zap size={15} />, count: totalMessages },
     { id: 'email', label: 'Email', icon: <Mail size={15} />, count: channelCounts.email },
@@ -267,7 +369,7 @@ export function CommunicationsAgent() {
             <>
               <div className="comms-header-stats">
                 <div className="comms-stat">
-                  <span className="comms-stat-dot" style={{ background: '#3B82F6' }} />
+                  <span className="comms-stat-dot" style={{ background: '#e07a3a' }} />
                   <span className="comms-stat-count">{totalMessages}</span>
                   <span className="comms-stat-label">Total</span>
                 </div>
@@ -283,6 +385,33 @@ export function CommunicationsAgent() {
         </div>
 
         <div className="comms-header-right">
+          {hasConnections && (
+            <button
+              className="comms-btn comms-btn-secondary"
+              onClick={handleLearnVoice}
+              disabled={isLearningVoice}
+              title="Analyze your sent messages to learn your writing style"
+            >
+              {isLearningVoice ? (
+                <Loader2 size={15} className="comms-spin" />
+              ) : voiceLearnResult === 'success' ? (
+                <CheckCircle size={15} />
+              ) : voiceLearnResult === 'error' ? (
+                <AlertCircle size={15} />
+              ) : (
+                <BookOpen size={15} />
+              )}
+              <span>
+                {isLearningVoice
+                  ? 'Learning...'
+                  : voiceLearnResult === 'success'
+                    ? 'Style Learned!'
+                    : voiceLearnResult === 'error'
+                      ? 'Failed'
+                      : 'Learn My Writing Style'}
+              </span>
+            </button>
+          )}
           <button
             className={`comms-btn comms-btn-secondary ${showConnections ? 'active' : ''}`}
             onClick={() => { setShowConnections(!showConnections); setShowAIInsights(false); setShowVIPPanel(false); }}
@@ -311,6 +440,22 @@ export function CommunicationsAgent() {
               >
                 <Brain size={15} />
                 <span>AI Engine</span>
+              </button>
+              <button
+                className={`comms-btn comms-btn-secondary ${showScheduledPanel ? 'active' : ''}`}
+                onClick={() => {
+                  setShowScheduledPanel(!showScheduledPanel);
+                  setShowConnections(false);
+                  setShowAIInsights(false);
+                  setShowVIPPanel(false);
+                }}
+                title="Scheduled messages"
+              >
+                <Calendar size={15} />
+                <span>Scheduled</span>
+                {scheduledMessages.length > 0 && (
+                  <span className="comms-vip-header-count">{scheduledMessages.length}</span>
+                )}
               </button>
               <button
                 className="comms-btn comms-btn-secondary"
@@ -598,6 +743,56 @@ export function CommunicationsAgent() {
         </div>
       )}
 
+      {/* ─── SCHEDULED MESSAGES PANEL ───────────────────── */}
+      {showScheduledPanel && (
+        <div className="comms-vip-panel">
+          <div className="comms-vip-panel-header">
+            <h3><Calendar size={16} /> Scheduled Messages</h3>
+            <p>Messages queued for future delivery. Past-due messages are sent automatically.</p>
+          </div>
+
+          {scheduledMessages.length > 0 ? (
+            <div className="comms-vip-list">
+              {scheduledMessages.map(sm => (
+                <div key={sm.id} className="comms-vip-item" style={{ alignItems: 'flex-start' }}>
+                  <div className="comms-vip-avatar" style={{ background: '#e07a3a', flexShrink: 0 }}>
+                    <Calendar size={14} />
+                  </div>
+                  <div className="comms-vip-info" style={{ flex: 1, minWidth: 0 }}>
+                    <span className="comms-vip-name">To: {sm.to}</span>
+                    {sm.subject && <span className="comms-vip-email">{sm.subject}</span>}
+                    <span className="comms-vip-email" style={{ color: '#e07a3a', fontWeight: 500 }}>
+                      <Clock size={11} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 4 }} />
+                      {new Date(sm.scheduledAt).toLocaleString()}
+                    </span>
+                    <span className="comms-vip-email" style={{
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      maxWidth: '100%',
+                    }}>
+                      {sm.draft.slice(0, 80)}{sm.draft.length > 80 ? '...' : ''}
+                    </span>
+                  </div>
+                  <button
+                    className="comms-vip-remove-btn"
+                    onClick={() => handleCancelScheduled(sm.id)}
+                    title="Cancel scheduled send"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="comms-vip-empty">
+              <Calendar size={28} />
+              <p>No scheduled messages. Use the Schedule button when sending a reply to queue one.</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ─── AI ENGINE PANEL ──────────────────────────── */}
       {showAIInsights && (
         <div className="comms-ai-engine-panel">
@@ -619,7 +814,7 @@ export function CommunicationsAgent() {
             <div className="comms-ai-stage-arrow"><ChevronRight size={14} /></div>
 
             <div className="comms-ai-stage">
-              <div className="comms-ai-stage-icon" style={{ background: '#DBEAFE', color: '#2563EB' }}>
+              <div className="comms-ai-stage-icon" style={{ background: 'rgba(224,122,58,0.1)', color: '#e07a3a' }}>
                 <BarChart3 size={16} />
               </div>
               <div className="comms-ai-stage-info">
@@ -1362,13 +1557,95 @@ export function CommunicationsAgent() {
                           )}
                           {(selectedMessage.status === 'ai_drafted' ||
                             selectedMessage.status === 'approved') && (
-                            <button
-                              className="comms-ai-action-btn send"
-                              onClick={() => handleSendDraft(selectedMessage.id)}
-                            >
-                              <Send size={14} />
-                              <span>Send</span>
-                            </button>
+                            <>
+                              <button
+                                className="comms-ai-action-btn send"
+                                onClick={() => handleSendDraft(selectedMessage.id)}
+                              >
+                                <Send size={14} />
+                                <span>Send</span>
+                              </button>
+                              <div style={{ position: 'relative' }}>
+                                <button
+                                  className="comms-ai-action-btn"
+                                  style={{ background: '#fef3eb', color: '#e07a3a' }}
+                                  onClick={() => setShowSchedulePopover(!showSchedulePopover)}
+                                  title="Schedule send for later"
+                                >
+                                  <Calendar size={14} />
+                                  <span>Schedule</span>
+                                  <ChevronDown size={12} />
+                                </button>
+                                {showSchedulePopover && (
+                                  <div
+                                    className="comms-schedule-popover"
+                                    style={{
+                                      position: 'absolute',
+                                      bottom: '100%',
+                                      right: 0,
+                                      marginBottom: 6,
+                                      background: '#fff',
+                                      border: '1px solid rgba(0,0,0,0.1)',
+                                      borderRadius: 12,
+                                      padding: 16,
+                                      boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                                      zIndex: 100,
+                                      minWidth: 240,
+                                    }}
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, color: '#1a1a2e' }}>
+                                      Schedule for later
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                      <input
+                                        type="date"
+                                        value={scheduleDate}
+                                        onChange={e => setScheduleDate(e.target.value)}
+                                        min={new Date().toISOString().split('T')[0]}
+                                        style={{
+                                          padding: '7px 10px',
+                                          borderRadius: 8,
+                                          border: '1px solid rgba(0,0,0,0.12)',
+                                          fontSize: 13,
+                                          fontFamily: 'inherit',
+                                        }}
+                                      />
+                                      <input
+                                        type="time"
+                                        value={scheduleTime}
+                                        onChange={e => setScheduleTime(e.target.value)}
+                                        style={{
+                                          padding: '7px 10px',
+                                          borderRadius: 8,
+                                          border: '1px solid rgba(0,0,0,0.12)',
+                                          fontSize: 13,
+                                          fontFamily: 'inherit',
+                                        }}
+                                      />
+                                      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                                        <button
+                                          className="comms-btn comms-btn-secondary"
+                                          style={{ flex: 1, fontSize: 12, padding: '6px 10px' }}
+                                          onClick={() => setShowSchedulePopover(false)}
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button
+                                          className="comms-btn comms-btn-primary"
+                                          style={{ flex: 1, fontSize: 12, padding: '6px 10px' }}
+                                          onClick={handleScheduleSend}
+                                          disabled={!scheduleDate || !scheduleTime}
+                                        >
+                                          <Calendar size={12} />
+                                          Schedule
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </>
                           )}
                         </div>
                       )}

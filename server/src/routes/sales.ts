@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import OpenAI from 'openai';
 import { config } from '../config.js';
+import { logger } from '../services/logger.js';
 import {
   isHubSpotConfigured,
   getLeads,
@@ -23,7 +24,7 @@ router.get('/leads', async (_req: Request, res: Response) => {
     const leads = await getLeads();
     res.json({ success: true, leads, configured: isHubSpotConfigured() });
   } catch (err: any) {
-    console.error('Sales leads error:', err.message);
+    logger.error('Sales leads error', { error: err.message });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -156,7 +157,7 @@ router.post('/score', async (req: Request, res: Response) => {
 
     res.json({ success: true, leads: scoredLeads });
   } catch (err: any) {
-    console.error('Scoring error:', err.message);
+    logger.error('Scoring error', { error: err.message });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -194,7 +195,7 @@ router.get('/insights', async (_req: Request, res: Response) => {
     const parsed = JSON.parse(completion.choices[0].message.content || '{}');
     res.json({ success: true, insights: parsed.insights || [] });
   } catch (err: any) {
-    console.error('Insights error:', err.message);
+    logger.error('Insights error', { error: err.message });
     res.status(500).json({ success: false, error: err.message });
   }
 });

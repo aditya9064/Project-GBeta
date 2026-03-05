@@ -1,3 +1,5 @@
+import { log } from '../../utils/logger';
+
 export interface ScheduleConfig {
   frequency: 'minutely' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'cron';
   time?: string;
@@ -231,7 +233,7 @@ function parseCronExpression(cron: string): { minute: number[]; hour: number[]; 
 function computeNextCronRun(cron: string, after: Date = new Date()): Date {
   const parsed = parseCronExpression(cron);
   if (!parsed) {
-    console.warn(`[Scheduler] Invalid cron expression: ${cron}`);
+    log.warn(`[Scheduler] Invalid cron expression: ${cron}`);
     return new Date(after.getTime() + 60_000);
   }
 

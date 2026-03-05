@@ -45,6 +45,9 @@ import {
 } from './automationApi';
 import { AgentMemoryService } from './memoryService';
 import { AgentBus } from './agentBus';
+import { log } from '../../utils/logger';
+
+export const activeExecutions = new Map<string, AbortController>();
 
 // Node executor functions
 type NodeExecutor = (
@@ -316,20 +319,27 @@ export async function executeWorkflow(
     completedNodeIds: string[];
     nodeOutputs: Record<string, any>;
     userProvidedInputs?: Record<string, any>;
-  }
+  },
+  abortSignal?: AbortSignal,
 ): Promise<ExecutionResult> {
   const executionId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const logs: ExecutionLog[] = [];
   const backendUp = isBackendAvailable();
 
-  console.log(`\n🚀 Executing workflow for agent ${agentId}`);
-  console.log(`   Backend: ${backendUp ? '✅ Connected (REAL execution)' : '⚠️ Offline (SIMULATED execution)'}`);
-  console.log(`   Triggered by: ${triggeredBy}`);
-  console.log(`   Nodes: ${workflow.nodes.length}, Edges: ${workflow.edges.length}`);
-  if (resumeState) {
-    console.log(`   Resuming from: ${resumeState.completedNodeIds.length} completed nodes`);
+  if (!abortSignal) {
+    const existing = activeExecutions.get(agentId);
+    if (existing) {
+      abortSignal = existing.signal;
+    }
   }
-  console.log('');
+
+  log.info(`Executing workflow for agent ${agentId}`);
+  log.info(`Backend: ${backendUp ? 'Connected (REAL execution)' : 'Offline (SIMULATED execution)'}`);
+  log.info(`Triggered by: ${triggeredBy}`);
+  log.debug(`Nodes: ${workflow.nodes.length}, Edges: ${workflow.edges.length}`);
+  if (resumeState) {
+    log.debug(`Resuming from: ${resumeState.completedNodeIds.length} completed nodes`);
+  }
 
   // Load persistent memory for this agent
   const persistedMemory = await AgentMemoryService.loadAgentMemory(agentId);
@@ -354,8 +364,12 @@ export async function executeWorkflow(
     for (const nodeId of executionOrder) {
       // Skip already completed nodes when resuming
       if (completedNodeIds.includes(nodeId)) {
-        console.log(`  ⏭️ Skipping already completed: ${nodeId}`);
+        log.debug(`Skipping already completed: ${nodeId}`);
         continue;
+      }
+
+      if (abortSignal?.aborted) {
+        throw new Error('Execution cancelled by user');
       }
 
       const node = workflow.nodes.find(n => n.id === nodeId);
@@ -408,8 +422,8 @@ export async function executeWorkflow(
         logs.push(awaitingLog);
         onNodeUpdate?.(awaitingLog);
         
-        console.log(`  ⏸️ ${node.label} (${node.type}) — Awaiting user input`);
-        console.log(`     Required: ${requiredInputs.map(r => r.key).join(', ')}`);
+        log.info(`${node.label} (${node.type}) — Awaiting user input`);
+        log.debug(`Required: ${requiredInputs.map(r => r.key).join(', ')}`);
         
         return {
           success: false,
@@ -456,7 +470,7 @@ export async function executeWorkflow(
         
         completedNodeIds.push(nodeId);
         
-        console.log(`  ✅ ${node.label} (${node.type}) — ${nodeLog.duration}ms ${backendUp ? '[REAL]' : '[SIMULATED]'}`);
+        log.info(`${node.label} (${node.type}) — ${nodeLog.duration}ms ${backendUp ? '[REAL]' : '[SIMULATED]'}`);
         
       } catch (error: any) {
         nodeLog.status = 'failed';
@@ -465,7 +479,7 @@ export async function executeWorkflow(
         nodeLog.error = error.message;
         onNodeUpdate?.(nodeLog);
         
-        console.error(`  ❌ ${node.label} (${node.type}) — ${error.message}`);
+        log.error(`${node.label} (${node.type}) — ${error.message}`);
         
         // In simulated / demo mode, continue execution even when a node fails
         // In real backend mode, stop immediately on failure
@@ -489,7 +503,7 @@ export async function executeWorkflow(
     // Check if any nodes failed
     const failedNodes = logs.filter(l => l.status === 'failed');
     if (failedNodes.length > 0) {
-      console.log(`\n⚠️ Workflow completed with ${failedNodes.length} failed node(s) (demo mode)\n`);
+      log.warn(`Workflow completed with ${failedNodes.length} failed node(s) (demo mode)`);
       return { 
         success: true, 
         output: finalOutput, 
@@ -497,11 +511,11 @@ export async function executeWorkflow(
       };
     }
 
-    console.log(`\n✅ Workflow execution completed successfully\n`);
+    log.info('Workflow execution completed successfully');
     return { success: true, output: finalOutput, logs };
     
   } catch (error: any) {
-    console.error(`\n❌ Workflow execution failed: ${error.message}\n`);
+    log.error(`Workflow execution failed: ${error.message}`);
     return { success: false, error: error.message, logs };
   }
 }
@@ -778,7 +792,7 @@ async function executeGmail(config: AppConfig, input: any, useRealBackend: boole
         const subject = resolve(gmail.subject, input.subject || 'Draft Email');
         const body = resolve(gmail.body, input.body || input.message || input.response || '');
         
-        console.log(`[Gmail] Created draft for: ${to}`);
+        log.info(`[Gmail] Created draft for: ${to}`);
         return {
           success: true,
           action: 'draft',
@@ -803,7 +817,7 @@ async function executeGmail(config: AppConfig, input: any, useRealBackend: boole
         // For MVP, we simulate these as successful operations
         const messageId = input.messageId || input.id || gmail.messageId;
         const labels = gmail.labels || input.labels || [];
-        console.log(`[Gmail] ${gmail.action} operation on message: ${messageId}`);
+        log.info(`[Gmail] ${gmail.action} operation on message: ${messageId}`);
         return {
           success: true,
           action: gmail.action,
@@ -815,14 +829,14 @@ async function executeGmail(config: AppConfig, input: any, useRealBackend: boole
       }
       
       default:
-        console.warn(`[Gmail] Unsupported action "${gmail.action}" — falling back to simulation`);
+        log.warn(`[Gmail] Unsupported action "${gmail.action}" — falling back to simulation`);
     }
   }
   
   // ── SIMULATED EXECUTION (Demo mode) ──
   switch (gmail.action) {
     case 'send':
-      console.log(`[Gmail SIMULATED] Sending email to: ${gmail.to}`);
+      log.debug(`[Gmail SIMULATED] Sending email to: ${gmail.to}`);
       return {
         success: true,
         action: 'send',
@@ -834,7 +848,7 @@ async function executeGmail(config: AppConfig, input: any, useRealBackend: boole
       };
       
     case 'read':
-      console.log(`[Gmail SIMULATED] Reading emails`);
+      log.debug('[Gmail SIMULATED] Reading emails');
       return {
         success: true,
         action: 'read',
@@ -859,7 +873,7 @@ async function executeGmail(config: AppConfig, input: any, useRealBackend: boole
       };
     
     case 'draft':
-      console.log(`[Gmail SIMULATED] Creating draft for: ${gmail.to}`);
+      log.debug(`[Gmail SIMULATED] Creating draft for: ${gmail.to}`);
       return {
         success: true,
         action: 'draft',
@@ -899,7 +913,7 @@ async function executeSlack(config: AppConfig, input: any, useRealBackend: boole
   }
 
   // ── SIMULATED EXECUTION ──
-  console.log(`[Slack SIMULATED] Sending to #${slack.channel}: ${slack.message}`);
+  log.debug(`[Slack SIMULATED] Sending to #${slack.channel}: ${slack.message}`);
   return {
     success: true,
     action: slack.action,
@@ -979,15 +993,15 @@ async function executeNotion(config: AppConfig, input: any, useRealBackend: bool
           break;
         }
         default:
-          console.warn(`[Notion] Unsupported action "${notion.action}" — falling back to simulation`);
+          log.warn(`[Notion] Unsupported action "${notion.action}" — falling back to simulation`);
       }
     } catch (err: any) {
-      console.warn(`[Notion] Backend error: ${err.message} — falling back to simulation`);
+      log.warn(`[Notion] Backend error: ${err.message} — falling back to simulation`);
     }
   }
   
   // ── SIMULATED EXECUTION (Demo mode) ──
-  console.log(`[Notion SIMULATED] ${notion.action} on ${notion.databaseId || 'default'}`);
+  log.debug(`[Notion SIMULATED] ${notion.action} on ${notion.databaseId || 'default'}`);
   return {
     success: true,
     action: notion.action,
@@ -1029,7 +1043,7 @@ function resolveTemplateExpressions(value: string, context: ExecutionContext, in
       const envVar = trimmedExpr.substring(5);
       const envValue = import.meta.env[`VITE_${envVar}`] || import.meta.env[envVar] || '';
       if (envValue) return envValue;
-      console.warn(`[Template] Environment variable ${envVar} not found`);
+      log.warn(`[Template] Environment variable ${envVar} not found`);
       return match;
     }
     
@@ -1099,7 +1113,7 @@ async function executeHttp(config: AppConfig, input: any, useRealBackend: boolea
 
   // Check for unresolved n8n template expressions in the URL
   if (!http.url || hasTemplateExpression(http.url)) {
-    console.log(`[HTTP] URL contains unresolved template expression: "${http.url}" — simulating`);
+    log.debug(`[HTTP] URL contains unresolved template expression: "${http.url}" — simulating`);
     return {
       success: true,
       status: 200,
@@ -1114,7 +1128,7 @@ async function executeHttp(config: AppConfig, input: any, useRealBackend: boolea
 
   // Validate URL format
   if (!isValidUrl(http.url)) {
-    console.log(`[HTTP] Invalid URL: "${http.url}" — simulating`);
+    log.debug(`[HTTP] Invalid URL: "${http.url}" — simulating`);
     return {
       success: true,
       status: 200,
@@ -1193,12 +1207,12 @@ async function executeAI(
         ...result,
       };
     }
-    console.warn('[AI] Backend processing failed — falling back to simulation');
+    log.warn('[AI] Backend processing failed — falling back to simulation');
   }
   
   // ── SIMULATED EXECUTION ──
-  console.log(`[AI SIMULATED] Processing with model: ${config.model || 'gpt-4'}`);
-  console.log(`[AI SIMULATED] Prompt: ${config.prompt}`);
+  log.debug(`[AI SIMULATED] Processing with model: ${config.model || 'gpt-4'}`);
+  log.debug(`[AI SIMULATED] Prompt: ${config.prompt}`);
   
   const simulatedResponse = generateSimulatedAIResponse(config, input);
   
@@ -1298,7 +1312,7 @@ async function executeAction(
     return executeHttp({ appType: 'http', http: config } as AppConfig, input, useRealBackend);
   }
 
-  console.log(`[Action] Executing: ${config.actionType || 'generic'}`);
+  log.debug(`[Action] Executing: ${config.actionType || 'generic'}`);
   return {
     success: true,
     action: config.actionType || 'generic',
@@ -1493,7 +1507,7 @@ async function executeGenericN8nNode(
   const n8nParams = config?.n8nParameters || {};
   const genericApp = config?.genericAppName || '';
   
-  console.log(`[n8n Node] Executing: ${node.label} (${n8nType})`);
+  log.debug(`[n8n Node] Executing: ${node.label} (${n8nType})`);
   
   // If this is a generic app node with HTTP config, try to execute via HTTP
   // But only if the URL doesn't contain template expressions
@@ -1503,10 +1517,10 @@ async function executeGenericN8nNode(
       try {
         return await executeHttp({ appType: 'http', http: config.http } as AppConfig, input, useRealBackend);
       } catch (err) {
-        console.warn(`[n8n Node] HTTP execution failed for ${genericApp}, using simulation`);
+        log.warn(`[n8n Node] HTTP execution failed for ${genericApp}, using simulation`);
       }
     } else if (httpUrl && hasTemplateExpression(httpUrl)) {
-      console.log(`[n8n Node] Skipping HTTP for ${genericApp} — URL has template expressions`);
+      log.debug(`[n8n Node] Skipping HTTP for ${genericApp} — URL has template expressions`);
     }
   }
   
@@ -1722,13 +1736,53 @@ async function executeKnowledge(
   input: any
 ): Promise<any> {
   const config = node.config as any;
-  console.log(`[Knowledge] Accessing: ${config.knowledgeBaseId || 'default'}`);
+  const query = config.query || input?.query || '';
+  const kbId = config.knowledgeBaseId;
+  
+  log.debug(`[Knowledge] Querying: "${query}" in ${kbId || 'all'}`);
+  
+  let entries: any[] = [];
+  try {
+    const keys = Object.keys(localStorage);
+    for (const key of keys) {
+      if (key.startsWith('crewos-knowledge-base-')) {
+        const stored = JSON.parse(localStorage.getItem(key) || '[]');
+        entries.push(...stored);
+      }
+    }
+  } catch { /* not in browser */ }
+  
+  if (!query) {
+    return {
+      success: true,
+      knowledgeBase: kbId || 'default',
+      action: config.action || 'query',
+      results: entries.map((e: any) => ({ id: e.id, name: e.name, snippet: e.content?.slice(0, 200) })),
+      timestamp: new Date().toISOString()
+    };
+  }
+  
+  const q = query.toLowerCase();
+  const matched = entries.filter((e: any) => {
+    if (kbId && e.id !== kbId) return false;
+    return e.content?.toLowerCase().includes(q) || e.name?.toLowerCase().includes(q);
+  });
   
   return {
     success: true,
-    knowledgeBase: config.knowledgeBaseId || 'default',
+    knowledgeBase: kbId || 'default',
     action: config.action || 'query',
-    results: [],
+    query,
+    results: matched.map((e: any) => {
+      const idx = e.content?.toLowerCase().indexOf(q) ?? -1;
+      const start = Math.max(0, idx - 100);
+      const end = Math.min(e.content?.length || 0, idx + query.length + 100);
+      return {
+        id: e.id,
+        name: e.name,
+        snippet: idx >= 0 ? e.content.slice(start, end) : e.content?.slice(0, 200),
+      };
+    }),
     timestamp: new Date().toISOString()
   };
 }
@@ -1744,7 +1798,7 @@ async function executeMemory(
   const scope = config.scope || 'agent';
   const agentId = context.agentId;
 
-  console.log(`[Memory] ${config.action} — scope: ${scope}, key: ${config.key || '(search)'}`);
+  log.debug(`[Memory] ${config.action} — scope: ${scope}, key: ${config.key || '(search)'}`);
 
   switch (config.action) {
     case 'write': {
@@ -1828,7 +1882,7 @@ async function executeAgentCall(
     return { success: false, error: 'Agent cannot call itself (infinite recursion prevented).' };
   }
 
-  console.log(`[AgentCall] Calling agent "${targetName}" (${targetId}) — wait: ${config.waitForResult}`);
+  log.info(`[AgentCall] Calling agent "${targetName}" (${targetId}) — wait: ${config.waitForResult}`);
 
   // Build input for the target agent
   let callInput = config.passInput ? input : {};
@@ -1852,9 +1906,9 @@ async function executeAgentCall(
   );
 
   if (result.success) {
-    console.log(`[AgentCall] Agent "${targetName}" completed successfully`);
+    log.info(`[AgentCall] Agent "${targetName}" completed successfully`);
   } else {
-    console.warn(`[AgentCall] Agent "${targetName}" failed: ${result.error}`);
+    log.warn(`[AgentCall] Agent "${targetName}" failed: ${result.error}`);
   }
 
   return {
@@ -1881,7 +1935,7 @@ async function executeVisionTask(
   const appName = config.appName || config.app;
   const isDesktop = node.type === 'desktop_task' || !!appName;
 
-  console.log(`[Vision] ${isDesktop ? 'Desktop' : 'Browser'}: ${task}`);
+  log.debug(`[Vision] ${isDesktop ? 'Desktop' : 'Browser'}: ${task}`);
 
   if (useRealBackend) {
     try {
@@ -1901,9 +1955,9 @@ async function executeVisionTask(
           _executionMode: 'vision_agent',
         };
       }
-      console.warn('[Vision] Backend returned failure:', data.error);
+      log.warn('[Vision] Backend returned failure:', data.error);
     } catch (err: any) {
-      console.warn(`[Vision] Backend error: ${err.message}`);
+      log.warn(`[Vision] Backend error: ${err.message}`);
     }
   }
 
@@ -1933,7 +1987,7 @@ async function executeBrowserTask(
   const config = node.config as BrowserTaskConfig;
   const sessionId = context.agentId;
 
-  console.log(`[Browser] ${config.action}: ${config.description}`);
+  log.debug(`[Browser] ${config.action}: ${config.description}`);
 
   // ── REAL BACKEND (Puppeteer) ──
   if (useRealBackend) {
@@ -1957,9 +2011,9 @@ async function executeBrowserTask(
           _executionMode: 'puppeteer',
         };
       }
-      console.warn('[Browser] Backend action returned null — falling back to simulation');
+      log.warn('[Browser] Backend action returned null — falling back to simulation');
     } catch (err: any) {
-      console.warn(`[Browser] Backend error: ${err.message} — falling back to simulation`);
+      log.warn(`[Browser] Backend error: ${err.message} — falling back to simulation`);
     }
   }
 
@@ -2074,7 +2128,7 @@ async function executeSupervisorReview(
 ): Promise<any> {
   const config = node.config as SupervisorReviewConfig;
   
-  console.log(`[Supervisor] Reviewing output from previous node...`);
+  log.debug('[Supervisor] Reviewing output from previous node...');
   
   // Get the output that needs to be reviewed
   const outputToReview = input;
@@ -2144,7 +2198,7 @@ async function executeSupervisorReview(
         throw new Error(`Review rejected: ${reviewResult.output?.feedback || 'Unknown reason'}`);
       }
     } catch (err: any) {
-      console.warn(`[Supervisor] Review error: ${err.message}`);
+      log.warn(`[Supervisor] Review error: ${err.message}`);
     }
   }
   
@@ -2179,7 +2233,7 @@ async function executeQualityGate(
 ): Promise<any> {
   const config = node.config as QualityGateConfig;
   
-  console.log(`[Quality Gate] Validating ${config.validationRules.length} rules...`);
+  log.debug(`[Quality Gate] Validating ${config.validationRules.length} rules...`);
   
   const results: { rule: string; passed: boolean; error?: string }[] = [];
   
@@ -2271,7 +2325,7 @@ async function executeEscalate(
 ): Promise<any> {
   const config = node.config as EscalateConfig;
   
-  console.log(`[Escalate] Escalating to ${config.target} with priority ${config.priority}`);
+  log.info(`[Escalate] Escalating to ${config.target} with priority ${config.priority}`);
   
   const escalation = {
     id: `esc-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
@@ -2318,7 +2372,7 @@ async function executeEscalate(
         };
       }
     } catch (err: any) {
-      console.warn(`[Escalate] Failed to delegate: ${err.message}`);
+      log.warn(`[Escalate] Failed to delegate: ${err.message}`);
     }
   }
   
@@ -2364,7 +2418,7 @@ async function executeCrewTask(
 ): Promise<any> {
   const config = node.config as CrewTaskConfig;
   
-  console.log(`[Crew Task] Delegating to crew ${config.crewId}: ${config.goal}`);
+  log.info(`[Crew Task] Delegating to crew ${config.crewId}: ${config.goal}`);
   
   // Map input if configured
   let taskInput = input;

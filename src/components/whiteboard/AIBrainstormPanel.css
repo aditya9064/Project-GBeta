@@ -31,7 +31,7 @@
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(236, 72, 153, 0.08));
+  background: linear-gradient(135deg, rgba(224, 122, 58, 0.08), rgba(212, 107, 44, 0.06));
 }
 
 .ai-panel-title {
@@ -49,7 +49,7 @@
   align-items: center;
   justify-content: center;
   color: white;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(224, 122, 58, 0.3);
 }
 
 .title-text h3 {
@@ -176,7 +176,7 @@
 }
 
 .role-icon.all-experts {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(236, 72, 153, 0.15));
+  background: linear-gradient(135deg, rgba(224, 122, 58, 0.15), rgba(212, 107, 44, 0.1));
   color: #e07a3a;
 }
 
@@ -243,7 +243,7 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(236, 72, 153, 0.15));
+  background: linear-gradient(135deg, rgba(224, 122, 58, 0.12), rgba(212, 107, 44, 0.08));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -423,7 +423,7 @@
 
 .add-all-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(224, 122, 58, 0.3);
 }
 
 .add-all-btn:disabled {
@@ -604,7 +604,7 @@
 
 .input-wrapper:focus-within {
   border-color: #e07a3a;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.15);
 }
 
 .input-wrapper textarea {
@@ -642,7 +642,7 @@
 
 .send-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 4px 12px rgba(224, 122, 58, 0.4);
 }
 
 .send-btn:disabled {

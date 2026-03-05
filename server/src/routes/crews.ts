@@ -18,8 +18,6 @@ import { logger } from '../services/logger.js';
 
 const router = Router();
 
-const DEFAULT_USER = 'demo-user-123';
-
 /* ─── POST /api/crews — Create a new crew ─────────────────── */
 
 router.post('/', async (req: Request, res: Response) => {
@@ -34,7 +32,7 @@ router.post('/', async (req: Request, res: Response) => {
     const crew = await CrewStore.create({
       name,
       description: description || '',
-      ownerId: userId || DEFAULT_USER,
+      ownerId: userId || req.userId || '',
       members: members || [],
       settings,
     });
@@ -58,7 +56,7 @@ router.post('/', async (req: Request, res: Response) => {
 
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const userId = String(req.query.userId || DEFAULT_USER);
+    const userId = req.userId || '';
     const crews = await CrewStore.getByUser(userId);
 
     res.json({

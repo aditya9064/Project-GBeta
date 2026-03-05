@@ -3,8 +3,9 @@ import { ExecutionEngine } from './executionEngine';
 import type { DeployedAgent } from './types';
 import type { ExecutionLog } from './executionEngine';
 
-const POLL_INTERVAL_MS = 60_000; // Check every 60 seconds
-const DEMO_USER_ID = 'demo-user-123';
+import { auth } from '../../lib/firebase';
+
+const POLL_INTERVAL_MS = 60_000;
 
 interface SchedulerState {
   intervalId: ReturnType<typeof setInterval> | null;
@@ -115,7 +116,7 @@ async function pollForNewEmails(): Promise<void> {
         try {
           const execResult = await ExecutionEngine.executeWorkflow(
             agent.id,
-            DEMO_USER_ID,
+            auth.currentUser?.uid || '',
             agent.workflow,
             'event',
             {

@@ -7,6 +7,8 @@
 import { Router, Request, Response } from 'express';
 import { WebhookService } from '../services/webhookService.js';
 import { logger } from '../services/logger.js';
+import { validate } from '../middleware/validate.js';
+import { webhookCreateSchema, webhookUpdateSchema } from '../middleware/schemas.js';
 
 export const webhooksRouter = Router();
 
@@ -74,7 +76,7 @@ webhooksRouter.get('/:id', async (req: Request, res: Response) => {
  * POST /api/webhooks
  * Create a webhook
  */
-webhooksRouter.post('/', async (req: Request, res: Response) => {
+webhooksRouter.post('/', validate(webhookCreateSchema), async (req: Request, res: Response) => {
   try {
     const {
       name,
@@ -93,22 +95,6 @@ webhooksRouter.post('/', async (req: Request, res: Response) => {
       createdBy,
       teamId,
     } = req.body;
-
-    if (!name || !direction || !events || !createdBy) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing required fields: name, direction, events, createdBy',
-      });
-      return;
-    }
-
-    if (direction === 'outbound' && !url) {
-      res.status(400).json({
-        success: false,
-        error: 'Outbound webhooks require a URL',
-      });
-      return;
-    }
 
     const webhook = await WebhookService.create({
       name,
@@ -143,7 +129,7 @@ webhooksRouter.post('/', async (req: Request, res: Response) => {
  * PUT /api/webhooks/:id
  * Update a webhook
  */
-webhooksRouter.put('/:id', async (req: Request, res: Response) => {
+webhooksRouter.put('/:id', validate(webhookUpdateSchema), async (req: Request, res: Response) => {
   try {
     const webhook = await WebhookService.update(req.params.id as string, req.body);
 

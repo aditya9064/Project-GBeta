@@ -9,6 +9,9 @@
    returning simulated results for demo mode.
    ═══════════════════════════════════════════════════════════ */
 
+import { log } from '../../utils/logger';
+import { getAuthHeaders } from '../../lib/firebase';
+
 const API_BASE = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
 /* ─── Types ───────────────────────────────────────────── */
@@ -79,9 +82,10 @@ async function autoFetch<T>(
   options?: RequestInit
 ): Promise<{ success: boolean; data?: T; error?: string }> {
   try {
+    const authHeaders = await getAuthHeaders();
     const res = await fetch(`${API_BASE}${endpoint}`, {
-      headers: { 'Content-Type': 'application/json' },
       ...options,
+      headers: { ...authHeaders, ...(options?.headers as Record<string, string>) },
     });
     const json = await res.json();
     return json;
@@ -126,7 +130,7 @@ export const AutomationGmailAPI = {
       body: JSON.stringify({ to, subject, body }),
     });
     if (result.success && result.data) return result.data;
-    console.error('[AutomationAPI] Gmail send failed:', result.error);
+    log.error('[AutomationAPI] Gmail send failed:', result.error);
     return null;
   },
 
@@ -137,7 +141,7 @@ export const AutomationGmailAPI = {
       body: JSON.stringify({ messageId, body }),
     });
     if (result.success) return { success: true };
-    console.error('[AutomationAPI] Gmail reply failed:', result.error);
+    log.error('[AutomationAPI] Gmail reply failed:', result.error);
     return null;
   },
 
@@ -145,7 +149,7 @@ export const AutomationGmailAPI = {
   async read(maxResults = 10): Promise<GmailReadResult | null> {
     const result = await autoFetch<GmailReadResult>(`/automation/gmail/read?maxResults=${maxResults}`);
     if (result.success && result.data) return result.data;
-    console.error('[AutomationAPI] Gmail read failed:', result.error);
+    log.error('[AutomationAPI] Gmail read failed:', result.error);
     return null;
   },
 };
@@ -160,7 +164,7 @@ export const AutomationSlackAPI = {
       body: JSON.stringify({ channel, message, threadTs }),
     });
     if (result.success && result.data) return result.data;
-    console.error('[AutomationAPI] Slack send failed:', result.error);
+    log.error('[AutomationAPI] Slack send failed:', result.error);
     return null;
   },
 };
@@ -191,7 +195,7 @@ export const AutomationAIAPI = {
       }),
     });
     if (result.success && result.data) return result.data;
-    console.error('[AutomationAPI] AI process failed:', result.error);
+    log.error('[AutomationAPI] AI process failed:', result.error);
     return null;
   },
 };
@@ -211,7 +215,7 @@ export const AutomationHttpAPI = {
       body: JSON.stringify({ url, method, headers, body }),
     });
     if (result.success && result.data) return result.data;
-    console.error('[AutomationAPI] HTTP request failed:', result.error);
+    log.error('[AutomationAPI] HTTP request failed:', result.error);
     return null;
   },
 };
@@ -245,7 +249,7 @@ export const AutomationNotionAPI = {
       body: JSON.stringify({ databaseId, properties, content }),
     });
     if (result.success && result.data) return result.data;
-    console.error('[AutomationAPI] Notion createPage failed:', result.error);
+    log.error('[AutomationAPI] Notion createPage failed:', result.error);
     return null;
   },
 
@@ -259,7 +263,7 @@ export const AutomationNotionAPI = {
       body: JSON.stringify({ properties }),
     });
     if (result.success && result.data) return result.data;
-    console.error('[AutomationAPI] Notion updatePage failed:', result.error);
+    log.error('[AutomationAPI] Notion updatePage failed:', result.error);
     return null;
   },
 
@@ -267,7 +271,7 @@ export const AutomationNotionAPI = {
   async getPage(pageId: string): Promise<NotionPageResult | null> {
     const result = await autoFetch<NotionPageResult>(`/automation/notion/pages/${pageId}`);
     if (result.success && result.data) return result.data;
-    console.error('[AutomationAPI] Notion getPage failed:', result.error);
+    log.error('[AutomationAPI] Notion getPage failed:', result.error);
     return null;
   },
 
@@ -282,7 +286,7 @@ export const AutomationNotionAPI = {
       body: JSON.stringify({ databaseId, filter, sorts }),
     });
     if (result.success && result.data) return result.data;
-    console.error('[AutomationAPI] Notion queryDatabase failed:', result.error);
+    log.error('[AutomationAPI] Notion queryDatabase failed:', result.error);
     return null;
   },
 
@@ -296,7 +300,7 @@ export const AutomationNotionAPI = {
       body: JSON.stringify({ children: blocks }),
     });
     if (result.success && result.data) return { success: true, blockIds: result.data.blockIds };
-    console.error('[AutomationAPI] Notion appendBlocks failed:', result.error);
+    log.error('[AutomationAPI] Notion appendBlocks failed:', result.error);
     return null;
   },
 };
@@ -325,7 +329,7 @@ export const AutomationBrowserAPI = {
       body: JSON.stringify({ sessionId, ...opts }),
     });
     if (result.success && result.data) return result.data;
-    console.error('[AutomationAPI] Browser session create failed:', result.error);
+    log.error('[AutomationAPI] Browser session create failed:', result.error);
     return null;
   },
 
@@ -346,7 +350,7 @@ export const AutomationBrowserAPI = {
       body: JSON.stringify({ sessionId, action, ...params }),
     });
     if (result.success && result.data) return result.data;
-    console.error(`[AutomationAPI] Browser action "${action}" failed:`, result.error);
+    log.error(`[AutomationAPI] Browser action "${action}" failed:`, result.error);
     return null;
   },
 
