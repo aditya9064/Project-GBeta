@@ -1807,7 +1807,13 @@ export function CrewOSDashboard() {
         {showAutonomousChat && !isDocAI && !isComms && !isSales && !isWorkflow && !isLogs && !isMarketplace && !isSettings && !isTeams && !isDocs && !isKnowledge && (
           <div className="operonai-main" style={{ position: 'absolute', inset: 0, zIndex: 10, background: '#f5f5f9' }}>
             <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}>
-              <AutonomousAgent onClose={() => setShowAutonomousChat(false)} />
+              <AutonomousAgent
+                onClose={() => setShowAutonomousChat(false)}
+                onDeploy={async (prompt: string) => {
+                  await createAgentFromPrompt(prompt);
+                  setShowAutonomousChat(false);
+                }}
+              />
             </Suspense>
           </div>
         )}
@@ -1836,46 +1842,19 @@ export function CrewOSDashboard() {
                 </button>
               </div>
 
-              {/* ─── Create from Prompt Banner ─── */}
+              {/* ─── Unified Create Agent Banner ─── */}
               <div
-                style={{
-                  margin: '0 24px',
-                  padding: '16px 20px',
-                  background: 'linear-gradient(135deg, #e07a3a 0%, #c05d1e 100%)',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '16px',
-                  cursor: 'pointer',
-                  transition: 'transform 0.15s, box-shadow 0.15s',
-                }}
-                onClick={() => { setShowCatalog(false); setShowPromptWizard(true); }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 25px rgba(224, 122, 58, 0.3)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = ''; }}
-              >
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Wand2 size={20} color="#fff" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#fff', marginBottom: '2px' }}>Create Agent from Prompt</div>
-                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>Describe what you want in plain English — AI builds and deploys it for you</div>
-                </div>
-                <ChevronRight size={20} color="rgba(255,255,255,0.6)" />
-              </div>
-
-              {/* ─── Custom Autonomous Agent Banner ─── */}
-              <div
-                className="oc-custom-agent-banner"
+                className="oc-create-banner"
                 onClick={() => { setShowCatalog(false); setShowAutonomousChat(true); }}
               >
-                <div className="oc-custom-agent-icon">
-                  <Sparkles size={20} color="#e07a3a" />
+                <div className="oc-create-banner-icon">
+                  <Sparkles size={22} color="#fff" />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div className="oc-custom-agent-title">Custom Agent</div>
-                  <div className="oc-custom-agent-desc">Chat with an autonomous AI agent — it uses tools, APIs, and reasoning to accomplish any goal</div>
+                  <div className="oc-create-banner-title">Create Custom Agent</div>
+                  <div className="oc-create-banner-desc">Describe any goal — the AI will execute it now or deploy it as a reusable agent</div>
                 </div>
-                <ChevronRight size={20} color="#8a8aa0" />
+                <ChevronRight size={20} color="rgba(255,255,255,0.6)" />
               </div>
 
               {/* ─── Search Bar + Filters ─── */}

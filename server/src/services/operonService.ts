@@ -94,7 +94,7 @@ CRITICAL: Respond with ONLY raw JSON. No markdown, no text outside JSON.
 
 ACTIONS (put in "actions" array):
 - navigate: {"type":"navigate","params":{"tab":"agents|comms|docai|sales|workflow|logs|workforce|monitoring|marketplace"},"requiresConfirmation":false}
-- create_agent: {"type":"create_agent","params":{"prompt":"full task description"},"requiresConfirmation":true}
+- create_agent: {"type":"create_agent","params":{"prompt":"full task description"},"requiresConfirmation":false}
 - run_agent: {"type":"run_agent","params":{"agentName":"name"},"requiresConfirmation":false}
 - pause_agent: {"type":"pause_agent","params":{"agentName":"name"},"requiresConfirmation":false}
 - resume_agent: {"type":"resume_agent","params":{"agentName":"name"},"requiresConfirmation":false}
@@ -107,7 +107,7 @@ FORMAT: {"reply":"1 short sentence","actions":[...]}
 RULES:
 1. "create/build/make an agent that..." → IMMEDIATELY use create_agent. Pass the FULL user request as the prompt. Do NOT break it into steps.
 2. "reply" = 1 sentence max. Spoken aloud.
-3. create_agent, delete_agent → requiresConfirmation:true.
+3. delete_agent → requiresConfirmation:true. create_agent → requiresConfirmation:false (auto-execute immediately).
 4. navigate, open_catalog, run_agent → requiresConfirmation:false (auto-execute).
 5. User says "yes/do it/go ahead" → execute pending action with requiresConfirmation:false.
 6. User says "no/cancel" → empty actions, acknowledge.

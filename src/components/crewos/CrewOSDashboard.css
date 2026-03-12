@@ -5072,45 +5072,43 @@ button.operonai-empty-cta:hover {
   color: #5a5a72;
 }
 
-/* ─── Custom Agent Banner (inside catalog modal) ─────── */
+/* ─── Unified Create Agent Banner (inside catalog modal) ── */
 
-.oc-custom-agent-banner {
-  margin: 10px 24px 0;
-  padding: 14px 20px;
-  background: #ffffff;
-  border: 1.5px solid #e8e8f0;
+.oc-create-banner {
+  margin: 0 24px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #e07a3a 0%, #c05d1e 100%);
   border-radius: 12px;
   display: flex;
   align-items: center;
   gap: 16px;
   cursor: pointer;
-  transition: border-color 150ms, box-shadow 150ms, transform 150ms;
+  transition: transform 150ms, box-shadow 150ms;
 }
-.oc-custom-agent-banner:hover {
-  border-color: #e07a3a;
-  box-shadow: 0 4px 16px rgba(224, 122, 58, 0.1);
+.oc-create-banner:hover {
   transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(224, 122, 58, 0.3);
 }
 
-.oc-custom-agent-icon {
+.oc-create-banner-icon {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: rgba(224, 122, 58, 0.1);
+  background: rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.oc-custom-agent-title {
+.oc-create-banner-title {
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: #fff;
   margin-bottom: 2px;
 }
 
-.oc-custom-agent-desc {
+.oc-create-banner-desc {
   font-size: 13px;
-  color: #5a5a72;
+  color: rgba(255, 255, 255, 0.8);
 }

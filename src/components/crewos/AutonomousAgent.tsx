@@ -17,6 +17,7 @@ import {
   RotateCcw,
   User,
   ArrowLeft,
+  Rocket,
 } from 'lucide-react';
 import { useAutonomousAgent, type ExecutionStep, type ChatMessage } from '../../hooks/useAutonomousAgent';
 import './AutonomousAgent.css';
@@ -28,9 +29,16 @@ const SUGGESTIONS = [
   'Analyze my recent Slack messages and list action items',
 ];
 
-export function AutonomousAgent({ onClose }: { onClose?: () => void } = {}) {
+interface AutonomousAgentProps {
+  onClose?: () => void;
+  onDeploy?: (prompt: string) => Promise<void>;
+}
+
+export function AutonomousAgent({ onClose, onDeploy }: AutonomousAgentProps = {}) {
   const agent = useAutonomousAgent();
   const [input, setInput] = useState('');
+  const [deploying, setDeploying] = useState(false);
+  const [deployed, setDeployed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -63,6 +71,27 @@ export function AutonomousAgent({ onClose }: { onClose?: () => void } = {}) {
   const handleSuggestion = useCallback((suggestion: string) => {
     agent.sendGoal(suggestion);
   }, [agent]);
+
+  const handleDeploy = useCallback(async () => {
+    if (!onDeploy) return;
+    const userGoal = agent.messages.find(m => m.role === 'user')?.content;
+    if (!userGoal) return;
+
+    setDeploying(true);
+    try {
+      await onDeploy(userGoal);
+      setDeployed(true);
+    } catch {
+      // handled by parent
+    } finally {
+      setDeploying(false);
+    }
+  }, [onDeploy, agent.messages]);
+
+  const canDeploy = onDeploy
+    && (agent.status === 'completed' || agent.status === 'failed' || agent.status === 'cancelled')
+    && agent.messages.some(m => m.role === 'user')
+    && !deployed;
 
   const isInputDisabled = agent.status === 'running' || agent.status === 'awaiting_approval';
   const showCancel = agent.status === 'running' || agent.status === 'awaiting_approval' || agent.status === 'awaiting_user';
@@ -106,8 +135,18 @@ export function AutonomousAgent({ onClose }: { onClose?: () => void } = {}) {
             <span className="aa-status-dot" />
             {statusLabel[agent.status] || agent.status}
           </span>
+          {canDeploy && (
+            <button className="aa-deploy-btn" onClick={handleDeploy} disabled={deploying}>
+              <Rocket size={14} /> {deploying ? 'Deploying...' : 'Deploy as Agent'}
+            </button>
+          )}
+          {deployed && (
+            <span className="aa-deployed-badge">
+              <CheckCircle2 size={14} /> Deployed
+            </span>
+          )}
           {agent.messages.length > 0 && (
-            <button className="aa-reset-btn" onClick={agent.reset}>
+            <button className="aa-reset-btn" onClick={() => { agent.reset(); setDeployed(false); }}>
               <RotateCcw size={14} /> New
             </button>
           )}
@@ -121,9 +160,9 @@ export function AutonomousAgent({ onClose }: { onClose?: () => void } = {}) {
             <div className="aa-empty-icon">
               <Sparkles size={28} />
             </div>
-            <h3>Autonomous Agent</h3>
+            <h3>Create Custom Agent</h3>
             <p>
-              Describe any goal and I'll autonomously use tools — Gmail, Slack, browser, APIs, code execution — to accomplish it. I'll ask for approval before taking high-risk actions.
+              Describe any goal — I'll execute it right away using Gmail, Slack, browser, APIs, and more. When it works, hit <strong>Deploy as Agent</strong> to save it as a reusable automation.
             </p>
             <div className="aa-suggestions">
               {SUGGESTIONS.map((s, i) => (

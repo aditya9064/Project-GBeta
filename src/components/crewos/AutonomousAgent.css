@@ -92,6 +92,38 @@
   gap: 0.25rem;
 }
 
+.aa-deploy-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 8px;
+  background: #e07a3a;
+  color: #ffffff;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms;
+  border: none;
+}
+.aa-deploy-btn:hover { background: #cf6a2c; }
+.aa-deploy-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.aa-deployed-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
 .aa-reset-btn {
   display: flex;
   align-items: center;

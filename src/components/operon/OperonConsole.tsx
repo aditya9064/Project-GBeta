@@ -169,9 +169,10 @@ export function OperonConsole({ userId, callbacks }: OperonConsoleProps) {
       return;
     }
 
-    // Auto-execute safe actions
+    // Auto-execute safe actions (create_agent is auto-executed without confirmation)
     const autoActions = actions.filter(
-      (a: OperonAction) => a.status === 'planned' && ['navigate', 'open_catalog'].includes(a.type)
+      (a: OperonAction) => (a.status === 'planned' || a.status === 'awaiting_confirmation') &&
+        ['navigate', 'open_catalog', 'create_agent', 'run_agent', 'pause_agent', 'resume_agent'].includes(a.type)
     );
     for (const action of autoActions) await executeAction(action);
   }, [executeAction]);
