@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Layers,
@@ -54,15 +54,10 @@ import {
   Cpu,
   Activity,
   Settings,
+  Globe,
   CreditCard,
   ShoppingCart,
-  Copy,
-  Square,
-  BookOpen,
-  Sparkles,
-  XCircle,
 } from 'lucide-react';
-import { exportToCsv } from '../../utils/exportCsv';
 import './CrewOSDashboard.css';
 import { DocumentIntelligence } from './DocumentIntelligence';
 import { CommunicationsAgent } from './CommunicationsAgent';
@@ -85,20 +80,6 @@ import {
   type TemplateSearchResult,
 } from '../../services/n8n';
 import { UserInputModal } from './UserInputModal';
-import { OperonConsole, type OperonCallbacks } from '../operon/OperonConsole';
-import { AgentMarketplace } from '../marketplace/AgentMarketplace';
-import { useTheme } from '../../hooks/useTheme';
-import { useOnboarding } from '../../hooks/useOnboarding';
-import { log } from '../../utils/logger';
-import { CommandPalette } from '../ui/CommandPalette';
-import { ShareAgentModal } from '../ui/ShareAgentModal';
-
-const OnboardingFlow = lazy(() => import('./OnboardingFlow').then(m => ({ default: m.OnboardingFlow })));
-const SettingsPage = lazy(() => import('./SettingsPage').then(m => ({ default: m.SettingsPage })));
-const TeamsPage = lazy(() => import('../teams/TeamsPage').then(m => ({ default: m.TeamsPage })));
-const DocsPage = lazy(() => import('../docs/DocsPage').then(m => ({ default: m.DocsPage })));
-const KnowledgeBase = lazy(() => import('./KnowledgeBase').then(m => ({ default: m.KnowledgeBase })));
-const AutonomousAgent = lazy(() => import('./AutonomousAgent').then(m => ({ default: m.AutonomousAgent })));
 
 /* ─── TYPES ────────────────────────────────────────────────── */
 
@@ -430,6 +411,13 @@ const agentCatalog: CatalogAgent[] = [
   },
 ];
 
+const members = [
+  { name: 'Aditya Miriyala', initial: 'AM', color: '#e07a3a', time: '08:06:28 for this week' },
+  { name: 'Sarah Chen', initial: 'SC', color: '#e07a3a', time: '12:41:07 for this week' },
+  { name: 'Marcus Johnson', initial: 'MJ', color: '#1a1a2e', time: '01:56:22 for this week' },
+  { name: 'Priya Patel', initial: 'PP', color: '#d46b2c', time: '16:35:59 for this week' },
+  { name: 'Alex Rodriguez', initial: 'AR', color: '#3a3a52', time: '' },
+];
 
 /* ─── STATUS HELPERS ───────────────────────────────────────── */
 
@@ -454,13 +442,6 @@ const pathToNav: Record<string, string> = {
   '/sales': 'sales',
   '/workflow': 'workflow',
   '/logs': 'logs',
-  '/marketplace': 'marketplace',
-  '/settings': 'settings',
-  '/teams': 'teams',
-  '/docs': 'docs',
-  '/integrations': 'settings',
-  '/webhooks': 'settings',
-  '/knowledge': 'knowledge',
 };
 
 const navToPath: Record<string, string> = {
@@ -470,18 +451,11 @@ const navToPath: Record<string, string> = {
   sales: '/sales',
   workflow: '/workflow',
   logs: '/logs',
-  marketplace: '/marketplace',
-  settings: '/settings',
-  teams: '/teams',
-  docs: '/docs',
-  knowledge: '/knowledge',
 };
 
 export function CrewOSDashboard() {
   const { signOut } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-  const { showOnboarding, completeOnboarding } = useOnboarding();
-  const { agents: automationAgents, deployNewAgent, loading: agentsLoading, runAgent, cancelAgent, pauseAgent, resumeAgent, deleteAgent: deleteAutomationAgent, backendStatus, lastExecutionLogs, createAgentFromPrompt, cloneAgent, scheduleAgent } = useAgents();
+  const { agents: automationAgents, deployNewAgent, loading: agentsLoading, runAgent, pauseAgent, resumeAgent, deleteAgent: deleteAutomationAgent, backendStatus, lastExecutionLogs } = useAgents();
   const location = useLocation();
   const navigate = useNavigate();
   const [isDeploying, setIsDeploying] = useState(false);
@@ -498,21 +472,16 @@ export function CrewOSDashboard() {
   const [activeTab, setActiveTab] = useState('board');
   const [agents, setAgents] = useState<DeployedAgent[]>([]);
   const [showCatalog, setShowCatalog] = useState(false);
-  const [showAutonomousChat, setShowAutonomousChat] = useState(false);
+  const [calendarDate, setCalendarDate] = useState(new Date());
   const [showPromptWizard, setShowPromptWizard] = useState(false);
   const [expandedCatalog, setExpandedCatalog] = useState<string | null>(null);
   const [deployingVersion, setDeployingVersion] = useState<string | null>(null);
-  const [catalogScheduleModal, setCatalogScheduleModal] = useState<{ catalog: CatalogAgent; version: AgentVersion } | null>(null);
-  const [catalogScheduleFreq, setCatalogScheduleFreq] = useState('manual');
-  const [catalogScheduleTime, setCatalogScheduleTime] = useState('09:00');
-  const [catalogScheduleDay, setCatalogScheduleDay] = useState(1);
   const [selectedAgent, setSelectedAgent] = useState<DeployedAgent | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarVisibleInWorkflow, setSidebarVisibleInWorkflow] = useState(false);
   const [agentPrompt, setAgentPrompt] = useState('');
   const [isCreatingFromPrompt, setIsCreatingFromPrompt] = useState(false);
   const [runningAgentId, setRunningAgentId] = useState<string | null>(null);
-  const [sharingAgentId, setSharingAgentId] = useState<string | null>(null);
   const [executionResult, setExecutionResult] = useState<{
     agentId: string;
     agentName: string;
@@ -562,20 +531,6 @@ export function CrewOSDashboard() {
   const [editWorkflow, setEditWorkflow] = useState<{ nodes: any[]; edges: any[] } | null>(null);
   const [editWorkflowName, setEditWorkflowName] = useState<string | undefined>(undefined);
   const [editWorkflowKey, setEditWorkflowKey] = useState(0);
-
-  // Command palette state
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setCommandPaletteOpen(prev => !prev);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
   
   // Toast notification state for general feedback
   const [toastNotification, setToastNotification] = useState<{
@@ -625,11 +580,6 @@ export function CrewOSDashboard() {
   const isSales = activeNav === 'sales';
   const isWorkflow = activeNav === 'workflow';
   const isLogs = activeNav === 'logs';
-  const isMarketplace = activeNav === 'marketplace';
-  const isSettings = activeNav === 'settings';
-  const isTeams = activeNav === 'teams';
-  const isDocs = activeNav === 'docs';
-  const isKnowledge = activeNav === 'knowledge';
 
   // State for filtering logs by a specific agent
   const [logsAgentId, setLogsAgentId] = useState<string | undefined>(undefined);
@@ -640,40 +590,47 @@ export function CrewOSDashboard() {
   const reviewAgents = agents.filter(a => a.column === 'review');
   const deployedAgents = agents.filter(a => a.column === 'deployed');
 
-  // Check if a catalog agent is already deployed (by matching name from catalog)
-  const isVersionDeployed = useCallback((catalogId: string, _versionId: string) => {
-    const cat = agentCatalog.find(c => c.id === catalogId);
-    if (!cat) return false;
-    return automationAgents.some(a => a.name === cat.name);
-  }, [automationAgents]);
+  // Check if a catalog agent version is already deployed
+  const isVersionDeployed = useCallback((catalogId: string, versionId: string) => {
+    return agents.some(a => a.catalogId === catalogId && a.versionId === versionId);
+  }, [agents]);
 
-  // Deploy a built-in catalog agent via the global agent context
-  const deployAgent = useCallback(async (catalog: CatalogAgent, version: AgentVersion, schedule?: { frequency: string; time?: string; dayOfWeek?: number }) => {
+  // Deploy an agent from the catalog
+  const deployAgent = useCallback((catalog: CatalogAgent, version: AgentVersion) => {
+    const newId = `deployed-${Date.now()}`;
     setDeployingVersion(`${catalog.id}-${version.id}`);
-    try {
-      const iconMap: Record<string, string> = {
-        vision: 'Eye', nlp: 'Brain', code: 'Code',
-        data: 'Database', research: 'Search', workflow: 'GitBranch', docgen: 'FileText',
+
+    // Simulate a short provisioning delay
+    setTimeout(() => {
+      const newAgent: DeployedAgent = {
+        id: newId,
+        catalogId: catalog.id,
+        versionId: version.id,
+        tags: catalog.tags,
+        title: `${catalog.name}`,
+        version: version.version,
+        description: catalog.description,
+        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+        column: 'active',
+        status: 'provisioning',
+        avatars: [{ initial: 'AM', color: '#e07a3a' }],
+        comments: 0,
+        attachments: 0,
+        accuracy: version.accuracy,
+        latency: version.latency,
       };
-      const workflow: WorkflowDefinition = {
-        nodes: [
-          { id: 'trigger-1', type: 'trigger', label: 'Manual Trigger', config: { triggerType: 'manual' }, position: { x: 400, y: 60 } },
-          { id: 'action-1', type: 'ai', label: catalog.name, description: catalog.description, config: { catalogId: catalog.id, version: version.version }, position: { x: 400, y: 200 } },
-        ],
-        edges: [
-          { id: 'e-trigger-action', source: 'trigger-1', target: 'action-1' },
-        ],
-      };
-      const agent = await deployNewAgent(catalog.name, catalog.description, workflow, iconMap[catalog.icon] || 'Zap', '#e07a3a');
-      if (schedule) scheduleAgent(agent.id, schedule);
-      setShowCatalog(false);
-      setCatalogScheduleModal(null);
-    } catch (err) {
-      log.error('Failed to deploy built-in agent:', err);
-    } finally {
+
+      setAgents(prev => [newAgent, ...prev]);
       setDeployingVersion(null);
-    }
-  }, [deployNewAgent, scheduleAgent]);
+
+      // After 2s, change status from provisioning to running
+      setTimeout(() => {
+        setAgents(prev =>
+          prev.map(a => a.id === newId ? { ...a, status: 'running' as DeployStatus, uptime: '100%' } : a)
+        );
+      }, 2000);
+    }, 800);
+  }, []);
 
   /* Card click handler — Communications agents go to the comms page */
   const handleCardClick = useCallback((agent: DeployedAgent) => {
@@ -710,31 +667,26 @@ export function CrewOSDashboard() {
       localStorage.setItem('workflow_drafts', JSON.stringify(drafts));
       showToast('success', `Workflow "${editWorkflowName || 'Draft'}" saved successfully`);
     } catch (error) {
-      log.error('Failed to save workflow draft:', error);
+      console.error('Failed to save workflow draft:', error);
       showToast('error', 'Failed to save workflow draft');
     }
   }, [editWorkflowName, showToast]);
 
   /* Handle deploying from Workflow Builder */
-  const handleWorkflowDeploy = useCallback(async (name: string, description: string, workflow: WorkflowDefinition, schedule?: { frequency: string; time?: string; dayOfWeek?: number }) => {
+  const handleWorkflowDeploy = useCallback(async (name: string, description: string, workflow: WorkflowDefinition) => {
     setIsDeploying(true);
     try {
-      const agent = await deployNewAgent(name, description, workflow, 'Zap', '#e07a3a');
-      if (schedule) {
-        scheduleAgent(agent.id, schedule);
-        const freqLabel: Record<string, string> = { every_minute: 'every minute', hourly: 'every hour', daily: 'daily', weekly: 'weekly' };
-        showToast('success', `Agent "${name}" deployed and scheduled ${freqLabel[schedule.frequency] || schedule.frequency}!`);
-      } else {
-        showToast('success', `Agent "${name}" deployed successfully!`);
-      }
+      await deployNewAgent(name, description, workflow, 'Zap', '#e07a3a');
+      showToast('success', `Agent "${name}" deployed successfully!`);
+      // Navigate back to agents page after successful deploy
       setActiveNav('agents');
     } catch (error: any) {
-      log.error('Deploy error:', error);
+      console.error('Deploy error:', error);
       showToast('error', `Failed to deploy agent: ${error.message || 'Unknown error'}`);
     } finally {
       setIsDeploying(false);
     }
-  }, [deployNewAgent, scheduleAgent, setActiveNav, showToast]);
+  }, [deployNewAgent, setActiveNav, showToast]);
 
   /* Handle prompt submission for creating agents */
   const handlePromptSubmit = useCallback((e: React.FormEvent) => {
@@ -742,7 +694,7 @@ export function CrewOSDashboard() {
     if (!agentPrompt.trim() || isCreatingFromPrompt) return;
 
     setIsCreatingFromPrompt(true);
-    log.info('Creating agent from prompt:', agentPrompt);
+    console.log('Creating agent from prompt:', agentPrompt);
 
     // Navigate to workflow builder with the prompt
     setTimeout(() => {
@@ -761,7 +713,7 @@ export function CrewOSDashboard() {
       showToast('success', `Agent "${plan.title}" deployed successfully!`);
       setShowPromptWizard(false);
     } catch (error: any) {
-      log.error('Wizard deploy error:', error);
+      console.error('Wizard deploy error:', error);
       showToast('error', `Failed to deploy: ${error.message || 'Unknown error'}`);
     } finally {
       setIsDeploying(false);
@@ -781,7 +733,7 @@ export function CrewOSDashboard() {
       showToast('success', `Agent "${name}" deployed successfully!`);
       setShowPromptWizard(false);
     } catch (error: any) {
-      log.error('Wizard deploy error:', error);
+      console.error('Wizard deploy error:', error);
       showToast('error', `Failed to deploy: ${error.message || 'Unknown error'}`);
     } finally {
       setIsDeploying(false);
@@ -846,7 +798,7 @@ export function CrewOSDashboard() {
 
       // Check if execution is paused awaiting user input
       if (result.awaitingInput && result.executionState && result.requiredInputs) {
-        const pausedNode = agent.workflow?.nodes?.find(n => n.id === result.pausedAtNodeId);
+        const pausedNode = agent.workflow.nodes.find(n => n.id === result.pausedAtNodeId);
         setPausedExecution({
           agentId: agent.id,
           agentName: agent.name,
@@ -1019,7 +971,7 @@ export function CrewOSDashboard() {
       setShowCatalog(false);
       setActiveNav('agents');
     } catch (err) {
-      log.error('Failed to launch template:', err);
+      console.error('Failed to launch template:', err);
     } finally {
       setLaunchingTemplateId(null);
     }
@@ -1059,42 +1011,11 @@ export function CrewOSDashboard() {
       setShowCatalog(false);
       setActiveNav('workflow');
     } catch (err) {
-      log.error('Failed to load template for editing:', err);
+      console.error('Failed to load template for editing:', err);
     } finally {
       setLaunchingTemplateId(null);
     }
   }, [setActiveNav]);
-
-  const editAgent = useCallback((agentId: string) => {
-    const agent = automationAgents.find(a => a.id === agentId);
-    if (!agent) return;
-    const rfNodes = (agent.workflow?.nodes ?? []).map((wNode: any, idx: number) => ({
-      id: wNode.id,
-      type: 'custom',
-      position: wNode.position || { x: 400, y: 60 + idx * 140 },
-      data: {
-        label: wNode.label,
-        type: wNode.type,
-        description: wNode.description || '',
-        config: wNode.config || {},
-        appType: wNode.config?.appType,
-      },
-    }));
-    const rfEdges = agent.workflow.edges.map((wEdge: any) => ({
-      id: wEdge.id,
-      source: wEdge.source,
-      target: wEdge.target,
-      sourceHandle: wEdge.sourceHandle,
-      targetHandle: wEdge.targetHandle,
-      type: 'smoothstep',
-      animated: true,
-      style: { stroke: '#e07a3a', strokeWidth: 2 },
-    }));
-    setEditWorkflow({ nodes: rfNodes, edges: rfEdges });
-    setEditWorkflowName(agent.name);
-    setEditWorkflowKey(prev => prev + 1);
-    setActiveNav('workflow');
-  }, [automationAgents, setActiveNav]);
 
   /* Card renderer */
   const renderCard = (agent: DeployedAgent) => {
@@ -1238,23 +1159,6 @@ export function CrewOSDashboard() {
     }
   };
 
-  const operonCallbacks: OperonCallbacks = useMemo(() => ({
-    navigate: (tab: string) => setActiveNav(tab),
-    createAgentFromPrompt,
-    runAgent: (agentId: string) => handleRunAgent(agentId),
-    pauseAgent,
-    resumeAgent,
-    deleteAgent: deleteAutomationAgent,
-    openCatalog: () => setShowCatalog(true),
-    getAgents: () => automationAgents.map(a => ({
-      id: a.id,
-      name: a.name,
-      status: a.status,
-      description: a.description,
-    })),
-    getCurrentTab: () => activeNav,
-  }), [setActiveNav, createAgentFromPrompt, handleRunAgent, pauseAgent, resumeAgent, deleteAutomationAgent, automationAgents, activeNav]);
-
   return (
     <div className={`operonai-app ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${isWorkflow ? 'workflow-active' : ''} ${isWorkflow && sidebarVisibleInWorkflow ? 'sidebar-visible' : ''}`}>
         {/* ──────── SIDEBAR ──────── */}
@@ -1286,68 +1190,83 @@ export function CrewOSDashboard() {
             <span className="operonai-logo-text">OperonAI</span>
           </div>
 
+          {/* Menu */}
           <div className="operonai-sidebar-section">
-            <div className="operonai-sidebar-label">AI</div>
-            <button className={`operonai-nav-item ${activeNav === 'agents' ? 'active' : ''}`} onClick={() => setActiveNav('agents')}>
+            <div className="operonai-sidebar-label">Menu</div>
+
+            <button
+              className={`operonai-nav-item ${activeNav === 'agents' ? 'active' : ''}`}
+              onClick={() => setActiveNav('agents')}
+            >
               <span className="operonai-nav-item-icon"><Bot size={18} /></span>
               <span className="operonai-nav-item-text">Agents</span>
             </button>
-            <button className={`operonai-nav-item ${activeNav === 'workflow' ? 'active' : ''}`} onClick={() => setActiveNav('workflow')}>
-              <span className="operonai-nav-item-icon"><GitBranch size={18} /></span>
-              <span className="operonai-nav-item-text">Automation Builder</span>
-            </button>
-            <button className={`operonai-nav-item ${activeNav === 'marketplace' ? 'active' : ''}`} onClick={() => setActiveNav('marketplace')}>
-              <span className="operonai-nav-item-icon"><ShoppingCart size={18} /></span>
-              <span className="operonai-nav-item-text">Marketplace</span>
-            </button>
-            <button className={`operonai-nav-item ${isKnowledge ? 'active' : ''}`} onClick={() => setActiveNav('knowledge')}>
-              <span className="operonai-nav-item-icon"><BookOpen size={18} /></span>
-              <span className="operonai-nav-item-text">Knowledge Base</span>
-            </button>
-          </div>
 
-          <div className="operonai-sidebar-section">
-            <div className="operonai-sidebar-label">Productivity</div>
-            <button className={`operonai-nav-item ${activeNav === 'comms' ? 'active' : ''}`} onClick={() => setActiveNav('comms')}>
+            <button
+              className={`operonai-nav-item ${activeNav === 'comms' ? 'active' : ''}`}
+              onClick={() => setActiveNav('comms')}
+            >
               <span className="operonai-nav-item-icon"><Mail size={18} /></span>
               <span className="operonai-nav-item-text">Communications</span>
             </button>
-            <button className={`operonai-nav-item ${activeNav === 'docai' ? 'active' : ''}`} onClick={() => setActiveNav('docai')}>
+
+            <button
+              className={`operonai-nav-item ${activeNav === 'docai' ? 'active' : ''}`}
+              onClick={() => setActiveNav('docai')}
+            >
               <span className="operonai-nav-item-icon"><FileText size={18} /></span>
               <span className="operonai-nav-item-text">Document AI</span>
             </button>
-            <button className={`operonai-nav-item ${activeNav === 'sales' ? 'active' : ''}`} onClick={() => setActiveNav('sales')}>
+
+            <button
+              className={`operonai-nav-item ${activeNav === 'sales' ? 'active' : ''}`}
+              onClick={() => setActiveNav('sales')}
+            >
               <span className="operonai-nav-item-icon"><TrendingUp size={18} /></span>
               <span className="operonai-nav-item-text">Sales Intelligence</span>
             </button>
-          </div>
 
-          <div className="operonai-sidebar-section">
-            <div className="operonai-sidebar-label">Team</div>
-            <button className={`operonai-nav-item ${activeNav === 'teams' ? 'active' : ''}`} onClick={() => setActiveNav('teams')}>
-              <span className="operonai-nav-item-icon"><Users size={18} /></span>
-              <span className="operonai-nav-item-text">Teams</span>
+            <button
+              className={`operonai-nav-item ${activeNav === 'workflow' ? 'active' : ''}`}
+              onClick={() => setActiveNav('workflow')}
+            >
+              <span className="operonai-nav-item-icon"><GitBranch size={18} /></span>
+              <span className="operonai-nav-item-text">Automation Builder</span>
             </button>
-            <button className={`operonai-nav-item ${activeNav === 'docs' ? 'active' : ''}`} onClick={() => setActiveNav('docs')}>
-              <span className="operonai-nav-item-icon"><Folder size={18} /></span>
-              <span className="operonai-nav-item-text">Docs</span>
-            </button>
-          </div>
 
-          <div className="operonai-sidebar-section">
-            <div className="operonai-sidebar-label">Admin</div>
-            <button className={`operonai-nav-item ${activeNav === 'logs' ? 'active' : ''}`} onClick={() => { setLogsAgentId(undefined); setActiveNav('logs'); }}>
+            <button
+              className={`operonai-nav-item ${activeNav === 'logs' ? 'active' : ''}`}
+              onClick={() => { setLogsAgentId(undefined); setActiveNav('logs'); }}
+            >
               <span className="operonai-nav-item-icon"><Activity size={18} /></span>
               <span className="operonai-nav-item-text">Execution Logs</span>
             </button>
-            <button className={`operonai-nav-item ${activeNav === 'settings' ? 'active' : ''}`} onClick={() => setActiveNav('settings')}>
-              <span className="operonai-nav-item-icon"><Settings size={18} /></span>
-              <span className="operonai-nav-item-text">Settings</span>
-            </button>
-            <button className="operonai-nav-item operonai-nav-logout" onClick={signOut}>
+
+            <button
+              className="operonai-nav-item operonai-nav-logout"
+              onClick={signOut}
+            >
               <span className="operonai-nav-item-icon"><LogOut size={18} /></span>
               <span className="operonai-nav-item-text">Log Out</span>
             </button>
+          </div>
+
+          {/* Members */}
+          <div className="operonai-sidebar-section">
+            <div className="operonai-sidebar-label">
+              <span>Members</span>
+              <button className="operonai-sidebar-label-action"><Plus size={14} /></button>
+            </div>
+
+            {members.map((m) => (
+              <button className="operonai-member-item" key={m.name}>
+                <div className="operonai-member-avatar" style={{ background: m.color }}>{m.initial}</div>
+                <div className="operonai-member-info">
+                  <span className="operonai-member-name">{m.name}</span>
+                  {m.time && <span className="operonai-member-time">{m.time}</span>}
+                </div>
+              </button>
+            ))}
           </div>
 
           <div className="operonai-sidebar-spacer" />
@@ -1396,17 +1315,8 @@ export function CrewOSDashboard() {
           />
         )}
 
-        {/* Agent Marketplace View */}
-        {isMarketplace && (
-          <AgentMarketplace />
-        )}
-
-        {isSettings && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><SettingsPage /></Suspense>}
-        {isTeams && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><TeamsPage /></Suspense>}
-        {isDocs && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><DocsPage /></Suspense>}
-        {isKnowledge && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><KnowledgeBase /></Suspense>}
         {/* Agent Workforce View (Home) */}
-        {!isDocAI && !isComms && !isSales && !isWorkflow && !isLogs && !isMarketplace && !isSettings && !isTeams && !isDocs && !isKnowledge && (
+        {!isDocAI && !isComms && !isSales && !isWorkflow && !isLogs && (
         <div className="operonai-main">
           {/* Workforce Header */}
           <div className="aw-header">
@@ -1414,7 +1324,10 @@ export function CrewOSDashboard() {
               <h1 className="aw-title">Agent Workforce</h1>
               <p className="aw-subtitle">Manage and monitor your deployed AI agents</p>
             </div>
-            <OperonConsole callbacks={operonCallbacks} />
+            <button className="aw-new-agent-btn" onClick={() => setShowCatalog(true)}>
+              <Plus size={16} />
+              New agent
+            </button>
           </div>
 
           {/* Tabs + Search */}
@@ -1434,32 +1347,20 @@ export function CrewOSDashboard() {
                 <Kanban size={15} />
                 Board
               </button>
+              <button
+                className={`aw-tab ${activeTab === 'calendar' ? 'active' : ''}`}
+                onClick={() => setActiveTab('calendar')}
+              >
+                <Calendar size={15} />
+                Calendar
+              </button>
             </div>
-
-            <button className="aw-new-agent-btn" onClick={() => setShowCatalog(true)}>
-              <Plus size={16} />
-              New agent
-            </button>
 
             <div className="aw-search-area">
               <div className="aw-search-box">
                 <Search size={15} />
                 <input type="text" placeholder="Search agent" />
               </div>
-              <button className="aw-toolbar-icon-btn" title="Export agents" onClick={() => {
-                const headers = ['Name', 'Status', 'Type', 'Created', 'Last Run', 'Run Count'];
-                const rows = automationAgents.map(a => [
-                  a.name,
-                  a.status,
-                  a.workflow?.nodes?.length ? `${a.workflow.nodes.length} nodes` : 'Unknown',
-                  a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '',
-                  a.lastRun ? new Date(a.lastRun).toLocaleDateString() : 'Never',
-                  String(a.runCount || 0),
-                ]);
-                exportToCsv('agents-export.csv', headers, rows);
-              }}>
-                <Download size={16} />
-              </button>
               <button className="aw-toolbar-icon-btn" title="Filter">
                 <SlidersHorizontal size={16} />
               </button>
@@ -1586,83 +1487,182 @@ export function CrewOSDashboard() {
               <span className="aw-agents-count">{automationAgents.length}</span>
             </div>
 
-            {automationAgents.length === 0 ? (
-              <div className="aw-empty-state">
-                <div className="aw-empty-icon"><Bot size={32} /></div>
-                <h3>No agents deployed yet</h3>
-                <p>Create your first agent to get started with automation.</p>
-                <button className="aw-new-agent-btn" onClick={() => setShowCatalog(true)}>
-                  <Plus size={16} /> New agent
-                </button>
+            {/* Calendar View */}
+            {activeTab === 'calendar' ? (
+              <div className="aw-calendar-view">
+                {automationAgents.length === 0 ? (
+                  <div className="aw-empty-state">
+                    <div className="aw-empty-icon"><Bot size={32} /></div>
+                    <h3>No agents deployed yet</h3>
+                    <p>Create your first agent to get started with automation.</p>
+                    <button className="aw-new-agent-btn" onClick={() => setShowCatalog(true)}>
+                      <Plus size={16} /> New agent
+                    </button>
+                  </div>
+                ) : (
+                  <div className="aw-calendar-container">
+                    <div className="aw-calendar-header">
+                      <button 
+                        className="aw-calendar-nav-btn"
+                        onClick={() => {
+                          const newDate = new Date(calendarDate);
+                          newDate.setMonth(newDate.getMonth() - 1);
+                          setCalendarDate(newDate);
+                        }}
+                        title="Previous month"
+                      >
+                        <ChevronLeft size={18} />
+                      </button>
+                      <div className="aw-calendar-header-center">
+                        <h3 className="aw-calendar-month">
+                          {calendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        </h3>
+                        <button 
+                          className="aw-calendar-today-btn"
+                          onClick={() => setCalendarDate(new Date())}
+                        >
+                          Today
+                        </button>
+                      </div>
+                      <button 
+                        className="aw-calendar-nav-btn"
+                        onClick={() => {
+                          const newDate = new Date(calendarDate);
+                          newDate.setMonth(newDate.getMonth() + 1);
+                          setCalendarDate(newDate);
+                        }}
+                        title="Next month"
+                      >
+                        <ChevronRight size={18} />
+                      </button>
+                    </div>
+                    <div className="aw-calendar-grid">
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                        <div key={day} className="aw-calendar-day-header">{day}</div>
+                      ))}
+                      {(() => {
+                        const today = new Date();
+                        const viewMonth = calendarDate.getMonth();
+                        const viewYear = calendarDate.getFullYear();
+                        const firstDay = new Date(viewYear, viewMonth, 1);
+                        const lastDay = new Date(viewYear, viewMonth + 1, 0);
+                        const firstDayOfWeek = firstDay.getDay();
+                        const daysInMonth = lastDay.getDate();
+                        const daysToShow = 42; // 6 weeks
+                        
+                        return Array.from({ length: daysToShow }, (_, i) => {
+                          const dayNum = i - firstDayOfWeek + 1;
+                          const isCurrentMonth = dayNum > 0 && dayNum <= daysInMonth;
+                          const displayDate = isCurrentMonth ? dayNum : (dayNum <= 0 ? 
+                            new Date(viewYear, viewMonth - 1, 0).getDate() + dayNum : 
+                            dayNum - daysInMonth);
+                          
+                          const dayDate = isCurrentMonth ? 
+                            new Date(viewYear, viewMonth, dayNum) :
+                            (dayNum <= 0 ? 
+                              new Date(viewYear, viewMonth - 1, displayDate) :
+                              new Date(viewYear, viewMonth + 1, displayDate));
+                          
+                          const dayAgents = automationAgents.filter(agent => {
+                            if (!agent.lastExecutedAt) return false;
+                            const execDate = new Date(agent.lastExecutedAt);
+                            return execDate.getDate() === dayDate.getDate() && 
+                                   execDate.getMonth() === dayDate.getMonth() && 
+                                   execDate.getFullYear() === dayDate.getFullYear();
+                          });
+                          
+                          const isToday = dayDate.getDate() === today.getDate() && 
+                                         dayDate.getMonth() === today.getMonth() && 
+                                         dayDate.getFullYear() === today.getFullYear();
+                          
+                          return (
+                            <div 
+                              key={i} 
+                              className={`aw-calendar-day ${!isCurrentMonth ? 'other-month' : ''} ${isToday ? 'today' : ''}`}
+                            >
+                              <span className="aw-calendar-day-number">{displayDate}</span>
+                              {dayAgents.length > 0 && (
+                                <div className="aw-calendar-day-agents">
+                                  {dayAgents.slice(0, 3).map(agent => (
+                                    <div 
+                                      key={agent.id} 
+                                      className="aw-calendar-agent-dot"
+                                      style={{ 
+                                        backgroundColor: agent.status === 'running' ? '#16a34a' : 
+                                                        agent.status === 'error' ? '#dc2626' : '#9a9ab0'
+                                      }}
+                                      title={agent.name}
+                                    />
+                                  ))}
+                                  {dayAgents.length > 3 && (
+                                    <span className="aw-calendar-more">+{dayAgents.length - 3}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                    <div className="aw-calendar-legend">
+                      <div className="aw-calendar-legend-item">
+                        <div className="aw-calendar-legend-dot" style={{ backgroundColor: '#16a34a' }} />
+                        <span>Running</span>
+                      </div>
+                      <div className="aw-calendar-legend-item">
+                        <div className="aw-calendar-legend-dot" style={{ backgroundColor: '#9a9ab0' }} />
+                        <span>Idle</span>
+                      </div>
+                      <div className="aw-calendar-legend-item">
+                        <div className="aw-calendar-legend-dot" style={{ backgroundColor: '#dc2626' }} />
+                        <span>Error</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : activeTab === 'list' ? (
               <div className="aw-agents-list">
-                <div className="aw-list-header">
-                  <span className="aw-list-col name">Name</span>
-                  <span className="aw-list-col status">Status</span>
-                  <span className="aw-list-col runs">Runs</span>
-                  <span className="aw-list-col last-run">Last Run</span>
-                  <span className="aw-list-col actions">Actions</span>
-                </div>
-                {automationAgents.map((agent: AutomationAgent) => (
-                  <div key={agent.id} className="aw-list-row">
-                    <span className="aw-list-col name">
-                      <div className={`aw-agent-status-dot ${agent.status}`} />
-                      <div>
-                        <div className="aw-list-agent-name">{agent.name}</div>
-                        <div className="aw-list-agent-desc">{agent.description || `Automated workflow`}</div>
-                      </div>
-                    </span>
-                    <span className="aw-list-col status">
-                      <span className={`aw-list-status-badge ${agent.status}`}>{agent.status}</span>
-                    </span>
-                    <span className="aw-list-col runs">{agent.totalExecutions || 0}</span>
-                    <span className="aw-list-col last-run">
-                      {agent.lastExecutedAt ? new Date(agent.lastExecutedAt).toLocaleDateString() : '—'}
-                    </span>
-                    <span className="aw-list-col actions">
-                      {runningAgentId === agent.id ? (
-                        <button className="aw-agent-action-btn run" onClick={() => { cancelAgent(agent.id); setRunningAgentId(null); }} title="Cancel execution" style={{color:'#dc2626'}}>
-                          <Square size={13} />
-                          Cancel
-                        </button>
-                      ) : (
-                        <button className="aw-agent-action-btn run" onClick={() => handleRunAgent(agent.id)}>
-                          <Play size={13} />
-                          Run
-                        </button>
-                      )}
-                      {agentResults[agent.id] && (
-                        <button className="aw-agent-action-btn results" onClick={() => setViewingResultId(agent.id)} title="View results">
-                          <Database size={13} />
-                          Results
-                        </button>
-                      )}
-                      <button className="aw-agent-action-btn logs" onClick={() => { setLogsAgentId(agent.id); setActiveNav('logs'); }} title="View logs">
-                        <Zap size={13} />
-                        Logs
-                      </button>
-                      <button className="aw-agent-action-btn edit" onClick={() => editAgent(agent.id)}>
-                        <PenTool size={13} />
-                      </button>
-                      <button className="aw-agent-action-btn" onClick={() => cloneAgent(agent.id)} title="Duplicate">
-                        <Copy size={13} />
-                      </button>
-                      <button className="aw-agent-action-btn" onClick={() => setSharingAgentId(agent.id)} title="Share">
-                        <Share2 size={13} />
-                      </button>
-                      <button className="aw-agent-action-btn pause" onClick={() => agent.status === 'active' ? pauseAgent(agent.id) : resumeAgent(agent.id)}>
-                        {agent.status === 'active' ? '⏸' : '▶'}
-                      </button>
-                    </span>
+                {automationAgents.length === 0 ? (
+                  <div className="aw-empty-state">
+                    <div className="aw-empty-icon"><Bot size={32} /></div>
+                    <h3>No agents deployed yet</h3>
+                    <p>Create your first agent to get started with automation.</p>
+                    <button className="aw-new-agent-btn" onClick={() => setShowCatalog(true)}>
+                      <Plus size={16} /> New agent
+                    </button>
                   </div>
-                ))}
+                ) : (
+                  <div className="aw-agents-list-items">
+                    {automationAgents.map((agent: AutomationAgent) => (
+                      <div key={agent.id} className="aw-agent-list-item">
+                        <div className={`aw-agent-status-dot ${agent.status}`} />
+                        <div className="aw-agent-list-info">
+                          <h4>{agent.name}</h4>
+                          <p>{agent.description || `Automated workflow: ${agent.name}`}</p>
+                        </div>
+                        <div className="aw-agent-list-meta">
+                          <span><Calendar size={12} /> {agent.lastExecutedAt ? new Date(agent.lastExecutedAt).toLocaleDateString() : 'Never'}</span>
+                          <span><Zap size={12} /> {agent.totalExecutions || 0} runs</span>
+                        </div>
+                        <div className="aw-agent-list-actions">
+                          <button className="aw-agent-action-btn run" onClick={() => handleRunAgent(agent.id)}>
+                            <Play size={13} />
+                          </button>
+                          <button className="aw-agent-action-btn edit" onClick={() => navigate(`/automation-builder/${agent.id}`)}>
+                            <PenTool size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="aw-agents-grid">
                 {automationAgents.map((agent: AutomationAgent) => {
                   const requiredServices: string[] = [];
-                  (agent.workflow?.nodes ?? []).forEach(n => {
+                  agent.workflow.nodes.forEach(n => {
                     const config = n.config as any;
                     if (n.type === 'app' && config?.appType) {
                       const appName = config.appType.charAt(0).toUpperCase() + config.appType.slice(1);
@@ -1723,26 +1723,19 @@ export function CrewOSDashboard() {
                         >
                           <MoreHorizontal size={13} />
                         </button>
-                        {runningAgentId === agent.id ? (
-                          <button
-                            className="aw-agent-action-btn run"
-                            onClick={() => { cancelAgent(agent.id); setRunningAgentId(null); }}
-                            title="Cancel execution"
-                            style={{color:'#dc2626'}}
-                          >
-                            <Square size={13} />
-                            Cancel
-                          </button>
-                        ) : (
-                          <button
-                            className="aw-agent-action-btn run"
-                            onClick={() => handleRunAgent(agent.id)}
-                            title="Run agent"
-                          >
+                        <button
+                          className="aw-agent-action-btn run"
+                          onClick={() => handleRunAgent(agent.id)}
+                          disabled={runningAgentId === agent.id}
+                          title="Run agent"
+                        >
+                          {runningAgentId === agent.id ? (
+                            <Loader2 size={13} className="spinning" />
+                          ) : (
                             <Play size={13} />
-                            Run
-                          </button>
-                        )}
+                          )}
+                          {runningAgentId === agent.id ? 'Running...' : 'Run'}
+                        </button>
                         {agentResults[agent.id] && (
                           <button
                             className="aw-agent-action-btn results"
@@ -1763,27 +1756,11 @@ export function CrewOSDashboard() {
                         </button>
                         <button
                           className="aw-agent-action-btn edit"
-                          onClick={() => editAgent(agent.id)}
+                          onClick={() => navigate(`/automation-builder/${agent.id}`)}
                           title="Edit"
                         >
                           <PenTool size={13} />
                           Edit
-                        </button>
-                        <button
-                          className="aw-agent-action-btn"
-                          onClick={() => cloneAgent(agent.id)}
-                          title="Duplicate"
-                        >
-                          <Copy size={13} />
-                          Duplicate
-                        </button>
-                        <button
-                          className="aw-agent-action-btn"
-                          onClick={() => setSharingAgentId(agent.id)}
-                          title="Share"
-                        >
-                          <Share2 size={13} />
-                          Share
                         </button>
                         <button
                           className="aw-agent-action-btn pause"
@@ -1800,8 +1777,13 @@ export function CrewOSDashboard() {
             )}
           </div>
 
+          {/* Voice Activation Button */}
+          <button className="aw-voice-btn" title='Say "Hey Operon" — click to mute'>
+            <Mic size={18} />
+          </button>
         </div>
         )}
+        </div>
 
         {/* ──────── Autonomous Agent Panel (within Agents tab) ──────── */}
         {showAutonomousChat && !isDocAI && !isComms && !isSales && !isWorkflow && !isLogs && !isMarketplace && !isSettings && !isTeams && !isDocs && !isKnowledge && (
@@ -1817,8 +1799,6 @@ export function CrewOSDashboard() {
             </Suspense>
           </div>
         )}
-
-        </div>
 
         {/* ──────── UNIFIED DEPLOY AGENT CATALOG MODAL ──────── */}
         {showCatalog && (
@@ -1844,15 +1824,27 @@ export function CrewOSDashboard() {
 
               {/* ─── Unified Create Agent Banner ─── */}
               <div
-                className="oc-create-banner"
-                onClick={() => { setShowCatalog(false); setShowAutonomousChat(true); }}
+                style={{
+                  margin: '0 24px',
+                  padding: '16px 20px',
+                  background: 'linear-gradient(135deg, #e07a3a 0%, #c05d1e 100%)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  cursor: 'pointer',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                }}
+                onClick={() => { setShowCatalog(false); setShowPromptWizard(true); }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 25px rgba(139, 92, 246, 0.3)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = ''; }}
               >
-                <div className="oc-create-banner-icon">
-                  <Sparkles size={22} color="#fff" />
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Wand2 size={20} color="#fff" />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div className="oc-create-banner-title">Create Custom Agent</div>
-                  <div className="oc-create-banner-desc">Describe any goal — the AI will execute it now or deploy it as a reusable agent</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#fff', marginBottom: '2px' }}>Create Agent from Prompt</div>
+                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>Describe what you want in plain English — AI builds and deploys it for you</div>
                 </div>
                 <ChevronRight size={20} color="rgba(255,255,255,0.6)" />
               </div>
@@ -1959,12 +1951,7 @@ export function CrewOSDashboard() {
                                     className="oc-card-action"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      if (latestVer && !isCurrentlyDeploying) {
-                                        setCatalogScheduleFreq('manual');
-                                        setCatalogScheduleTime('09:00');
-                                        setCatalogScheduleDay(1);
-                                        setCatalogScheduleModal({ catalog: agent, version: latestVer });
-                                      }
+                                      if (latestVer && !isCurrentlyDeploying) deployAgent(agent, latestVer);
                                     }}
                                     disabled={isCurrentlyDeploying}
                                   >
@@ -2249,83 +2236,89 @@ export function CrewOSDashboard() {
       {/* Agent Results Modal */}
       {viewingResultId && agentResults[viewingResultId] && (() => {
         const result = agentResults[viewingResultId];
-        const agentObj = automationAgents.find(a => a.id === viewingResultId);
         return (
-          <div className="ar-overlay" onClick={(e) => { if (e.target === e.currentTarget) setViewingResultId(null); }}>
-            <div className="ar-panel">
-              <div className="ar-header">
-                <div className="ar-header-left">
-                  <div className="ar-icon">
-                    <Database size={18} />
-                  </div>
-                  <div>
-                    <h2 className="ar-title">{result.agentName}</h2>
-                    <p className="ar-subtitle">
-                      {result.status === 'done' ? 'Completed' : 'Failed'} in {result.totalSteps} steps — {new Date(result.completedAt).toLocaleString()}
-                    </p>
-                  </div>
+          <div className="aev-overlay" onClick={(e) => { if (e.target === e.currentTarget) setViewingResultId(null); }}>
+            <div style={{
+              background: '#ffffff',
+              borderRadius: 16,
+              width: '90%',
+              maxWidth: 600,
+              maxHeight: '80vh',
+              overflow: 'auto',
+              padding: '28px 32px',
+              color: '#0f172a',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.15)',
+              border: '1px solid #e5e7eb',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#0f172a' }}>{result.agentName}</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+                    {result.status === 'done' ? 'Completed' : 'Failed'} in {result.totalSteps} steps — {new Date(result.completedAt).toLocaleString()}
+                  </p>
                 </div>
-                <button className="ar-close" onClick={() => setViewingResultId(null)}>
+                <button onClick={() => setViewingResultId(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}>
                   <X size={18} />
                 </button>
               </div>
 
-              {agentObj && (
-                <div className="ar-stats-row">
-                  <div className="ar-stat-chip">
-                    <Zap size={12} />
-                    <span>{agentObj.totalExecutions || 0} total runs</span>
-                  </div>
-                  <div className="ar-stat-chip">
-                    <CheckCircle2 size={12} />
-                    <span>{agentObj.successfulExecutions || 0} successful</span>
-                  </div>
-                  {(agentObj.failedExecutions ?? 0) > 0 && (
-                    <div className="ar-stat-chip error">
-                      <XCircle size={12} />
-                      <span>{agentObj.failedExecutions} failed</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="ar-section">
-                <div className="ar-label">Task</div>
-                <div className="ar-task-block">{result.task}</div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: 1, marginBottom: 8 }}>Task</div>
+                <div style={{ fontSize: 14, color: '#475569', background: '#f8f9fa', padding: '10px 14px', borderRadius: 8, lineHeight: 1.5, border: '1px solid #e5e7eb' }}>{result.task}</div>
               </div>
 
-              <div className="ar-section">
-                <div className="ar-label">
-                  {result.status === 'done' ? 'Output / Extracted Data' : 'Error'}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: 1, marginBottom: 8 }}>
+                  {result.status === 'done' ? 'Extracted Data' : 'Error'}
                 </div>
                 {result.status === 'error' && result.error ? (
-                  <div className="ar-error-block">{result.error}</div>
+                  <div style={{ fontSize: 14, color: '#dc2626', background: '#fef2f2', padding: '10px 14px', borderRadius: 8, border: '1px solid #fecaca' }}>{result.error}</div>
                 ) : result.extractedData ? (
-                  <pre className="ar-data-block">{JSON.stringify(result.extractedData, null, 2)}</pre>
+                  <pre style={{
+                    fontSize: 13,
+                    color: '#c05d1e',
+                    background: 'rgba(224, 122, 58, 0.06)',
+                    padding: '14px 16px',
+                    borderRadius: 8,
+                    overflow: 'auto',
+                    maxHeight: 400,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    margin: 0,
+                    lineHeight: 1.6,
+                    border: '1px solid rgba(224, 122, 58, 0.15)',
+                  }}>{JSON.stringify(result.extractedData, null, 2)}</pre>
                 ) : (
-                  <div className="ar-empty-data">No data was extracted</div>
+                  <div style={{ fontSize: 14, color: '#94a3b8', fontStyle: 'italic' }}>No data was extracted</div>
                 )}
               </div>
 
-              <div className="ar-actions">
-                {result.extractedData && (
+              {result.status === 'done' && (
+                <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
                   <button
-                    className="ar-btn secondary"
-                    onClick={() => navigator.clipboard.writeText(JSON.stringify(result.extractedData, null, 2))}
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(result.extractedData, null, 2));
+                    }}
+                    style={{
+                      padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb',
+                      background: '#ffffff', color: '#475569', fontSize: 13, cursor: 'pointer',
+                      fontWeight: 500,
+                    }}
                   >
-                    <Copy size={14} /> Copy Data
+                    Copy to Clipboard
                   </button>
-                )}
-                <button
-                  className="ar-btn secondary"
-                  onClick={() => { setLogsAgentId(viewingResultId); setActiveNav('logs'); setViewingResultId(null); }}
-                >
-                  <Zap size={14} /> View Logs
-                </button>
-                <button className="ar-btn primary" onClick={() => setViewingResultId(null)}>
-                  Done
-                </button>
-              </div>
+                  <button
+                    onClick={() => setViewingResultId(null)}
+                    style={{
+                      padding: '8px 16px', borderRadius: 8, border: 'none',
+                      background: 'linear-gradient(135deg, #e07a3a, #d46b2c)', color: '#fff', fontSize: 13, cursor: 'pointer',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -2360,92 +2353,6 @@ export function CrewOSDashboard() {
         />
       )}
 
-      {/* Catalog Deploy Schedule Modal */}
-      {catalogScheduleModal && (
-        <div className="operonai-modal-overlay" onClick={() => setCatalogScheduleModal(null)}>
-          <div style={{
-            background: 'var(--color-bg, #fff)',
-            borderRadius: '16px',
-            padding: '24px',
-            width: '100%',
-            maxWidth: '420px',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-          }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 600 }}>Deploy &ldquo;{catalogScheduleModal.catalog.name}&rdquo;</h3>
-            <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--color-text-secondary, #6b6b80)' }}>Set an optional schedule for this agent.</p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500 }}>
-                Frequency
-                <select
-                  value={catalogScheduleFreq}
-                  onChange={e => setCatalogScheduleFreq(e.target.value)}
-                  style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--color-border-subtle, #e5e5eb)', fontSize: '14px', background: 'var(--color-bg, #fff)' }}
-                >
-                  <option value="manual">Manual only</option>
-                  <option value="every_minute">Every minute</option>
-                  <option value="hourly">Hourly</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                </select>
-              </label>
-
-              {(catalogScheduleFreq === 'daily' || catalogScheduleFreq === 'weekly') && (
-                <label style={{ fontSize: '13px', fontWeight: 500 }}>
-                  Time
-                  <input
-                    type="time"
-                    value={catalogScheduleTime}
-                    onChange={e => setCatalogScheduleTime(e.target.value)}
-                    style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--color-border-subtle, #e5e5eb)', fontSize: '14px' }}
-                  />
-                </label>
-              )}
-
-              {catalogScheduleFreq === 'weekly' && (
-                <label style={{ fontSize: '13px', fontWeight: 500 }}>
-                  Day of week
-                  <select
-                    value={catalogScheduleDay}
-                    onChange={e => setCatalogScheduleDay(Number(e.target.value))}
-                    style={{ display: 'block', width: '100%', marginTop: '4px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--color-border-subtle, #e5e5eb)', fontSize: '14px', background: 'var(--color-bg, #fff)' }}
-                  >
-                    <option value={0}>Sunday</option>
-                    <option value={1}>Monday</option>
-                    <option value={2}>Tuesday</option>
-                    <option value={3}>Wednesday</option>
-                    <option value={4}>Thursday</option>
-                    <option value={5}>Friday</option>
-                    <option value={6}>Saturday</option>
-                  </select>
-                </label>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button
-                onClick={() => setCatalogScheduleModal(null)}
-                style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--color-border-subtle, #e5e5eb)', background: 'transparent', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  const sched = catalogScheduleFreq !== 'manual'
-                    ? { frequency: catalogScheduleFreq, time: catalogScheduleTime, dayOfWeek: catalogScheduleDay }
-                    : undefined;
-                  deployAgent(catalogScheduleModal.catalog, catalogScheduleModal.version, sched);
-                }}
-                disabled={!!deployingVersion}
-                style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#e07a3a', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
-              >
-                {deployingVersion ? 'Deploying…' : 'Deploy Agent'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Prompt-to-Agent Wizard (accessible from catalog and agents page) */}
       {showPromptWizard && (
         <AgentSetupWizard
@@ -2453,30 +2360,6 @@ export function CrewOSDashboard() {
           onDeploy={handlePromptWizardDeploy}
           onDeployWorkflow={handlePromptWizardDeployWorkflow}
           isDeploying={isDeploying}
-        />
-      )}
-
-      {/* Command Palette (Cmd+K) */}
-      <CommandPalette
-        isOpen={commandPaletteOpen}
-        onClose={() => setCommandPaletteOpen(false)}
-        onNavigate={(path) => { navigate(path); setCommandPaletteOpen(false); }}
-        onToggleTheme={toggleTheme}
-        theme={theme}
-      />
-
-      {showOnboarding && (
-        <Suspense fallback={null}>
-          <OnboardingFlow onComplete={completeOnboarding} />
-        </Suspense>
-      )}
-
-      {sharingAgentId && (
-        <ShareAgentModal
-          isOpen={true}
-          agentId={sharingAgentId}
-          agentName={automationAgents.find(a => a.id === sharingAgentId)?.name || 'Agent'}
-          onClose={() => setSharingAgentId(null)}
         />
       )}
     </div>

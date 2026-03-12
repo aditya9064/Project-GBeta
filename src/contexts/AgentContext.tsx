@@ -15,6 +15,8 @@ import {
   AgentMemoryService,
   AgentBus,
   generateAgentFromPrompt,
+  TriggerConfig,
+  AIConfig,
 } from '../services/automation';
 import type { AutomationStatus, ExecutionLog } from '../services/automation';
 import type { AIGeneratedAgent } from '../services/automation/planGenerator';
@@ -164,6 +166,11 @@ async function apiPost(path: string, body: any): Promise<any> {
     }
     return data;
   } catch (err) {
+    // Silently handle connection errors - backend is optional for demo mode
+    if (err instanceof TypeError && err.message.includes('fetch')) {
+      // Connection error — expected when backend is offline
+      return null;
+    }
     log.warn(`[API POST] ${path} error:`, err instanceof Error ? err.message : 'Network error');
     return null;
   }
@@ -182,6 +189,11 @@ async function apiPut(path: string, body: any): Promise<any> {
     }
     return data;
   } catch (err) {
+    // Silently handle connection errors - backend is optional for demo mode
+    if (err instanceof TypeError && err.message.includes('fetch')) {
+      // Connection error — expected when backend is offline
+      return null;
+    }
     log.warn(`[API PUT] ${path} error:`, err instanceof Error ? err.message : 'Network error');
     return null;
   }
@@ -196,6 +208,11 @@ async function apiDelete(path: string): Promise<any> {
     }
     return data;
   } catch (err) {
+    // Silently handle connection errors - backend is optional for demo mode
+    if (err instanceof TypeError && err.message.includes('fetch')) {
+      // Connection error — expected when backend is offline
+      return null;
+    }
     log.warn(`[API DELETE] ${path} error:`, err instanceof Error ? err.message : 'Network error');
     return null;
   }
@@ -290,19 +307,85 @@ const DEFAULT_AGENT: DeployedAgent = {
   version: 1,
 };
 
+// Helper to fix/migrate old agents that might be missing workflows
+function fixAgentWorkflow(agent: any): DeployedAgent {
+  // If agent already has a valid workflow, return it
+  if (agent.workflow && 
+      Array.isArray(agent.workflow.nodes) && 
+      agent.workflow.nodes.length > 0 &&
+      Array.isArray(agent.workflow.edges)) {
+    return agent as DeployedAgent;
+  }
+
+  // Create a default workflow for agents that don't have one
+  console.log(`⚠️ Fixing agent "${agent.name || agent.id}" - missing or invalid workflow`);
+  
+  const triggerId = 'trigger-1';
+  const aiNodeId = 'ai-1';
+  
+  const defaultWorkflow: WorkflowDefinition = {
+    nodes: [
+      {
+        id: triggerId,
+        type: 'trigger',
+        label: 'Manual Trigger',
+        config: { triggerType: 'manual' } as TriggerConfig,
+        position: { x: 100, y: 100 },
+      },
+      {
+        id: aiNodeId,
+        type: 'ai',
+        label: agent.description || 'Process',
+        config: {
+          model: 'gpt-4' as const,
+          prompt: agent.description || 'Process the input data',
+        } as AIConfig,
+        position: { x: 300, y: 100 },
+      },
+    ],
+    edges: [
+      { id: 'e1', source: triggerId, target: aiNodeId },
+    ],
+  };
+
+  return {
+    ...agent,
+    workflow: defaultWorkflow,
+    triggerType: agent.triggerType || 'manual',
+    status: agent.status || 'active',
+    totalExecutions: agent.totalExecutions || 0,
+    successfulExecutions: agent.successfulExecutions || 0,
+    failedExecutions: agent.failedExecutions || 0,
+    createdAt: agent.createdAt instanceof Date ? agent.createdAt : new Date(agent.createdAt || Date.now()),
+    updatedAt: agent.updatedAt instanceof Date ? agent.updatedAt : new Date(agent.updatedAt || Date.now()),
+    deployedAt: agent.deployedAt ? (agent.deployedAt instanceof Date ? agent.deployedAt : new Date(agent.deployedAt)) : undefined,
+    lastExecutedAt: agent.lastExecutedAt ? (agent.lastExecutedAt instanceof Date ? agent.lastExecutedAt : new Date(agent.lastExecutedAt)) : undefined,
+  } as DeployedAgent;
+}
+
+// Helper to load agents from localStorage (DEMO_MODE only: fallback to defaults when backend unavailable)
 function loadAgentsFromStorage(): DeployedAgent[] {
   try {
     const stored = localStorage.getItem('demo_agents');
     if (stored) {
       const parsed = JSON.parse(stored);
-      const agents = parsed.map((a: any) => ({
-        ...a,
-        createdAt: new Date(a.createdAt),
-        updatedAt: new Date(a.updatedAt),
-        deployedAt: a.deployedAt ? new Date(a.deployedAt) : undefined,
-        lastExecutedAt: a.lastExecutedAt ? new Date(a.lastExecutedAt) : undefined,
-      }));
-      if (agents.length > 0) return agents;
+      const agents = parsed.map((a: any) => {
+        // Convert dates
+        const agentWithDates = {
+          ...a,
+          createdAt: new Date(a.createdAt),
+          updatedAt: new Date(a.updatedAt),
+          deployedAt: a.deployedAt ? new Date(a.deployedAt) : undefined,
+          lastExecutedAt: a.lastExecutedAt ? new Date(a.lastExecutedAt) : undefined,
+        };
+        // Fix workflow if needed
+        return fixAgentWorkflow(agentWithDates);
+      });
+      if (agents.length > 0) {
+        // Save fixed agents back to storage
+        saveAgentsToStorage(agents);
+        return agents;
+      }
     }
   } catch (e) {
     log.error('Error loading agents from storage:', e);
@@ -382,13 +465,17 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     (async () => {
       const resp = await apiGet(`/api/agents?userId=${getCurrentUserId()}`);
       if (!resp?.success || !Array.isArray(resp.data)) return;
-      const remote: DeployedAgent[] = resp.data.map((a: any) => ({
-        ...a,
-        createdAt: new Date(a.createdAt),
-        updatedAt: new Date(a.updatedAt),
-        deployedAt: a.deployedAt ? new Date(a.deployedAt) : undefined,
-        lastExecutedAt: a.lastExecutedAt ? new Date(a.lastExecutedAt) : undefined,
-      }));
+      const remote: DeployedAgent[] = resp.data.map((a: any) => {
+        const agentWithDates = {
+          ...a,
+          createdAt: new Date(a.createdAt),
+          updatedAt: new Date(a.updatedAt),
+          deployedAt: a.deployedAt ? new Date(a.deployedAt) : undefined,
+          lastExecutedAt: a.lastExecutedAt ? new Date(a.lastExecutedAt) : undefined,
+        };
+        // Fix workflow if needed
+        return fixAgentWorkflow(agentWithDates);
+      });
       if (remote.length === 0) return;
 
       setAgents((prev) => {
@@ -397,8 +484,10 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         for (const r of remote) {
           if (!localIds.has(r.id)) merged.push(r);
         }
-        saveAgentsToStorage(merged);
-        return merged;
+        // Fix all agents before saving
+        const fixedMerged = merged.map(a => fixAgentWorkflow(a));
+        saveAgentsToStorage(fixedMerged);
+        return fixedMerged;
       });
     })();
   }, []);
@@ -427,14 +516,17 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         const localIds = new Set(loaded.map((a) => a.id));
         const remote = resp.data
           .filter((a: any) => !localIds.has(a.id))
-          .map((a: any) => ({
-            ...a,
-            createdAt: new Date(a.createdAt),
-            updatedAt: new Date(a.updatedAt),
-            deployedAt: a.deployedAt ? new Date(a.deployedAt) : undefined,
-            lastExecutedAt: a.lastExecutedAt ? new Date(a.lastExecutedAt) : undefined,
-          }));
-        const merged = [...loaded, ...remote];
+          .map((a: any) => {
+            const agentWithDates = {
+              ...a,
+              createdAt: new Date(a.createdAt),
+              updatedAt: new Date(a.updatedAt),
+              deployedAt: a.deployedAt ? new Date(a.deployedAt) : undefined,
+              lastExecutedAt: a.lastExecutedAt ? new Date(a.lastExecutedAt) : undefined,
+            };
+            return fixAgentWorkflow(agentWithDates);
+          });
+        const merged = [...loaded.map(a => fixAgentWorkflow(a)), ...remote];
         saveAgentsToStorage(merged);
         setAgents(merged);
         
@@ -730,11 +822,13 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       if (history[agentId].length > 50) history[agentId] = history[agentId].slice(0, 50);
       saveExecutionHistory(history);
 
-      // Persist execution log to backend
+      // Persist execution log to backend (non-blocking, fails silently if backend is offline)
       apiPost(`/api/agents/${agentId}/logs`, {
         ...executionRecord,
         startedAt: executionRecord.startedAt instanceof Date ? executionRecord.startedAt.toISOString() : executionRecord.startedAt,
         completedAt: executionRecord.completedAt instanceof Date ? executionRecord.completedAt.toISOString() : executionRecord.completedAt,
+      }).catch(() => {
+        // Silently ignore - backend is optional for demo mode
       });
 
       // Record metrics
@@ -746,7 +840,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         0
       );
 
-      // Sync updated agent stats to backend
+      // Sync updated agent stats to backend (non-blocking, fails silently if backend is offline)
       const updatedAgent = agents.find((a) => a.id === agentId);
       if (updatedAgent) {
         apiPut(`/api/agents/${agentId}`, {
@@ -755,6 +849,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
           failedExecutions: result.success ? updatedAgent.failedExecutions : updatedAgent.failedExecutions + 1,
           lastExecutedAt: new Date().toISOString(),
           lastExecutionStatus: execStatus,
+        }).catch(() => {
+          // Silently ignore - backend is optional for demo mode
         });
       }
 

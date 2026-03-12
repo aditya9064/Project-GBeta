@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   Zap, ArrowRight, Github, Linkedin, Twitter,
   Mail, Send, Hash, Settings, Triangle,
@@ -324,9 +325,11 @@ function useCountUp(end: number, inView: boolean, durationMs = 2000) {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [clockTime, setClockTime] = useState('');
+  const [legalModal, setLegalModal] = useState<'privacy' | 'terms' | null>(null);
   const socialProofRef = useRef<HTMLDivElement>(null);
   const socialProofInView = useInView(socialProofRef, { once: true, margin: '-80px' });
   const stat1 = useCountUp(SOCIAL_PROOF_STATS[0].value, socialProofInView);
@@ -720,9 +723,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <div className="op-footer-cols">
               <div className="op-footer-col">
                 <h4>General</h4>
-                <button>Home</button>
-                <button>About</button>
-                <button>Contact</button>
+                <button onClick={() => scrollTo('.op-hero')}>Home</button>
+                <button onClick={() => scrollTo('.op-about')}>About</button>
+                <button onClick={() => scrollTo('.op-footer-cta')}>Contact</button>
               </div>
               <div className="op-footer-col">
                 <h4>Products</h4>
@@ -739,8 +742,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               </div>
               <div className="op-footer-col">
                 <h4>Legal</h4>
-                <button>Privacy Policy</button>
-                <button>Terms of Service</button>
+                <button type="button" onClick={() => setLegalModal('privacy')}>
+                  Privacy Policy
+                </button>
+                <button type="button" onClick={() => setLegalModal('terms')}>
+                  Terms of Service
+                </button>
               </div>
             </div>
           </div>
@@ -756,6 +763,63 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           </div>
         </div>
       </footer>
+
+      {/* Legal modals */}
+      {legalModal && (
+        <div className="op-legal-modal-backdrop" onClick={() => setLegalModal(null)}>
+          <div
+            className="op-legal-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="op-legal-modal-header">
+              <h3>{legalModal === 'privacy' ? 'Privacy Policy' : 'Terms of Service'}</h3>
+              <button
+                type="button"
+                className="op-legal-modal-close"
+                onClick={() => setLegalModal(null)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="op-legal-modal-body">
+              {legalModal === 'privacy' ? (
+                <>
+                  <p>
+                    This is a demonstration privacy policy for OperonAI. No real user data is
+                    collected or stored beyond what is required to show the product experience.
+                  </p>
+                  <ul>
+                    <li>We use sample accounts and mock data in this demo environment.</li>
+                    <li>Any information you enter is used only to simulate workflows.</li>
+                    <li>Do not enter production secrets, live customer data, or sensitive information.</li>
+                  </ul>
+                  <p>
+                    A production deployment would include a full privacy policy tailored to your
+                    organization&apos;s legal and compliance requirements.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    These are demonstration terms of service for the OperonAI demo environment.
+                    They are not a legally binding contract.
+                  </p>
+                  <ul>
+                    <li>The demo is provided &quot;as is&quot; for evaluation and showcase purposes only.</li>
+                    <li>No uptime, data retention, or support guarantees are provided in this environment.</li>
+                    <li>Workflows, agents, and integrations are examples and may change without notice.</li>
+                  </ul>
+                  <p>
+                    Production deployments would operate under a separate, formal agreement
+                    negotiated with your legal and procurement teams.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

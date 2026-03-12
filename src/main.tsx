@@ -1,26 +1,12 @@
-import { StrictMode, useEffect, lazy, Suspense } from 'react'
+import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthProvider } from './contexts/AuthContext'
 import { AgentProvider } from './contexts/AgentContext'
-import { PageLoader } from './components/ui/LoadingSpinner'
-import { NotFound } from './components/ui/NotFound'
-
-const LandingPage = lazy(() => 
-  import('./components/landing/LandingPage').then(m => ({ default: m.LandingPage }))
-);
-
-const CrewOSDashboard = lazy(() => 
-  import('./components/crewos/CrewOSDashboard').then(m => ({ default: m.CrewOSDashboard }))
-);
-
-const DASHBOARD_PATHS = [
-  '/dashboard', '/agents', '/comms', '/docai', '/sales',
-  '/workflow', '/logs', '/marketplace',
-  '/settings', '/teams', '/docs',
-  '/integrations', '/webhooks', '/knowledge',
-];
+import { CrewOSDashboard } from './components/crewos/CrewOSDashboard'
+import { LandingPage } from './components/landing/LandingPage'
+import { PlanSelectionPage } from './components/landing/PlanSelectionPage'
 
 function AppRouter() {
   const navigate = useNavigate();
@@ -28,7 +14,9 @@ function AppRouter() {
 
   useEffect(() => {
     const root = document.getElementById('root')!;
-    if (location.pathname === '/') {
+
+    // Landing & plans pages use normal body scroll; dashboard routes use fixed layout
+    if (location.pathname === '/' || location.pathname === '/plans') {
       document.body.classList.remove('dashboard-active');
       root.classList.remove('dashboard-active');
     } else {
@@ -37,27 +25,33 @@ function AppRouter() {
     }
   }, [location.pathname]);
 
-  const dashboardElement = (
-    <ErrorBoundary>
-      <CrewOSDashboard />
-    </ErrorBoundary>
-  );
-
   return (
-    <Suspense fallback={<PageLoader />}>
-      <Routes>
-        <Route path="/" element={
+    <Routes>
+      <Route
+        path="/"
+        element={
           <ErrorBoundary>
-            <LandingPage onGetStarted={() => navigate('/agents')} />
+            <LandingPage onGetStarted={() => navigate('/plans')} />
           </ErrorBoundary>
-        } />
-        {DASHBOARD_PATHS.map(path => (
-          <Route key={path} path={path} element={dashboardElement} />
-        ))}
-        <Route path="/automation-builder/:id" element={dashboardElement} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Suspense>
+        }
+      />
+      <Route
+        path="/plans"
+        element={
+          <ErrorBoundary>
+            <PlanSelectionPage />
+          </ErrorBoundary>
+        }
+      />
+      <Route
+        path="/*"
+        element={
+          <ErrorBoundary>
+            <CrewOSDashboard />
+          </ErrorBoundary>
+        }
+      />
+    </Routes>
   );
 }
 
