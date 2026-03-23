@@ -100,11 +100,11 @@ export class AgentExecutor {
         // Follow edges from trigger to execute downstream nodes
         const outEdges = workflow.edges.filter(e => e.source === triggerNode.id);
         for (const edge of outEdges) {
-          await this.executeFromNode(edge.target, workflow, nodeOutputs, executed, record);
+          await this.executeFromNode(edge.target, workflow, nodeOutputs, executed, record, agent);
         }
       } else {
         // No trigger node — execute from first node
-        await this.executeFromNode(workflow.nodes[0].id, workflow, nodeOutputs, executed, record);
+        await this.executeFromNode(workflow.nodes[0].id, workflow, nodeOutputs, executed, record, agent);
       }
 
       const lastNode = workflow.nodes[workflow.nodes.length - 1];
@@ -161,6 +161,7 @@ export class AgentExecutor {
     nodeOutputs: Record<string, any>,
     executed: Set<string>,
     record: ExecutionRecord,
+    agent?: StoredAgent,
   ): Promise<void> {
     if (executed.has(nodeId)) return;
 
@@ -196,7 +197,7 @@ export class AgentExecutor {
       });
 
       try {
-        const output = await this.executeNode(node, input);
+        const output = await this.executeNode(node, input, record);
         nodeLog.status = 'completed';
         nodeLog.completedAt = new Date().toISOString();
         nodeLog.durationMs = Date.now() - new Date(nodeLog.startedAt).getTime();
@@ -249,19 +250,19 @@ export class AgentExecutor {
         const condResult = nodeOutputs[nodeId];
         const pass = condResult?.result === true || condResult?.result === 'true';
         if (edge.sourceHandle === 'true' && pass) {
-          await this.executeFromNode(edge.target, workflow, nodeOutputs, executed, record);
+          await this.executeFromNode(edge.target, workflow, nodeOutputs, executed, record, agent);
         } else if (edge.sourceHandle === 'false' && !pass) {
-          await this.executeFromNode(edge.target, workflow, nodeOutputs, executed, record);
+          await this.executeFromNode(edge.target, workflow, nodeOutputs, executed, record, agent);
         } else if (!edge.sourceHandle) {
-          await this.executeFromNode(edge.target, workflow, nodeOutputs, executed, record);
+          await this.executeFromNode(edge.target, workflow, nodeOutputs, executed, record, agent);
         }
       } else {
-        await this.executeFromNode(edge.target, workflow, nodeOutputs, executed, record);
+        await this.executeFromNode(edge.target, workflow, nodeOutputs, executed, record, agent);
       }
     }
   }
 
-  private static async executeNode(node: WorkflowNode, input: any): Promise<any> {
+  private static async executeNode(node: WorkflowNode, input: any, record?: ExecutionRecord): Promise<any> {
     switch (node.type) {
       case 'app':
         return this.executeApp(node, input);
@@ -286,6 +287,8 @@ export class AgentExecutor {
         return this.executeVisionBrowse(node, input);
       case 'computer_task':
         return this.executeComputerTask(node, input);
+      case 'autonomous_task':
+        return this.executeAutonomousTask(node, input, record?.userId || 'system');
       default:
         logger.info(`Passthrough for unknown node type: ${node.type}`);
         return { ...input, _nodeType: node.type, _processed: true };
@@ -622,6 +625,44 @@ export class AgentExecutor {
       durationMs: result.durationMs,
       error: result.error,
       timestamp: new Date().toISOString(),
+    };
+  }
+
+  private static async executeAutonomousTask(node: WorkflowNode, input: any, userId: string): Promise<any> {
+    const config = node.config || {};
+    const goal = this.resolveTemplate(config.goal || config.prompt || node.label, input);
+
+    if (!goal) {
+      throw new Error('Autonomous task node requires a "goal" in config');
+    }
+
+    const contextStr = input ? `\n\nContext from workflow: ${JSON.stringify(input).substring(0, 2000)}` : '';
+    const fullGoal = `${goal}${contextStr}`;
+
+    const { executeAutonomous } = await import('./autonomousExecutor.js');
+
+    const steps: any[] = [];
+    const collectEmit = (event: string, data: Record<string, any>) => {
+      if (event === 'step_done' || event === 'tool_complete') {
+        steps.push(data.step || data);
+      }
+    };
+
+    const execution = await executeAutonomous(fullGoal, userId, collectEmit, {
+      model: config.model || 'gpt-4o',
+      maxIterations: config.maxIterations || 15,
+      autoApproveRisk: config.autoApproveRisk || 'medium',
+    });
+
+    return {
+      _autonomousTask: true,
+      goal,
+      result: execution.result,
+      status: execution.status,
+      totalTokens: execution.totalTokens,
+      totalCost: execution.totalCost,
+      stepCount: execution.steps.length,
+      executionId: execution.id,
     };
   }
 

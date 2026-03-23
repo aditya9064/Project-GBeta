@@ -6,10 +6,12 @@
    messaging, and cancellation.
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { getAuthHeaders } from '../lib/firebase';
 
 const BACKEND_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || '');
+const MAX_RECONNECT_RETRIES = 3;
+const RECONNECT_BASE_DELAY = 2000;
 
 export type StepType = 'thinking' | 'tool_call' | 'tool_result' | 'approval_required' | 'user_message' | 'error' | 'done' | 'ask_user';
 
@@ -71,13 +73,49 @@ export interface AutonomousOptions {
   systemPrompt?: string;
 }
 
+export interface ExecutionHistoryItem {
+  id: string;
+  goal: string;
+  status: string;
+  model: string;
+  stepCount: number;
+  totalTokens: number;
+  totalCost: number;
+  startedAt: string;
+  completedAt?: string;
+  result?: string;
+}
+
 export function useAutonomousAgent() {
   const [state, setState] = useState<AutonomousState>(initialState);
+  const [history, setHistory] = useState<ExecutionHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
 
+  const fetchHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${BACKEND_URL}/api/autonomous/history?limit=20`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) setHistory(json.data || []);
+      }
+    } catch { /* best effort */ }
+    setHistoryLoading(false);
+  }, []);
+
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      readerRef.current?.cancel().catch(() => {});
+    };
+  }, []);
+
   const sendGoal = useCallback(async (goal: string, options: AutonomousOptions = {}) => {
-    // Add user message
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       role: 'user',
@@ -94,6 +132,8 @@ export function useAutonomousAgent() {
     const headers = await getAuthHeaders();
     const controller = new AbortController();
     abortRef.current = controller;
+
+    let execId: string | null = null;
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/autonomous/run`, {
@@ -123,7 +163,6 @@ export function useAutonomousAgent() {
       const decoder = new TextDecoder();
       let buffer = '';
       const accumulatedSteps: ExecutionStep[] = [];
-      let execId: string | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -149,7 +188,6 @@ export function useAutonomousAgent() {
         }
       }
 
-      // Finalize: collapse steps into an assistant message
       setState(prev => {
         if (prev.status === 'running') {
           return { ...prev, status: 'completed' };
@@ -161,9 +199,14 @@ export function useAutonomousAgent() {
       if (err.name === 'AbortError') {
         setState(prev => ({ ...prev, status: 'cancelled' }));
       } else {
+        if (execId) {
+          const resolved = await pollExecutionStatus(execId, setState);
+          if (resolved) return;
+        }
+
         setState(prev => ({
           ...prev,
-          status: 'failed',
+          status: prev.status === 'running' ? 'failed' : prev.status,
           messages: [...prev.messages, {
             id: `msg-${Date.now()}`,
             role: 'system',
@@ -248,9 +291,17 @@ export function useAutonomousAgent() {
     setState(initialState);
   }, []);
 
+  const sendGoalWithRefresh = useCallback(async (goal: string, options: AutonomousOptions = {}) => {
+    await sendGoal(goal, options);
+    setTimeout(() => fetchHistory(), 1000);
+  }, [sendGoal, fetchHistory]);
+
   return {
     ...state,
-    sendGoal,
+    history,
+    historyLoading,
+    fetchHistory,
+    sendGoal: sendGoalWithRefresh,
     approve,
     sendMessage,
     cancel,
@@ -454,4 +505,57 @@ function processEvent(
     default:
       break;
   }
+}
+
+/* ─── Stream Reconnection / Status Polling ──────────────── */
+
+async function pollExecutionStatus(
+  executionId: string,
+  setState: React.Dispatch<React.SetStateAction<AutonomousState>>,
+): Promise<boolean> {
+  for (let attempt = 0; attempt < MAX_RECONNECT_RETRIES; attempt++) {
+    const delay = RECONNECT_BASE_DELAY * Math.pow(2, attempt);
+
+    setState(prev => ({
+      ...prev,
+      messages: [...prev.messages, {
+        id: `msg-reconnect-${Date.now()}`,
+        role: 'system',
+        content: `Stream disconnected. Checking status (attempt ${attempt + 1}/${MAX_RECONNECT_RETRIES})...`,
+        timestamp: new Date().toISOString(),
+      }],
+    }));
+
+    await new Promise(resolve => setTimeout(resolve, delay));
+
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${BACKEND_URL}/api/autonomous/${executionId}/status`, { headers });
+      if (!res.ok) continue;
+
+      const json = await res.json();
+      if (!json.success) continue;
+
+      const { status, result, error } = json.data;
+
+      if (status === 'running') continue;
+
+      const finalStatus = status === 'completed' ? 'completed' : status === 'cancelled' ? 'cancelled' : 'failed';
+      setState(prev => ({
+        ...prev,
+        status: finalStatus,
+        messages: [...prev.messages, {
+          id: `msg-status-${Date.now()}`,
+          role: status === 'completed' ? 'assistant' : 'system',
+          content: result || error || `Execution ${status}.`,
+          timestamp: new Date().toISOString(),
+        }],
+      }));
+      return true;
+    } catch {
+      continue;
+    }
+  }
+
+  return false;
 }

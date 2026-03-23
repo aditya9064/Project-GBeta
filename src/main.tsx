@@ -7,6 +7,7 @@ import { AgentProvider } from './contexts/AgentContext'
 import { CrewOSDashboard } from './components/crewos/CrewOSDashboard'
 import { LandingPage } from './components/landing/LandingPage'
 import { PlanSelectionPage } from './components/landing/PlanSelectionPage'
+import './styles/globals.css'
 
 function AppRouter() {
   const navigate = useNavigate();

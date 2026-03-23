@@ -17,7 +17,8 @@ export type NodeType =
   | 'supervisor_review'
   | 'quality_gate'
   | 'escalate'
-  | 'crew_task';
+  | 'crew_task'
+  | 'autonomous_task';
 
 export type AgentStatus = 'draft' | 'active' | 'paused' | 'error' | 'archived';
 

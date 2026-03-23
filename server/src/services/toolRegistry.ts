@@ -12,6 +12,8 @@ import { SlackService } from './slack.service.js';
 import { AIEngine } from './ai-engine.js';
 import { VisionAgent } from './visionAgent.js';
 import { logger } from './logger.js';
+import { spawnSubAgent } from './autonomousExecutor.js';
+import { PromptToAgentService } from './promptToAgent.js';
 
 /* ─── gws CLI helper ────────────────────────────────────── */
 
@@ -487,13 +489,158 @@ const gws_general: ToolDefinition = {
   },
 };
 
+/* ─── Extended Gmail Tools ───────────────────────────────── */
+
+const gmail_search: ToolDefinition = {
+  name: 'gmail_search',
+  description: 'Search Gmail for emails matching a query. Supports Gmail search operators like from:, subject:, has:attachment, after:, before:, is:unread, etc.',
+  riskLevel: 'low',
+  parameters: openaiSchema({
+    query: { type: 'string', description: 'Gmail search query (e.g. "from:boss@company.com subject:urgent is:unread")' },
+    count: { type: 'number', description: 'Max results to return (default 10, max 50)' },
+  }, ['query']),
+  async execute(args) {
+    const count = Math.min(args.count || 10, 50);
+    const messages = await GmailService.searchMessages(args.query, count);
+    return {
+      action: 'search',
+      query: args.query,
+      count: messages.length,
+      emails: messages.map((e: any) => ({
+        id: e.externalId,
+        from: e.from,
+        fromEmail: e.fromEmail,
+        subject: e.subject,
+        preview: e.preview,
+        fullMessage: e.fullMessage?.substring(0, 2000),
+        receivedAt: e.receivedAt,
+      })),
+    };
+  },
+};
+
+const gmail_draft: ToolDefinition = {
+  name: 'gmail_draft',
+  description: 'Create an email draft in Gmail without sending it. Useful for preparing emails for user review.',
+  riskLevel: 'medium',
+  parameters: openaiSchema({
+    to: { type: 'string', description: 'Recipient email address' },
+    subject: { type: 'string', description: 'Email subject line' },
+    body: { type: 'string', description: 'Email body (plain text or HTML)' },
+  }, ['to', 'subject', 'body']),
+  async execute(args) {
+    const result = await GmailService.createDraft(args.to, args.subject, args.body);
+    return { success: true, action: 'draft', to: args.to, subject: args.subject, draftId: result.draftId };
+  },
+};
+
+/* ─── Extended Slack Tools ───────────────────────────────── */
+
+const slack_read: ToolDefinition = {
+  name: 'slack_read',
+  description: 'Read recent messages from a Slack channel. Returns the latest messages with author and timestamp.',
+  riskLevel: 'low',
+  parameters: openaiSchema({
+    channel: { type: 'string', description: 'Slack channel name or ID (e.g. #general or C01234)' },
+    count: { type: 'number', description: 'Number of messages to fetch (default 20, max 100)' },
+  }, ['channel']),
+  async execute(args) {
+    const count = Math.min(args.count || 20, 100);
+    const messages = await SlackService.readMessages(args.channel, count);
+    return { action: 'read', channel: args.channel, count: messages.length, messages };
+  },
+};
+
+const slack_list_channels: ToolDefinition = {
+  name: 'slack_list_channels',
+  description: 'List available Slack channels that the bot has access to.',
+  riskLevel: 'low',
+  parameters: openaiSchema({
+    limit: { type: 'number', description: 'Max channels to list (default 50)' },
+  }, []),
+  async execute(args) {
+    const limit = Math.min(args.limit || 50, 200);
+    const channels = await SlackService.listChannels(limit);
+    return { action: 'list_channels', count: channels.length, channels };
+  },
+};
+
+/* ─── Sub-Agent Spawning Tool ────────────────────────────── */
+
+const spawn_agent: ToolDefinition = {
+  name: 'spawn_agent',
+  description: 'Spawn a sub-agent to handle a specific sub-task autonomously. The sub-agent has access to all the same tools. Use this to parallelize work or delegate complex sub-goals. The sub-agent runs to completion and returns its result.',
+  riskLevel: 'medium',
+  parameters: openaiSchema({
+    goal: { type: 'string', description: 'The specific goal or task for the sub-agent to accomplish' },
+    maxIterations: { type: 'number', description: 'Max iterations for the sub-agent (default 15)' },
+  }, ['goal']),
+  async execute(args, context) {
+    const result = await spawnSubAgent(
+      context.executionId,
+      args.goal,
+      context.userId,
+      { maxIterations: args.maxIterations || 15 },
+    );
+    return result;
+  },
+};
+
+/* ─── Workflow Creation Tool ─────────────────────────────── */
+
+const create_workflow: ToolDefinition = {
+  name: 'create_workflow',
+  description: 'Create and deploy a reusable workflow agent from a natural language description. This generates a complete automation workflow (trigger, nodes, edges) that can run on a schedule or be triggered by events. Use this when the user wants to create a persistent, repeatable automation.',
+  riskLevel: 'medium',
+  parameters: openaiSchema({
+    description: { type: 'string', description: 'Natural language description of what the workflow should do (e.g. "Every morning, read my emails and send a summary to Slack #daily-digest")' },
+    name: { type: 'string', description: 'Optional name for the workflow agent' },
+  }, ['description']),
+  async execute(args, context) {
+    try {
+      const result = await PromptToAgentService.generate(args.description);
+      if (!result.success) {
+        return { success: false, error: result.error || 'Failed to generate workflow' };
+      }
+
+      // Pass any accumulated agent memory as initial workflow variables
+      const contextVars: Record<string, any> = {};
+      if (context.agentMemory.size > 0) {
+        for (const [key, value] of context.agentMemory.entries()) {
+          contextVars[`agent_${key}`] = value;
+        }
+        if (!result.workflow.variables) result.workflow.variables = {};
+        Object.assign(result.workflow.variables, contextVars);
+      }
+
+      return {
+        success: true,
+        name: result.name,
+        description: result.description,
+        triggerType: result.triggerType,
+        nodeCount: result.workflow.nodes.length,
+        explanation: result.explanation,
+        workflow: result.workflow,
+        warnings: result.warnings,
+        contextVariablesInjected: Object.keys(contextVars).length,
+      };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  },
+};
+
 /* ─── Registry ──────────────────────────────────────────── */
 
 const ALL_TOOLS: ToolDefinition[] = [
   gmail_send,
   gmail_read,
   gmail_reply,
+  gmail_search,
+  gmail_draft,
   slack_send,
+  slack_read,
+  slack_list_channels,
   http_request,
   browser_navigate,
   ai_analyze,
@@ -502,6 +649,8 @@ const ALL_TOOLS: ToolDefinition[] = [
   memory_write,
   memory_search,
   ask_user,
+  spawn_agent,
+  create_workflow,
   gws_drive,
   gws_calendar,
   gws_sheets,

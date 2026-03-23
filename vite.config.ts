@@ -37,9 +37,10 @@ export default defineConfig({
             return 'vendor-icons';
           }
           
-          // Workflow/automation (ReactFlow, dagre)
+          // Workflow/automation (XYFlow/ReactFlow, dagre)
           if (id.includes('node_modules/reactflow/') || 
               id.includes('node_modules/@reactflow/') ||
+              id.includes('node_modules/@xyflow/') ||
               id.includes('node_modules/dagre/')) {
             return 'vendor-workflow';
           }

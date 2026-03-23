@@ -52,7 +52,7 @@
 .operonai-container {
   flex: 1;
   min-width: 0;
-  background: #f5f5f9;
+  background: var(--color-bg-primary, #f5f5f9);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -4360,5 +4360,486 @@ button.operonai-empty-cta:hover {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.8);
 }
-=======
->>>>>>> 46fd235 (Add pricing bridge page, legal modals, and frontend fixes)
+
+/* ═══════════════════════════════════════════════════════════
+   Computer Use / Create-with-AI Modal System
+   ═══════════════════════════════════════════════════════════ */
+
+.cu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: cu-fade-in 0.2s ease;
+}
+
+@keyframes cu-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.cu-close {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cu-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* ─── Chooser Modal ─────────────────────────────────────── */
+
+.cu-chooser {
+  background: #161616;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 40px;
+  width: 580px;
+  max-width: 95vw;
+  position: relative;
+  animation: cu-slide-up 0.25s ease;
+}
+
+@keyframes cu-slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.cu-chooser .cu-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.cu-chooser-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 6px;
+}
+.cu-chooser-sub {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0 0 28px;
+}
+
+.cu-chooser-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.cu-chooser-card {
+  text-align: left;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 24px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cu-chooser-card:hover {
+  border-color: rgba(224, 122, 58, 0.4);
+  background: rgba(224, 122, 58, 0.06);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+.cu-chooser-card--accent:hover {
+  border-color: rgba(99, 179, 237, 0.4);
+  background: rgba(99, 179, 237, 0.06);
+}
+.cu-chooser-card--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.cu-chooser-card--disabled:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cu-chooser-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cu-chooser-card h3 {
+  font-size: 16px;
+  font-weight: 650;
+  color: #fff;
+  margin: 0;
+}
+.cu-chooser-card p {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.cu-chooser-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(224, 122, 58, 0.15);
+  color: #e07a3a;
+  align-self: flex-start;
+  margin-top: auto;
+}
+.cu-chooser-tag--blue {
+  background: rgba(99, 179, 237, 0.15);
+  color: #63b3ed;
+}
+
+/* ─── Computer Use Panel ────────────────────────────────── */
+
+.cu-panel {
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  width: 96vw;
+  height: 90vh;
+  max-width: 1400px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: cu-slide-up 0.25s ease;
+}
+
+.cu-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.cu-panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+}
+.cu-panel-header-left h2 {
+  font-size: 17px;
+  font-weight: 650;
+  margin: 0;
+}
+
+.cu-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 8px;
+}
+.cu-status-badge--running {
+  background: rgba(99, 179, 237, 0.12);
+  color: #63b3ed;
+}
+.cu-status-badge--awaiting_approval {
+  background: rgba(246, 173, 85, 0.12);
+  color: #f6ad55;
+}
+.cu-status-badge--completed {
+  background: rgba(104, 211, 145, 0.12);
+  color: #68d391;
+}
+.cu-status-badge--failed {
+  background: rgba(252, 129, 129, 0.12);
+  color: #fc8181;
+}
+.cu-status-badge--cancelled {
+  background: rgba(160, 174, 192, 0.12);
+  color: #a0aec0;
+}
+
+@keyframes cu-spin {
+  to { transform: rotate(360deg); }
+}
+.cu-spin {
+  animation: cu-spin 1s linear infinite;
+}
+
+.cu-panel-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.cu-panel-left {
+  width: 380px;
+  min-width: 320px;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.cu-panel-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+/* Goal input */
+.cu-goal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cu-goal-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+.cu-goal-input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: #fff;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.15s;
+}
+.cu-goal-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+.cu-goal-input:focus {
+  outline: none;
+  border-color: rgba(99, 179, 237, 0.5);
+}
+
+.cu-start-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: #63b3ed;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cu-start-btn:hover:not(:disabled) {
+  background: #4299e1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(99, 179, 237, 0.3);
+}
+.cu-start-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Approval card */
+.cu-approval-card {
+  background: rgba(246, 173, 85, 0.06);
+  border: 1px solid rgba(246, 173, 85, 0.2);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cu-approval-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(246, 173, 85, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cu-approval-card h3 {
+  font-size: 15px;
+  font-weight: 650;
+  color: #f6ad55;
+  margin: 0;
+}
+.cu-approval-desc {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  line-height: 1.5;
+}
+.cu-approval-btns {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+.cu-approve-btn, .cu-deny-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+.cu-approve-btn {
+  background: rgba(104, 211, 145, 0.15);
+  color: #68d391;
+}
+.cu-approve-btn:hover {
+  background: rgba(104, 211, 145, 0.25);
+}
+.cu-deny-btn {
+  background: rgba(252, 129, 129, 0.15);
+  color: #fc8181;
+}
+.cu-deny-btn:hover {
+  background: rgba(252, 129, 129, 0.25);
+}
+
+/* Result card */
+.cu-result-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+.cu-result-card h3 {
+  font-size: 16px;
+  font-weight: 650;
+  color: #fff;
+  margin: 0;
+}
+.cu-result-card p {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0;
+  line-height: 1.6;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Steps log */
+.cu-steps-log {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.cu-steps-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0 0 10px;
+}
+.cu-steps-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cu-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.02);
+}
+.cu-step--thinking { color: rgba(99, 179, 237, 0.8); }
+.cu-step--action { color: rgba(224, 122, 58, 0.9); }
+.cu-step--error { color: rgba(252, 129, 129, 0.9); }
+.cu-step--result { color: rgba(104, 211, 145, 0.9); }
+
+.cu-step-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.cu-step-text {
+  flex: 1;
+  word-break: break-word;
+}
+
+.cu-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: rgba(252, 129, 129, 0.1);
+  color: #fc8181;
+  border: 1px solid rgba(252, 129, 129, 0.2);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cu-cancel-btn:hover {
+  background: rgba(252, 129, 129, 0.18);
+}
+
+/* Screenshot display */
+.cu-screenshot {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  object-fit: contain;
+}
+.cu-screenshot-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.15);
+  text-align: center;
+}
+.cu-screenshot-placeholder p {
+  font-size: 14px;
+  margin: 0;
+}

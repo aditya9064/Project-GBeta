@@ -661,6 +661,9 @@ async function executeNode(
     case 'crew_task':
       return executeCrewTask(resolvedNode, input, context, useRealBackend);
 
+    case 'autonomous_task':
+      return executeAutonomousTask(resolvedNode, input, useRealBackend);
+
     default:
       // For any unknown/n8n-specific node type, pass through with metadata
       return executeGenericN8nNode(resolvedNode, input, useRealBackend);
@@ -2507,6 +2510,87 @@ async function executeCrewTask(
   }
   
   throw new Error(`Crew task timed out after ${timeout / 1000} seconds`);
+}
+
+/* ═══ AUTONOMOUS TASK ═══════════════════════════════════ */
+
+async function executeAutonomousTask(
+  node: WorkflowNodeData,
+  input: any,
+  useRealBackend: boolean,
+): Promise<any> {
+  const goal = node.config?.goal || node.config?.prompt || node.label || 'Execute autonomous task';
+  const contextStr = input ? `\n\nContext from previous workflow steps: ${JSON.stringify(input).substring(0, 2000)}` : '';
+  const fullGoal = `${goal}${contextStr}`;
+
+  if (!useRealBackend) {
+    return {
+      _simulated: true,
+      _autonomousTask: true,
+      goal: fullGoal,
+      result: `[Simulated] Autonomous agent would execute: ${goal}`,
+      status: 'completed',
+    };
+  }
+
+  try {
+    const backendUrl = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || '';
+    const { getAuthHeaders } = await import('../../lib/firebase');
+    const headers = await getAuthHeaders();
+
+    const res = await fetch(`${backendUrl}/api/autonomous/run`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        goal: fullGoal,
+        model: node.config?.model || 'gpt-4o',
+        maxIterations: node.config?.maxIterations || 15,
+        autoApproveRisk: node.config?.autoApproveRisk || 'medium',
+      }),
+    });
+
+    if (!res.ok || !res.body) {
+      throw new Error(`Autonomous execution failed: ${res.statusText}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let result = '';
+    let finalStatus = 'completed';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.result) result = data.result;
+            if (data.status) finalStatus = data.status;
+          } catch { /* skip */ }
+        }
+      }
+    }
+
+    return {
+      _autonomousTask: true,
+      goal,
+      result,
+      status: finalStatus,
+    };
+  } catch (err: any) {
+    return {
+      _autonomousTask: true,
+      goal,
+      error: err.message,
+      status: 'failed',
+    };
+  }
 }
 
 /* ═══ EXPORTS ════════════════════════════════════════════ */

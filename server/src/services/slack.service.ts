@@ -498,6 +498,81 @@ export const SlackService = {
     return connectionState;
   },
 
+  /** Read recent messages from a specific channel */
+  async readMessages(channel: string, limit = 20): Promise<Array<{ user: string; text: string; ts: string }>> {
+    if (!slackClient) throw new Error('Slack not connected');
+
+    let channelId = channel;
+    if (channel.startsWith('#')) {
+      const resolved = await this.resolveChannel(channel.slice(1));
+      if (resolved) channelId = resolved;
+    }
+
+    const result = await slackClient.conversations.history({
+      channel: channelId,
+      limit,
+    });
+
+    const messages = (result.messages || []).map((m: any) => ({
+      user: m.user || 'unknown',
+      text: m.text || '',
+      ts: m.ts || '',
+    }));
+
+    for (const msg of messages) {
+      if (msg.user && msg.user !== 'unknown') {
+        try {
+          const userInfo = await slackClient!.users.info({ user: msg.user });
+          msg.user = userInfo.user?.real_name || userInfo.user?.name || msg.user;
+        } catch { /* keep user ID */ }
+      }
+    }
+
+    return messages;
+  },
+
+  /** List channels the bot has access to */
+  async listChannels(limit = 50): Promise<Array<{ id: string; name: string; topic: string; memberCount: number }>> {
+    if (!slackClient) throw new Error('Slack not connected');
+
+    const result = await slackClient.conversations.list({
+      limit,
+      types: 'public_channel,private_channel',
+    });
+
+    return (result.channels || []).map((ch: any) => ({
+      id: ch.id || '',
+      name: ch.name || '',
+      topic: ch.topic?.value || '',
+      memberCount: ch.num_members || 0,
+    }));
+  },
+
+  /** Resolve a channel name to its ID */
+  async resolveChannel(name: string): Promise<string | null> {
+    for (const [id, info] of channelCache.entries()) {
+      if (info.name === name) return id;
+    }
+
+    try {
+      const result = await slackClient!.conversations.list({
+        limit: 200,
+        types: 'public_channel,private_channel',
+      });
+
+      for (const ch of result.channels || []) {
+        if (ch.name && ch.id) {
+          channelCache.set(ch.id, { name: ch.name, topic: ch.topic?.value });
+          if (ch.name === name) return ch.id;
+        }
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
   /** Disconnect */
   disconnect(): void {
     slackClient = null;

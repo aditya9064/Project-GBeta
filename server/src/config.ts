@@ -16,9 +16,15 @@ function redirectUri(path: string): string {
 export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
 
-  // OpenAI
+  // OpenAI (legacy — used by workflow AI nodes)
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',
+  },
+
+  // Anthropic — powers the autonomous agent via Claude Agent SDK
+  anthropic: {
+    apiKey: process.env.ANTHROPIC_API_KEY || '',
+    model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
   },
 
   // Gmail / Google

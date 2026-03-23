@@ -36,7 +36,7 @@ export function NotFound() {
           Go Home
         </button>
         <button
-          onClick={() => navigate('/agents')}
+          onClick={() => navigate('/dashboard')}
           style={{
             padding: '0.75rem 1.5rem',
             borderRadius: '8px',

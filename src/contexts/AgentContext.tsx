@@ -24,6 +24,7 @@ import type { AgentRegistryEntry, AgentBusEvent, Crew } from '../services/automa
 import { ExecutionEngine, activeExecutions } from '../services/automation/executionEngine';
 import { CrewService, type Crew as CrewType } from '../services/workforce';
 import { log } from '../utils/logger';
+import { getAuthHeaders } from '../lib/firebase';
 import { MetricsService } from '../services/workforce';
 import { auth } from '../lib/firebase';
 
@@ -155,9 +156,10 @@ const AgentContext = createContext<AgentContextType>(defaultAgentContext);
 
 async function apiPost(path: string, body: any): Promise<any> {
   try {
+    const headers = await getAuthHeaders();
     const res = await fetch(`${BACKEND_URL}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
     });
     const data = await res.json();
@@ -178,9 +180,10 @@ async function apiPost(path: string, body: any): Promise<any> {
 
 async function apiPut(path: string, body: any): Promise<any> {
   try {
+    const headers = await getAuthHeaders();
     const res = await fetch(`${BACKEND_URL}${path}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
     });
     const data = await res.json();
@@ -201,7 +204,8 @@ async function apiPut(path: string, body: any): Promise<any> {
 
 async function apiDelete(path: string): Promise<any> {
   try {
-    const res = await fetch(`${BACKEND_URL}${path}`, { method: 'DELETE' });
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${BACKEND_URL}${path}`, { method: 'DELETE', headers });
     const data = await res.json();
     if (!res.ok) {
       log.warn(`[API DELETE] ${path} failed:`, data.error || res.statusText);
@@ -220,7 +224,8 @@ async function apiDelete(path: string): Promise<any> {
 
 async function apiGet(path: string): Promise<any> {
   try {
-    const res = await fetch(`${BACKEND_URL}${path}`);
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${BACKEND_URL}${path}`, { headers });
     const data = await res.json();
     if (!res.ok) {
       log.warn(`[API GET] ${path} failed:`, data.error || res.statusText);

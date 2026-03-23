@@ -34,6 +34,22 @@
   --accent-purple-hover: #d46b2c;
   --accent-purple-light: #f0a060;
   --accent-purple-dark: #c05d1e;
+
+  /* Short aliases used by Teams, Docs, Calendar, Whiteboard, Tasks pages */
+  --bg-primary: var(--color-bg-primary);
+  --bg-secondary: var(--color-bg-secondary);
+  --bg-tertiary: var(--color-bg-tertiary);
+  --bg-hover: var(--color-bg-hover);
+  --bg-active: var(--color-bg-active);
+  --content-bg: var(--color-bg-primary);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-tertiary: var(--color-text-tertiary);
+  --border-subtle: var(--color-border-subtle);
+  --border-default: var(--color-border-default);
+  --border-color: var(--color-border-subtle);
+  --error-color: var(--color-error);
+
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --text-xs: 0.6875rem;
   --text-sm: 0.8125rem;
@@ -96,6 +112,21 @@
   --accent-purple-hover: #e07a3a;
   --accent-purple-light: #f5b880;
   --accent-purple-dark: #d46b2c;
+
+  --bg-primary: var(--color-bg-primary);
+  --bg-secondary: var(--color-bg-secondary);
+  --bg-tertiary: var(--color-bg-tertiary);
+  --bg-hover: var(--color-bg-hover);
+  --bg-active: var(--color-bg-active);
+  --content-bg: var(--color-bg-primary);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-tertiary: var(--color-text-tertiary);
+  --border-subtle: var(--color-border-subtle);
+  --border-default: var(--color-border-default);
+  --border-color: var(--color-border-subtle);
+  --error-color: var(--color-error);
+
   --color-success-muted: rgba(16, 185, 129, 0.15);
   --color-warning-muted: rgba(245, 158, 11, 0.15);
   --color-error-muted: rgba(239, 68, 68, 0.15);

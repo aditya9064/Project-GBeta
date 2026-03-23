@@ -1,26 +1,42 @@
 /* ═══════════════════════════════════════════════════════════
-   Autonomous Executor — Claude-Code-style agentic loop
+   Autonomous Executor — Powered by Claude Agent SDK
 
-   Given a goal and a set of tools, the LLM iteratively decides
-   the next action (via OpenAI function calling), executes it,
-   observes the result, and repeats until the goal is achieved
-   or a limit is reached.
+   Replaces the manual OpenAI ReAct loop with the Claude Agent
+   SDK's built-in agentic loop. Claude autonomously decides
+   which tools to call, handles context management, and runs
+   to completion.
 
-   Key features:
-   - OpenAI function-calling for tool selection
+   Key capabilities:
+   - Claude Agent SDK agentic loop (no manual iteration)
+   - Built-in tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch
+   - Custom tools via MCP: Gmail, Slack, Google Workspace, HTTP, Memory
    - SSE streaming for real-time progress
-   - Approval gating for high-risk tools
-   - Context window management with summarization
-   - Sub-agent spawning for parallel work
+   - Approval gating via PreToolUse hooks
+   - Sub-agent delegation via Agent tool
+   - Session resume/fork
+   - Cost tracking & budget limits
    - Cancellation via AbortController
-   - Cost tracking per step
    ═══════════════════════════════════════════════════════════ */
 
-import OpenAI from 'openai';
-import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat/completions';
+import { query } from '@anthropic-ai/claude-agent-sdk';
+import type { HookCallback, SyncHookJSONOutput } from '@anthropic-ai/claude-agent-sdk';
 import { config } from '../config.js';
-import { ToolRegistry, defaultRegistry, type ToolContext, type RiskLevel } from './toolRegistry.js';
 import { logger } from './logger.js';
+import { setToolContext, createOperonMcpServer } from './mcpToolsServer.js';
+import type { RiskLevel, ToolContext } from './toolRegistry.js';
+
+/* ─── Firestore persistence helper ───────────────────────── */
+
+async function getFirestoreDb() {
+  try {
+    const { getApps } = await import('firebase-admin/app');
+    const { getFirestore } = await import('firebase-admin/firestore');
+    if (getApps().length > 0) return getFirestore();
+  } catch { /* Firestore not available */ }
+  return null;
+}
+
+const EXECUTIONS_COLLECTION = 'autonomous_executions';
 
 /* ─── Types ─────────────────────────────────────────────── */
 
@@ -54,6 +70,7 @@ export interface AutonomousExecution {
   totalCost: number;
   model: string;
   maxIterations: number;
+  sessionId?: string;
   parentExecutionId?: string;
 }
 
@@ -68,18 +85,23 @@ export interface AutonomousOptions {
 
 type SSEEmitter = (event: string, data: Record<string, any>) => void;
 
-/* ─── Cost per 1K tokens (approximate, GPT-4o pricing) ─── */
+/* ─── High-risk tools that require user approval ────────── */
 
-const COST_PER_1K: Record<string, { input: number; output: number }> = {
-  'gpt-4o':       { input: 0.0025, output: 0.01 },
-  'gpt-4o-mini':  { input: 0.00015, output: 0.0006 },
-  'gpt-4':        { input: 0.03, output: 0.06 },
-  'gpt-4-turbo':  { input: 0.01, output: 0.03 },
-};
+const HIGH_RISK_TOOLS = new Set([
+  'gmail_send', 'gmail_reply', 'slack_send',
+]);
 
-function estimateCost(model: string, promptTokens: number, completionTokens: number): number {
-  const pricing = COST_PER_1K[model] || COST_PER_1K['gpt-4o'];
-  return (promptTokens / 1000) * pricing.input + (completionTokens / 1000) * pricing.output;
+const MEDIUM_RISK_TOOLS = new Set([
+  'http_request', 'browser_navigate', 'run_code',
+  'google_drive', 'google_calendar', 'google_sheets',
+  'google_docs', 'google_workspace', 'create_workflow',
+  'gmail_draft', 'spawn_agent',
+]);
+
+function getToolRisk(toolName: string): RiskLevel {
+  if (HIGH_RISK_TOOLS.has(toolName)) return 'high';
+  if (MEDIUM_RISK_TOOLS.has(toolName)) return 'medium';
+  return 'low';
 }
 
 /* ─── System Prompt ─────────────────────────────────────── */
@@ -92,16 +114,15 @@ const DEFAULT_SYSTEM_PROMPT = `You are an autonomous AI agent built into OperonA
 RULES:
 1. Break complex goals into smaller steps and execute them one at a time.
 2. After each tool call, analyze the result and decide your next action.
-3. If you need information you don't have, use the appropriate tool to get it (read emails, make HTTP requests, browse the web, etc.).
+3. If you need information you don't have, use the appropriate tool to get it.
 4. If something fails, try an alternative approach before giving up.
 5. When you're done, provide a clear summary of what you accomplished.
-6. If you need clarification from the user, use the ask_user tool.
-7. Be concise in your reasoning. Focus on action, not explanation.
-8. Never fabricate data — always use tools to get real information.
-9. For potentially destructive actions (sending emails, posting messages), confirm the content is correct before executing.
-10. After completing a task, remind the user they can click "Deploy as Agent" to save this as a reusable automation that runs on a schedule or trigger.
+6. Be concise in your reasoning. Focus on action, not explanation.
+7. Never fabricate data — always use tools to get real information.
+8. For potentially destructive actions (sending emails, posting messages), confirm the content is correct before executing.
+9. After completing a task, remind the user they can click "Deploy as Agent" to save this as a reusable automation.
 
-You have access to: Gmail, Slack, HTTP requests, AI analysis, browser navigation, code execution, persistent memory, and Google Workspace (Drive, Calendar, Sheets, Docs, Chat, Admin, Tasks, and all other Workspace APIs via the gws CLI).
+You have access to: Gmail, Slack, HTTP requests, AI analysis, browser navigation, code execution, persistent memory, Google Workspace (Drive, Calendar, Sheets, Docs), web search, and file system operations.
 
 GOOGLE WORKSPACE TIPS:
 - Use the specific google_drive, google_calendar, google_sheets, google_docs tools for common operations.
@@ -117,62 +138,23 @@ const approvalResolvers = new Map<string, (approved: boolean) => void>();
 const userMessageResolvers = new Map<string, (message: string) => void>();
 const abortControllers = new Map<string, AbortController>();
 
-/* ─── OpenAI Client ─────────────────────────────────────── */
+/* ─── Claude model mapping ──────────────────────────────── */
 
-let openaiClient: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (!openaiClient) {
-    openaiClient = new OpenAI({ apiKey: config.openai.apiKey });
-  }
-  return openaiClient;
+const CLAUDE_MODELS: Record<string, string> = {
+  'claude-sonnet':       'claude-sonnet-4-20250514',
+  'claude-sonnet-4':     'claude-sonnet-4-20250514',
+  'claude-opus':         'claude-opus-4-20250514',
+  'claude-opus-4':       'claude-opus-4-20250514',
+  'claude-haiku':        'claude-haiku-3-5-20241022',
+  'claude-haiku-3.5':    'claude-haiku-3-5-20241022',
+};
+
+function resolveModel(input?: string): string {
+  if (!input) return config.anthropic.model || 'claude-sonnet-4-20250514';
+  return CLAUDE_MODELS[input] || input;
 }
 
-/* ─── Context Summarization ─────────────────────────────── */
-
-const MAX_MESSAGES_BEFORE_SUMMARIZE = 40;
-const SUMMARIZE_KEEP_RECENT = 10;
-
-async function summarizeContext(messages: ChatCompletionMessageParam[], model: string): Promise<ChatCompletionMessageParam[]> {
-  if (messages.length <= MAX_MESSAGES_BEFORE_SUMMARIZE) return messages;
-
-  const openai = getOpenAI();
-  const systemMsg = messages[0];
-  const toSummarize = messages.slice(1, messages.length - SUMMARIZE_KEEP_RECENT);
-  const recent = messages.slice(messages.length - SUMMARIZE_KEEP_RECENT);
-
-  const summaryContent = toSummarize
-    .map(m => {
-      if (m.role === 'assistant' && 'content' in m && m.content) return `Assistant: ${String(m.content).substring(0, 200)}`;
-      if (m.role === 'tool' && 'content' in m) return `Tool result: ${String(m.content).substring(0, 200)}`;
-      if (m.role === 'user' && 'content' in m) return `User: ${String(m.content).substring(0, 200)}`;
-      return '';
-    })
-    .filter(Boolean)
-    .join('\n');
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: 'Summarize the following conversation history concisely, preserving key facts, decisions, and results. Focus on what was accomplished and what information was gathered.' },
-        { role: 'user', content: summaryContent },
-      ],
-      temperature: 0.3,
-      max_tokens: 500,
-    });
-
-    const summary = response.choices[0]?.message?.content || 'Previous context summarized.';
-    return [
-      systemMsg,
-      { role: 'user' as const, content: `[Previous conversation summary: ${summary}]` },
-      ...recent,
-    ];
-  } catch {
-    return [systemMsg, ...recent];
-  }
-}
-
-/* ─── Core Agentic Loop ─────────────────────────────────── */
+/* ─── Core Agentic Loop (Claude Agent SDK) ──────────────── */
 
 export async function executeAutonomous(
   goal: string,
@@ -181,18 +163,14 @@ export async function executeAutonomous(
   options: AutonomousOptions = {},
 ): Promise<AutonomousExecution> {
   const {
-    model = 'gpt-4o',
     maxIterations = 25,
     autoApproveRisk = 'low',
-    tools: toolNames,
     systemPrompt,
     parentExecutionId,
   } = options;
 
+  const model = resolveModel(options.model);
   const executionId = `auto-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
-  const registry = defaultRegistry;
-  const openai = getOpenAI();
-  const openaiTools: ChatCompletionTool[] = registry.toOpenAITools(toolNames);
 
   const execution: AutonomousExecution = {
     id: executionId,
@@ -209,6 +187,8 @@ export async function executeAutonomous(
   };
 
   activeExecutions.set(executionId, execution);
+  persistExecution(execution).catch(() => {});
+
   const controller = new AbortController();
   abortControllers.set(executionId, controller);
 
@@ -220,20 +200,127 @@ export async function executeAutonomous(
     executionId,
     agentMemory: new Map(),
   };
+  setToolContext(toolContext);
 
-  const fullSystemPrompt = systemPrompt
-    ? `${DEFAULT_SYSTEM_PROMPT}\n\nAdditional instructions:\n${systemPrompt}`
-    : DEFAULT_SYSTEM_PROMPT;
-
-  let messages: ChatCompletionMessageParam[] = [
-    { role: 'system', content: fullSystemPrompt },
-    { role: 'user', content: goal },
-  ];
+  let fullSystemPrompt = DEFAULT_SYSTEM_PROMPT;
+  if (systemPrompt) fullSystemPrompt += `\n\nAdditional instructions:\n${systemPrompt}`;
+  if (parentExecutionId) {
+    fullSystemPrompt += `\n\nYou are a sub-agent spawned by a parent execution (${parentExecutionId}). Focus exclusively on your assigned goal and return a concise result.`;
+  }
 
   emit('execution_start', { executionId, goal, model, maxIterations });
 
+  /* ─── Approval hook for risky MCP tools ────────────────── */
+
+  const approvalHook: HookCallback = async (input, _toolUseId, _opts): Promise<SyncHookJSONOutput> => {
+    const toolName: string = (input as any)?.tool_name || '';
+
+    const toolRisk = getToolRisk(toolName);
+    const toolRiskLevel = riskLevels[toolRisk];
+
+    if (toolRiskLevel <= autoApproveThreshold) return {};
+
+    const toolArgs = (input as any)?.tool_input || {};
+    const step: ExecutionStep = {
+      id: `step-${Date.now()}-approve`,
+      type: 'approval_required',
+      timestamp: new Date().toISOString(),
+      toolName,
+      toolArgs,
+      riskLevel: toolRisk,
+      content: `Requesting approval to execute ${toolName}`,
+    };
+    execution.steps.push(step);
+    execution.status = 'awaiting_approval';
+
+    emit('approval_required', {
+      executionId, step, toolName, toolArgs, riskLevel: toolRisk,
+      description: `Execute ${toolName}`,
+    });
+
+    const approved = await waitForApproval(executionId, controller.signal);
+    execution.status = 'running';
+
+    if (!approved) {
+      emit('approval_denied', { executionId, toolName });
+      return { decision: 'block', reason: 'User denied this action. Try an alternative approach or ask the user for guidance.' };
+    }
+
+    emit('approval_granted', { executionId, toolName });
+    return {};
+  };
+
+  /* ─── Build allowed tools list ─────────────────────────── */
+
+  const builtInTools = [
+    'Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch',
+    'Bash', 'Write', 'Edit',
+    'Agent', 'AskUserQuestion', 'TodoWrite',
+  ];
+
+  /* ─── Configure sub-agents ─────────────────────────────── */
+
+  const agents: Record<string, any> = {
+    'research-agent': {
+      description: 'Specialized research agent for web search and data gathering.',
+      prompt: 'You are a research specialist. Search the web, read pages, and compile findings into a clear summary.',
+      tools: ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch'],
+    },
+    'email-agent': {
+      description: 'Specialized agent for email tasks — reading, searching, drafting, and sending.',
+      prompt: 'You are an email specialist. Handle all email-related tasks efficiently.',
+      tools: ['Read', 'Grep'],
+    },
+  };
+
   try {
-    for (let iteration = 0; iteration < maxIterations; iteration++) {
+    const agentStream = query({
+      prompt: goal,
+      options: {
+        model,
+        systemPrompt: fullSystemPrompt,
+        allowedTools: builtInTools,
+        maxTurns: maxIterations,
+        maxBudgetUsd: 5.00,
+        effort: 'high',
+        permissionMode: 'default',
+        agents,
+        abortController: controller,
+
+        mcpServers: {
+          'operon-tools': createOperonMcpServer(),
+        },
+
+        hooks: {
+          PreToolUse: [
+            { matcher: 'gmail_*|slack_*|http_*|browser_*|run_code|google_*|create_workflow', hooks: [approvalHook] },
+          ],
+          PostToolUse: [
+            {
+              matcher: '*',
+              hooks: [async (input, _toolUseId, _opts): Promise<SyncHookJSONOutput> => {
+                const toolName = (input as any)?.tool_name || 'unknown';
+                const step: ExecutionStep = {
+                  id: `step-${Date.now()}-tool`,
+                  type: 'tool_call',
+                  timestamp: new Date().toISOString(),
+                  toolName,
+                  toolArgs: (input as any)?.tool_input,
+                  toolResult: truncateResult((input as any)?.tool_response),
+                };
+                execution.steps.push(step);
+                emit('tool_complete', { executionId, step });
+                return {};
+              }],
+            },
+          ],
+        },
+      },
+    });
+
+    /* ─── Stream messages from the Claude Agent SDK ────────── */
+
+    for await (const message of agentStream) {
       if (controller.signal.aborted) {
         execution.status = 'cancelled';
         execution.error = 'Cancelled by user';
@@ -241,211 +328,87 @@ export async function executeAutonomous(
         break;
       }
 
-      messages = await summarizeContext(messages, model);
-
-      const stepStart = Date.now();
-      emit('thinking', { executionId, iteration, message: `Reasoning (step ${iteration + 1})...` });
-
-      let response;
-      try {
-        response = await openai.chat.completions.create({
-          model,
-          messages,
-          tools: openaiTools.length > 0 ? openaiTools : undefined,
-          tool_choice: openaiTools.length > 0 ? 'auto' : undefined,
-          temperature: 0.5,
-          max_tokens: 4096,
-        });
-      } catch (err: any) {
-        const errorStep: ExecutionStep = {
-          id: `step-${Date.now()}`,
-          type: 'error',
-          timestamp: new Date().toISOString(),
-          error: `OpenAI API error: ${err.message}`,
-          durationMs: Date.now() - stepStart,
-        };
-        execution.steps.push(errorStep);
-        emit('step_error', { executionId, step: errorStep });
-        execution.status = 'failed';
-        execution.error = err.message;
-        break;
-      }
-
-      const choice = response.choices[0];
-      const usage = response.usage;
-      if (usage) {
-        execution.totalTokens += usage.total_tokens;
-        execution.totalCost += estimateCost(model, usage.prompt_tokens, usage.completion_tokens);
-      }
-
-      const tokenUsage = usage ? {
-        prompt: usage.prompt_tokens,
-        completion: usage.completion_tokens,
-        total: usage.total_tokens,
-      } : undefined;
-
-      // If the model returns text content (no tool calls) — the agent is done or communicating
-      if (choice.finish_reason === 'stop' || !choice.message.tool_calls?.length) {
-        const content = choice.message.content || '';
-        messages.push({ role: 'assistant', content });
-
-        const doneStep: ExecutionStep = {
-          id: `step-${Date.now()}`,
-          type: 'done',
-          timestamp: new Date().toISOString(),
-          content,
-          tokenUsage,
-          durationMs: Date.now() - stepStart,
-        };
-        execution.steps.push(doneStep);
-        execution.result = content;
-        execution.status = 'completed';
-        emit('step_done', { executionId, step: doneStep, result: content });
-        break;
-      }
-
-      // Process tool calls
-      const assistantMessage: ChatCompletionMessageParam = {
-        role: 'assistant',
-        content: choice.message.content || null,
-        tool_calls: choice.message.tool_calls,
-      };
-      messages.push(assistantMessage);
-
-      if (choice.message.content) {
-        const thinkingStep: ExecutionStep = {
-          id: `step-${Date.now()}-think`,
-          type: 'thinking',
-          timestamp: new Date().toISOString(),
-          content: choice.message.content,
-          tokenUsage,
-          durationMs: Date.now() - stepStart,
-        };
-        execution.steps.push(thinkingStep);
-        emit('step_thinking', { executionId, step: thinkingStep });
-      }
-
-      for (const toolCall of choice.message.tool_calls) {
-        if (controller.signal.aborted) break;
-
-        const toolName = toolCall.function.name;
-        const toolArgs = JSON.parse(toolCall.function.arguments || '{}');
-        const tool = registry.get(toolName);
-
-        if (!tool) {
-          const errResult = JSON.stringify({ error: `Unknown tool: ${toolName}` });
-          messages.push({ role: 'tool', tool_call_id: toolCall.id, content: errResult });
-          continue;
+      switch (message.type) {
+        case 'system': {
+          if ((message as any).subtype === 'init') {
+            execution.sessionId = (message as any).session_id;
+          }
+          break;
         }
 
-        // Handle ask_user specially — pause and wait for user response
-        if (toolName === 'ask_user') {
-          const askStep: ExecutionStep = {
-            id: `step-${Date.now()}-ask`,
-            type: 'ask_user',
-            timestamp: new Date().toISOString(),
-            toolName,
-            toolArgs,
-            content: toolArgs.question,
-          };
-          execution.steps.push(askStep);
-          execution.status = 'awaiting_user';
-          emit('awaiting_user', { executionId, step: askStep, question: toolArgs.question });
-
-          const userResponse = await waitForUserMessage(executionId, controller.signal);
-          if (userResponse === null) {
-            messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify({ cancelled: true }) });
-            continue;
+        case 'assistant': {
+          const content = extractTextContent((message as any).message?.content);
+          if (content) {
+            const step: ExecutionStep = {
+              id: `step-${Date.now()}-think`,
+              type: 'thinking',
+              timestamp: new Date().toISOString(),
+              content,
+            };
+            execution.steps.push(step);
+            emit('step_thinking', { executionId, step });
           }
 
-          execution.status = 'running';
-          const responseStep: ExecutionStep = {
-            id: `step-${Date.now()}-user`,
-            type: 'user_message',
-            timestamp: new Date().toISOString(),
-            content: userResponse,
-          };
-          execution.steps.push(responseStep);
-          emit('user_response', { executionId, step: responseStep });
-          messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify({ userResponse }) });
-          continue;
-        }
-
-        // Check approval for high-risk tools
-        const toolRisk = riskLevels[tool.riskLevel];
-        if (toolRisk > autoApproveThreshold) {
-          const approvalStep: ExecutionStep = {
-            id: `step-${Date.now()}-approve`,
-            type: 'approval_required',
-            timestamp: new Date().toISOString(),
-            toolName,
-            toolArgs,
-            riskLevel: tool.riskLevel,
-            content: `Requesting approval to execute ${toolName}`,
-          };
-          execution.steps.push(approvalStep);
-          execution.status = 'awaiting_approval';
-          emit('approval_required', {
-            executionId,
-            step: approvalStep,
-            toolName,
-            toolArgs,
-            riskLevel: tool.riskLevel,
-            description: tool.description,
-          });
-
-          const approved = await waitForApproval(executionId, controller.signal);
-          execution.status = 'running';
-
-          if (!approved) {
-            const deniedResult = JSON.stringify({ denied: true, message: 'User denied this action. Try an alternative approach or ask the user for guidance.' });
-            messages.push({ role: 'tool', tool_call_id: toolCall.id, content: deniedResult });
-            emit('approval_denied', { executionId, toolName });
-            continue;
+          const toolCalls = extractToolCalls((message as any).message?.content);
+          for (const tc of toolCalls) {
+            emit('tool_start', { executionId, toolName: tc.name, toolArgs: tc.input });
           }
-          emit('approval_granted', { executionId, toolName });
+          break;
         }
 
-        // Execute the tool
-        const toolStart = Date.now();
-        emit('tool_start', { executionId, toolName, toolArgs });
+        case 'result': {
+          const resultMsg = message as any;
+          const resultText = resultMsg.result || '';
+          execution.totalCost = resultMsg.total_cost_usd || 0;
+          execution.totalTokens = resultMsg.usage?.input_tokens
+            ? resultMsg.usage.input_tokens + (resultMsg.usage.output_tokens || 0)
+            : 0;
+          execution.sessionId = resultMsg.session_id;
 
-        let toolResult: any;
-        try {
-          toolResult = await tool.execute(toolArgs, toolContext);
-        } catch (err: any) {
-          toolResult = { error: err.message };
+          if (resultMsg.subtype === 'success') {
+            execution.status = 'completed';
+            execution.result = resultText;
+
+            const doneStep: ExecutionStep = {
+              id: `step-${Date.now()}-done`,
+              type: 'done',
+              timestamp: new Date().toISOString(),
+              content: resultText,
+            };
+            execution.steps.push(doneStep);
+            emit('step_done', { executionId, step: doneStep, result: resultText });
+          } else if (resultMsg.subtype === 'error_max_turns') {
+            execution.status = 'completed';
+            execution.result = `Reached maximum turns (${maxIterations}). The task may be partially complete.`;
+            emit('max_iterations', { executionId, iterations: maxIterations });
+          } else if (resultMsg.subtype === 'error_max_budget_usd') {
+            execution.status = 'completed';
+            execution.result = 'Reached budget limit. The task may be partially complete.';
+            emit('max_iterations', { executionId, iterations: maxIterations });
+          } else {
+            execution.status = 'failed';
+            execution.error = resultMsg.subtype || 'Unknown error';
+            emit('execution_error', { executionId, error: execution.error });
+          }
+          break;
         }
 
-        const toolStep: ExecutionStep = {
-          id: `step-${Date.now()}-tool`,
-          type: 'tool_call',
-          timestamp: new Date().toISOString(),
-          toolName,
-          toolArgs,
-          toolResult: truncateResult(toolResult),
-          durationMs: Date.now() - toolStart,
-        };
-        execution.steps.push(toolStep);
-        emit('tool_complete', { executionId, step: toolStep });
-
-        const resultStr = JSON.stringify(toolResult);
-        const truncated = resultStr.length > 8000 ? resultStr.substring(0, 8000) + '...[truncated]' : resultStr;
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: truncated });
-      }
-
-      // If we've hit the last iteration, mark as completed with a note
-      if (iteration === maxIterations - 1) {
-        execution.status = 'completed';
-        execution.result = 'Reached maximum iterations. The task may be partially complete — review the steps above.';
-        emit('max_iterations', { executionId, iterations: maxIterations });
+        default:
+          break;
       }
     }
+
   } catch (err: any) {
-    execution.status = 'failed';
-    execution.error = err.message;
-    emit('execution_error', { executionId, error: err.message });
-    logger.error(`[AutonomousExecutor] Fatal error in execution ${executionId}:`, err);
+    if (err.name === 'AbortError' || controller.signal.aborted) {
+      execution.status = 'cancelled';
+      execution.error = 'Cancelled by user';
+      emit('execution_cancelled', { executionId });
+    } else {
+      execution.status = 'failed';
+      execution.error = err.message;
+      emit('execution_error', { executionId, error: err.message });
+      logger.error(`[AutonomousExecutor] Fatal error in execution ${executionId}:`, err);
+    }
   } finally {
     execution.completedAt = new Date().toISOString();
     emit('execution_complete', {
@@ -458,9 +421,27 @@ export async function executeAutonomous(
       stepCount: execution.steps.length,
     });
     abortControllers.delete(executionId);
+    persistExecution(execution).catch(() => {});
   }
 
   return execution;
+}
+
+/* ─── Message Content Extraction ─────────────────────────── */
+
+function extractTextContent(content: any[]): string {
+  if (!Array.isArray(content)) return '';
+  return content
+    .filter((block: any) => block.type === 'text')
+    .map((block: any) => block.text)
+    .join('\n');
+}
+
+function extractToolCalls(content: any[]): Array<{ name: string; input: any }> {
+  if (!Array.isArray(content)) return [];
+  return content
+    .filter((block: any) => block.type === 'tool_use')
+    .map((block: any) => ({ name: block.name, input: block.input }));
 }
 
 /* ─── Approval / User Message Waiting ───────────────────── */
@@ -521,6 +502,126 @@ export function getExecution(executionId: string): AutonomousExecution | undefin
 export function getActiveExecutions(userId?: string): AutonomousExecution[] {
   const all = Array.from(activeExecutions.values());
   return userId ? all.filter(e => e.userId === userId) : all;
+}
+
+/* ─── Sub-Agent Spawning ───────────────────────────────── */
+
+const MAX_SPAWN_DEPTH = 3;
+
+function getExecutionDepth(executionId: string): number {
+  let depth = 0;
+  let current = activeExecutions.get(executionId);
+  while (current?.parentExecutionId) {
+    depth++;
+    current = activeExecutions.get(current.parentExecutionId);
+  }
+  return depth;
+}
+
+export async function spawnSubAgent(
+  parentExecutionId: string,
+  goal: string,
+  userId: string,
+  options: AutonomousOptions = {},
+): Promise<{ success: boolean; result?: string; error?: string; executionId?: string }> {
+  const depth = getExecutionDepth(parentExecutionId);
+  if (depth >= MAX_SPAWN_DEPTH) {
+    return { success: false, error: `Maximum sub-agent nesting depth (${MAX_SPAWN_DEPTH}) reached` };
+  }
+
+  const subResults: string[] = [];
+  const collectEmit: SSEEmitter = (event, data) => {
+    if (event === 'step_done' && data.result) {
+      subResults.push(data.result);
+    }
+  };
+
+  try {
+    const execution = await executeAutonomous(goal, userId, collectEmit, {
+      ...options,
+      parentExecutionId,
+      maxIterations: options.maxIterations || 15,
+    });
+
+    return {
+      success: execution.status === 'completed',
+      result: execution.result || subResults.join('\n') || 'Sub-agent completed without explicit result',
+      executionId: execution.id,
+      error: execution.error,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/* ─── Persistence ───────────────────────────────────────── */
+
+async function persistExecution(execution: AutonomousExecution): Promise<void> {
+  try {
+    const db = await getFirestoreDb();
+    if (!db) return;
+
+    const stepsSummary = execution.steps.map(s => ({
+      id: s.id, type: s.type, timestamp: s.timestamp,
+      toolName: s.toolName, content: s.content?.substring(0, 500),
+      durationMs: s.durationMs, error: s.error,
+    }));
+
+    await db.collection(EXECUTIONS_COLLECTION).doc(execution.id).set({
+      id: execution.id, userId: execution.userId, goal: execution.goal,
+      status: execution.status, result: execution.result?.substring(0, 5000),
+      error: execution.error, startedAt: execution.startedAt,
+      completedAt: execution.completedAt || null,
+      totalTokens: execution.totalTokens, totalCost: execution.totalCost,
+      model: execution.model, maxIterations: execution.maxIterations,
+      parentExecutionId: execution.parentExecutionId || null,
+      sessionId: execution.sessionId || null,
+      stepCount: execution.steps.length, steps: stepsSummary,
+    }, { merge: true });
+  } catch (err: any) {
+    logger.warn(`[AutonomousExecutor] Failed to persist execution ${execution.id}: ${err.message}`);
+  }
+}
+
+export async function getExecutionHistory(userId: string, limit = 20): Promise<any[]> {
+  const db = await getFirestoreDb();
+  if (!db) {
+    return Array.from(activeExecutions.values())
+      .filter(e => e.userId === userId)
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+      .slice(0, limit)
+      .map(e => ({
+        id: e.id, goal: e.goal, status: e.status, model: e.model,
+        stepCount: e.steps.length, totalTokens: e.totalTokens, totalCost: e.totalCost,
+        startedAt: e.startedAt, completedAt: e.completedAt, result: e.result?.substring(0, 200),
+      }));
+  }
+
+  const snapshot = await db.collection(EXECUTIONS_COLLECTION)
+    .where('userId', '==', userId)
+    .orderBy('startedAt', 'desc')
+    .limit(limit)
+    .get();
+
+  return snapshot.docs.map(doc => {
+    const d = doc.data();
+    return {
+      id: d.id, goal: d.goal, status: d.status, model: d.model,
+      stepCount: d.stepCount, totalTokens: d.totalTokens, totalCost: d.totalCost,
+      startedAt: d.startedAt, completedAt: d.completedAt, result: d.result?.substring(0, 200),
+    };
+  });
+}
+
+export async function getExecutionById(executionId: string): Promise<any | null> {
+  const active = activeExecutions.get(executionId);
+  if (active) return active;
+
+  const db = await getFirestoreDb();
+  if (!db) return null;
+
+  const doc = await db.collection(EXECUTIONS_COLLECTION).doc(executionId).get();
+  return doc.exists ? doc.data() : null;
 }
 
 /* ─── Helpers ───────────────────────────────────────────── */

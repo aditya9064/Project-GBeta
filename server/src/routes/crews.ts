@@ -81,6 +81,10 @@ router.get('/:id', async (req: Request, res: Response) => {
       res.status(404).json({ success: false, error: 'Crew not found' });
       return;
     }
+    if (crew.ownerId && req.userId && crew.ownerId !== req.userId) {
+      res.status(403).json({ success: false, error: 'Access denied' });
+      return;
+    }
 
     res.json({ success: true, data: crew });
   } catch (err) {
@@ -96,6 +100,16 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 router.put('/:id', async (req: Request, res: Response) => {
   try {
+    const existing = await CrewStore.get(String(req.params.id));
+    if (!existing) {
+      res.status(404).json({ success: false, error: 'Crew not found' });
+      return;
+    }
+    if (existing.ownerId && req.userId && existing.ownerId !== req.userId) {
+      res.status(403).json({ success: false, error: 'Access denied' });
+      return;
+    }
+
     const { name, description, settings, status } = req.body;
     const update: Partial<StoredCrew> = {};
     
@@ -110,7 +124,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    logger.info(`👥 Crew updated: ${crew.name} (${crew.id})`);
+    logger.info(`Crew updated: ${crew.name} (${crew.id})`);
 
     res.json({ success: true, data: crew });
   } catch (err) {
@@ -126,6 +140,15 @@ router.put('/:id', async (req: Request, res: Response) => {
 
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
+    const existing = await CrewStore.get(String(req.params.id));
+    if (!existing) {
+      res.status(404).json({ success: false, error: 'Crew not found' });
+      return;
+    }
+    if (existing.ownerId && req.userId && existing.ownerId !== req.userId) {
+      res.status(403).json({ success: false, error: 'Access denied' });
+      return;
+    }
     await CrewStore.archive(String(req.params.id));
     res.json({ success: true });
   } catch (err) {

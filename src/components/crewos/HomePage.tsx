@@ -3,18 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bot,
   Mail,
-  CheckCircle2,
-  Calendar,
   Plus,
   ArrowRight,
   Activity,
   Clock,
   Zap,
   AlertCircle,
+  Users,
+  GitBranch,
+  Sparkles,
+  TrendingUp,
+  FileText,
+  CheckCircle2,
+  ShoppingCart,
 } from 'lucide-react';
 import { useAgents } from '../../contexts/AgentContext';
 
-const ACCENT = '#e97428';
+const ACCENT = '#e07a3a';
 
 const cardStyle: React.CSSProperties = {
   background: '#fff',
@@ -57,10 +62,14 @@ export function HomePage() {
   const navigate = useNavigate();
   const { agents } = useAgents();
 
-  const activeAgents = useMemo(
-    () => agents.filter((a) => a.status === 'active').length,
-    [agents],
-  );
+  const stats = useMemo(() => {
+    const active = agents.filter((a) => a.status === 'active').length;
+    const total = agents.length;
+    const totalRuns = agents.reduce((sum, a) => sum + (a.totalExecutions || 0), 0);
+    const successRuns = agents.reduce((sum, a) => sum + (a.successfulExecutions || 0), 0);
+    const successRate = totalRuns > 0 ? Math.round((successRuns / totalRuns) * 100) : 0;
+    return { active, total, totalRuns, successRate };
+  }, [agents]);
 
   const recentActivity = useMemo(() => {
     return agents
@@ -74,16 +83,19 @@ export function HomePage() {
       .map((a) => ({
         id: a.id,
         name: a.name,
-        status: (a as any).lastExecutionStatus === 'completed' ? 'success' : 'fail',
+        status: (a as any).lastExecutionStatus === 'completed' ? 'success' as const : (a as any).lastExecutionStatus === 'failed' ? 'fail' as const : 'success' as const,
         timestamp: a.lastExecutedAt instanceof Date ? a.lastExecutedAt : new Date(a.lastExecutedAt as any),
         totalExecutions: a.totalExecutions,
       }));
   }, [agents]);
 
   const quickActions = [
-    { label: 'Create Agent', icon: <Plus size={20} />, path: '/workflow', color: ACCENT },
-    { label: 'New Task', icon: <CheckCircle2 size={20} />, path: '/tasks', color: '#e07a3a' },
-    { label: 'View Messages', icon: <Mail size={20} />, path: '/comms', color: '#0ea5e9' },
+    { label: 'Chat with Agent', icon: <Sparkles size={20} />, path: '/chat', color: ACCENT, description: 'Ask AI to do anything' },
+    { label: 'My Agents', icon: <Bot size={20} />, path: '/agents', color: '#e07a3a', description: 'View & manage agents' },
+    { label: 'Build Workflow', icon: <GitBranch size={20} />, path: '/workflow', color: '#10b981', description: 'Visual automation builder' },
+    { label: 'Crews & Orchestration', icon: <Users size={20} />, path: '/workforce', color: '#6366f1', description: 'Team coordination' },
+    { label: 'Communications', icon: <Mail size={20} />, path: '/comms', color: '#0ea5e9', description: 'AI-powered email & messaging' },
+    { label: 'Marketplace', icon: <ShoppingCart size={20} />, path: '/marketplace', color: '#f59e0b', description: 'Browse agent templates' },
   ];
 
   return (
@@ -94,29 +106,19 @@ export function HomePage() {
           Dashboard
         </h1>
         <p style={{ fontSize: 14, color: '#6b7280', margin: '4px 0 0' }}>
-          Overview of your workspace
+          Your AI workforce at a glance
         </p>
       </div>
 
-      {/* Quick Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         <div style={cardStyle}>
           <div style={iconWrapStyle(`${ACCENT}18`)}>
             <Bot size={20} color={ACCENT} />
           </div>
           <div>
-            <div style={statLabel}>Active Agents</div>
-            <div style={statValue}>{activeAgents}</div>
-          </div>
-        </div>
-
-        <div style={cardStyle}>
-          <div style={iconWrapStyle('rgba(224,122,58,0.1)')}>
-            <Mail size={20} color="#e07a3a" />
-          </div>
-          <div>
-            <div style={statLabel}>Messages Today</div>
-            <div style={statValue}>—</div>
+            <div style={statLabel}>Total Agents</div>
+            <div style={statValue}>{stats.total}</div>
           </div>
         </div>
 
@@ -125,29 +127,50 @@ export function HomePage() {
             <CheckCircle2 size={20} color="#10b981" />
           </div>
           <div>
-            <div style={statLabel}>Pending Tasks</div>
-            <div style={statValue}>—</div>
+            <div style={statLabel}>Active</div>
+            <div style={statValue}>{stats.active}</div>
           </div>
         </div>
 
         <div style={cardStyle}>
-          <div style={iconWrapStyle('#f59e0b18')}>
-            <Calendar size={20} color="#f59e0b" />
+          <div style={iconWrapStyle('rgba(99,102,241,0.1)')}>
+            <Activity size={20} color="#6366f1" />
           </div>
           <div>
-            <div style={statLabel}>Upcoming Events</div>
-            <div style={statValue}>—</div>
+            <div style={statLabel}>Total Executions</div>
+            <div style={statValue}>{stats.totalRuns}</div>
+          </div>
+        </div>
+
+        <div style={cardStyle}>
+          <div style={iconWrapStyle('rgba(16,185,129,0.1)')}>
+            <TrendingUp size={20} color="#10b981" />
+          </div>
+          <div>
+            <div style={statLabel}>Success Rate</div>
+            <div style={statValue}>{stats.successRate}%</div>
           </div>
         </div>
       </div>
 
-      {/* Main grid: Activity + Quick Actions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem', alignItems: 'start' }}>
+      {/* Main grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
         {/* Recent Activity */}
         <div style={{ ...cardStyle, flexDirection: 'column', alignItems: 'stretch', padding: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '1rem' }}>
-            <Activity size={18} color={ACCENT} />
-            <span style={{ fontSize: 16, fontWeight: 600, color: '#111827' }}>Recent Activity</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Activity size={18} color={ACCENT} />
+              <span style={{ fontSize: 16, fontWeight: 600, color: '#111827' }}>Recent Activity</span>
+            </div>
+            <button
+              onClick={() => navigate('/logs')}
+              style={{
+                fontSize: 12, color: ACCENT, background: 'none', border: 'none', cursor: 'pointer',
+                fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
+              }}
+            >
+              View all <ArrowRight size={12} />
+            </button>
           </div>
 
           {recentActivity.length === 0 ? (
@@ -170,14 +193,9 @@ export function HomePage() {
                   }}
                 >
                   <div style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: '50%',
+                    width: 28, height: 28, borderRadius: '50%',
                     background: item.status === 'success' ? '#dcfce7' : '#fee2e2',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                   }}>
                     {item.status === 'success'
                       ? <Zap size={14} color="#16a34a" />
@@ -194,11 +212,9 @@ export function HomePage() {
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{
-                      fontSize: 11,
-                      fontWeight: 600,
+                      fontSize: 11, fontWeight: 600,
                       color: item.status === 'success' ? '#16a34a' : '#dc2626',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.03em',
+                      textTransform: 'uppercase', letterSpacing: '0.03em',
                     }}>
                       {item.status === 'success' ? 'Success' : 'Failed'}
                     </div>
@@ -217,35 +233,43 @@ export function HomePage() {
           <div style={{ fontSize: 16, fontWeight: 600, color: '#111827', marginBottom: 4 }}>
             Quick Actions
           </div>
-          {quickActions.map((action) => (
-            <button
-              key={action.label}
-              onClick={() => navigate(action.path)}
-              style={{
-                ...cardStyle,
-                cursor: 'pointer',
-                transition: 'box-shadow 0.15s, border-color 0.15s',
-                border: '1px solid #e5e7eb',
-                width: '100%',
-                textAlign: 'left',
-                background: '#fff',
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
-                (e.currentTarget as HTMLButtonElement).style.borderColor = action.color;
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
-                (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb';
-              }}
-            >
-              <div style={iconWrapStyle(`${action.color}18`)}>
-                {React.cloneElement(action.icon, { color: action.color })}
-              </div>
-              <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: '#374151' }}>{action.label}</span>
-              <ArrowRight size={16} color="#9ca3af" />
-            </button>
-          ))}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            {quickActions.map((action) => (
+              <button
+                key={action.label}
+                onClick={() => navigate(action.path)}
+                style={{
+                  ...cardStyle,
+                  cursor: 'pointer',
+                  transition: 'box-shadow 0.15s, border-color 0.15s',
+                  border: '1px solid #e5e7eb',
+                  width: '100%',
+                  textAlign: 'left',
+                  background: '#fff',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  padding: '1rem 1.25rem',
+                  gap: '0.5rem',
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = action.color;
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%' }}>
+                  <div style={iconWrapStyle(`${action.color}18`)}>
+                    {React.cloneElement(action.icon, { color: action.color })}
+                  </div>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>{action.label}</span>
+                </div>
+                <span style={{ fontSize: 12, color: '#9ca3af', paddingLeft: 54 }}>{action.description}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

@@ -4,10 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "if exist pitch-deck.html copy pitch-deck.html public\\pitch-deck.html && vite",
-    "build": "tsc -b && if exist pitch-deck.html copy pitch-deck.html public\\pitch-deck.html && vite build",
+    "dev": "vite --port 5173",
+    "dev:preview": "vite preview --outDir dist-firebase --port 5173",
+    "build": "tsc -b && vite build --outDir dist",
     "deploy": "npm run build && firebase deploy --only hosting",
-    "preview": "vite preview",
+    "preview": "vite preview --outDir dist-firebase",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "workflows:fetch": "git clone --depth 1 https://github.com/Zie619/n8n-workflows.git /tmp/n8n-workflows && cp -r /tmp/n8n-workflows/workflows public/workflows && rm -rf /tmp/n8n-workflows",
     "workflows:index": "node scripts/build-workflow-index.mjs",
     "workflows:setup": "npm run workflows:fetch && npm run workflows:index"
@@ -33,7 +37,6 @@
     "markdown-pdf": "^11.0.0",
     "md-to-pdf": "^5.2.5",
     "pdf-lib": "^1.17.1",
-    "puppeteer": "^24.37.3",
     "typescript": "~5.7.2",
     "vite": "^6.1.0"
   }

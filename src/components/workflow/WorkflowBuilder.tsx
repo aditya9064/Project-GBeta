@@ -675,6 +675,20 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
           },
         };
         break;
+      case 'autonomous_task':
+        newNode = {
+          id,
+          type: 'custom',
+          position,
+          data: {
+            label: 'Autonomous Task',
+            type: 'autonomous_task',
+            icon: <Sparkles size={16} />,
+            description: 'Delegate a goal to the autonomous agent (LLM-driven, free-form tool use)',
+            config: { goal: '', model: 'gpt-4o', maxIterations: 15, autoApproveRisk: 'medium', ...config },
+          },
+        };
+        break;
       default:
         return;
     }
@@ -1011,6 +1025,7 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
                   case 'memory': return '#06b6d4';
                   case 'agent_call': return '#ec4899';
                   case 'browser_task': return '#14b8a6';
+                  case 'autonomous_task': return '#e07a3a';
                   default: return '#9ca3af';
                 }
               }}
@@ -1082,6 +1097,10 @@ function WorkflowBuilderInner({ onSave, onClose, initialWorkflow, initialName, o
             <button className="node-add-item" onClick={() => { addNode('agent_call'); setShowNodeDropdown(false); }}>
               <div className="node-add-item-icon" style={{ background: '#ec489914', color: '#ec4899' }}><GitBranch size={14} /></div>
               Call Agent
+            </button>
+            <button className="node-add-item" onClick={() => { addNode('autonomous_task'); setShowNodeDropdown(false); }}>
+              <div className="node-add-item-icon" style={{ background: '#e07a3a14', color: '#e07a3a' }}><Sparkles size={14} /></div>
+              Autonomous Task
             </button>
           </div>
         )}

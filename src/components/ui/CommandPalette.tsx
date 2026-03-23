@@ -3,19 +3,17 @@ import {
   Home,
   Bot,
   Mail,
-  CheckCircle2,
-  Calendar,
   FileText,
   TrendingUp,
   GitBranch,
-  Users,
-  PenTool,
   ShoppingCart,
   Settings,
   Plus,
   Moon,
   Sun,
   Search,
+  Users,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -53,20 +51,18 @@ export function CommandPalette({ isOpen, onClose, onNavigate, onToggleTheme, the
   const listRef = useRef<HTMLDivElement>(null);
 
   const commands: Command[] = useMemo(() => [
-    { id: 'nav-home', icon: Home, label: 'Go to Home', section: 'Navigation', action: () => onNavigate('/dashboard') },
+    { id: 'nav-home', icon: Home, label: 'Go to Dashboard', section: 'Navigation', action: () => onNavigate('/dashboard') },
     { id: 'nav-agents', icon: Bot, label: 'Go to Agents', section: 'Navigation', action: () => onNavigate('/agents') },
+    { id: 'nav-workforce', icon: Users, label: 'Go to Crews & Orchestration', section: 'Navigation', action: () => onNavigate('/workforce') },
+    { id: 'nav-chat', icon: Sparkles, label: 'Go to Chat Agent', section: 'Navigation', action: () => onNavigate('/chat') },
     { id: 'nav-comms', icon: Mail, label: 'Go to Communications', section: 'Navigation', action: () => onNavigate('/comms') },
-    { id: 'nav-tasks', icon: CheckCircle2, label: 'Go to Tasks', section: 'Navigation', action: () => onNavigate('/tasks') },
-    { id: 'nav-calendar', icon: Calendar, label: 'Go to Calendar', section: 'Navigation', action: () => onNavigate('/calendar') },
     { id: 'nav-docai', icon: FileText, label: 'Go to Document AI', section: 'Navigation', action: () => onNavigate('/docai') },
     { id: 'nav-sales', icon: TrendingUp, label: 'Go to Sales', section: 'Navigation', action: () => onNavigate('/sales') },
     { id: 'nav-workflow', icon: GitBranch, label: 'Go to Workflow Builder', section: 'Navigation', action: () => onNavigate('/workflow') },
-    { id: 'nav-teams', icon: Users, label: 'Go to Teams', section: 'Navigation', action: () => onNavigate('/teams') },
-    { id: 'nav-whiteboard', icon: PenTool, label: 'Go to Whiteboard', section: 'Navigation', action: () => onNavigate('/whiteboard') },
+    { id: 'nav-knowledge', icon: FileText, label: 'Go to Knowledge Base', section: 'Navigation', action: () => onNavigate('/knowledge') },
     { id: 'nav-marketplace', icon: ShoppingCart, label: 'Go to Marketplace', section: 'Navigation', action: () => onNavigate('/marketplace') },
     { id: 'nav-settings', icon: Settings, label: 'Go to Settings', section: 'Navigation', action: () => onNavigate('/settings') },
     { id: 'act-new-agent', icon: Plus, label: 'Create New Agent', section: 'Actions', action: () => onNavigate('/workflow') },
-    { id: 'act-new-task', icon: Plus, label: 'New Task', section: 'Actions', action: () => onNavigate('/tasks') },
     { id: 'set-theme', icon: theme === 'dark' ? Sun : Moon, label: 'Toggle Dark Mode', shortcut: '⌘D', section: 'Settings', action: onToggleTheme },
   ], [onNavigate, onToggleTheme, theme]);
 

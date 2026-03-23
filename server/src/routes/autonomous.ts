@@ -23,6 +23,8 @@ import {
   cancelExecution,
   getExecution,
   getActiveExecutions,
+  getExecutionHistory,
+  getExecutionById,
 } from '../services/autonomousExecutor.js';
 import { logger } from '../services/logger.js';
 
@@ -69,6 +71,60 @@ router.post('/run', validate(autonomousRunSchema), async (req: Request, res: Res
     emit('error', { error: err.message });
   } finally {
     res.end();
+  }
+});
+
+/* ─── GET /active — List active executions ─── */
+
+router.get('/active', (req: Request, res: Response) => {
+  const userId = req.userId;
+  const executions = getActiveExecutions(userId);
+
+  res.json({
+    success: true,
+    data: executions.map(e => ({
+      id: e.id,
+      goal: e.goal,
+      status: e.status,
+      model: e.model,
+      stepCount: e.steps.length,
+      totalTokens: e.totalTokens,
+      totalCost: e.totalCost,
+      startedAt: e.startedAt,
+    })),
+  });
+});
+
+/* ─── GET /history — List past executions (Firestore + in-memory) ─── */
+
+router.get('/history', async (req: Request, res: Response) => {
+  const userId = req.userId || 'anonymous';
+  const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+
+  try {
+    const history = await getExecutionHistory(userId, limit);
+    res.json({ success: true, data: history });
+  } catch (err: any) {
+    logger.error('[AutonomousRoute] History fetch failed:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch history' });
+  }
+});
+
+/* ─── GET /execution/:id — Get full execution details (in-memory or Firestore) ─── */
+
+router.get('/execution/:id', async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+
+  try {
+    const execution = await getExecutionById(id);
+    if (!execution) {
+      res.status(404).json({ success: false, error: 'Execution not found' });
+      return;
+    }
+    res.json({ success: true, data: execution });
+  } catch (err: any) {
+    logger.error('[AutonomousRoute] Execution fetch failed:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch execution' });
   }
 });
 
@@ -146,27 +202,6 @@ router.get('/:id/status', (req: Request, res: Response) => {
       error: execution.error,
       steps: execution.steps,
     },
-  });
-});
-
-/* ─── GET /active — List active executions ─── */
-
-router.get('/active', (req: Request, res: Response) => {
-  const userId = req.userId;
-  const executions = getActiveExecutions(userId);
-
-  res.json({
-    success: true,
-    data: executions.map(e => ({
-      id: e.id,
-      goal: e.goal,
-      status: e.status,
-      model: e.model,
-      stepCount: e.steps.length,
-      totalTokens: e.totalTokens,
-      totalCost: e.totalCost,
-      startedAt: e.startedAt,
-    })),
   });
 });
 

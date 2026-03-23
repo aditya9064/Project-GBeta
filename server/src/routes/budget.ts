@@ -11,7 +11,7 @@
    POST   /api/budget/:userId/crew/:crewId   — Set crew budget
    ═══════════════════════════════════════════════════════════ */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { BudgetStore } from '../services/budgetStore.js';
 import { logger } from '../services/logger.js';
 import { validate } from '../middleware/validate.js';
@@ -19,9 +19,34 @@ import { budgetUpdateSchema, budgetRecordCostSchema, budgetSetLimitSchema, budge
 
 const router = Router();
 
+function enforceOwnership(req: Request, res: Response, next: NextFunction) {
+  if (req.userId && req.params.userId && req.userId !== req.params.userId) {
+    res.status(403).json({ success: false, error: 'Access denied' });
+    return;
+  }
+  next();
+}
+
+/* ─── POST /api/budget/calculate — Calculate token cost ─────── */
+
+router.post('/calculate', validate(budgetCalculateSchema), async (req: Request, res: Response) => {
+  try {
+    const { model, inputTokens, outputTokens } = req.body;
+    
+    const cost = BudgetStore.calculateTokenCost(model, Number(inputTokens), Number(outputTokens));
+    res.json({ success: true, data: { cost } });
+  } catch (err) {
+    logger.error('Calculate cost error:', err);
+    res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to calculate cost',
+    });
+  }
+});
+
 /* ─── GET /api/budget/:userId — Get user budget ────────────── */
 
-router.get('/:userId', async (req: Request, res: Response) => {
+router.get('/:userId', enforceOwnership, async (req: Request, res: Response) => {
   try {
     const budget = await BudgetStore.getBudget(req.params.userId as string);
     res.json({ success: true, data: budget });
@@ -36,7 +61,7 @@ router.get('/:userId', async (req: Request, res: Response) => {
 
 /* ─── PUT /api/budget/:userId — Update budget settings ─────── */
 
-router.put('/:userId', validate(budgetUpdateSchema), async (req: Request, res: Response) => {
+router.put('/:userId', enforceOwnership, validate(budgetUpdateSchema), async (req: Request, res: Response) => {
   try {
     const updates = req.body;
     const budget = await BudgetStore.updateBudget(req.params.userId as string, updates);
@@ -52,7 +77,7 @@ router.put('/:userId', validate(budgetUpdateSchema), async (req: Request, res: R
 
 /* ─── GET /api/budget/:userId/summary — Spending summary ───── */
 
-router.get('/:userId/summary', async (req: Request, res: Response) => {
+router.get('/:userId/summary', enforceOwnership, async (req: Request, res: Response) => {
   try {
     const summary = await BudgetStore.getSpendingSummary(req.params.userId as string);
     res.json({ success: true, data: summary });
@@ -67,7 +92,7 @@ router.get('/:userId/summary', async (req: Request, res: Response) => {
 
 /* ─── GET /api/budget/:userId/entries — Cost entries ───────── */
 
-router.get('/:userId/entries', async (req: Request, res: Response) => {
+router.get('/:userId/entries', enforceOwnership, async (req: Request, res: Response) => {
   try {
     const since = req.query.since as string | undefined;
     const limit = parseInt((req.query.limit as string) || '100', 10);
@@ -85,7 +110,7 @@ router.get('/:userId/entries', async (req: Request, res: Response) => {
 
 /* ─── POST /api/budget/:userId/cost — Record cost entry ────── */
 
-router.post('/:userId/cost', validate(budgetRecordCostSchema), async (req: Request, res: Response) => {
+router.post('/:userId/cost', enforceOwnership, validate(budgetRecordCostSchema), async (req: Request, res: Response) => {
   try {
     const { agentId, agentName, crewId, crewName, executionId, category, amount, description, metadata } = req.body;
     
@@ -114,7 +139,7 @@ router.post('/:userId/cost', validate(budgetRecordCostSchema), async (req: Reque
 
 /* ─── GET /api/budget/:userId/can-execute — Check if allowed ─ */
 
-router.get('/:userId/can-execute', async (req: Request, res: Response) => {
+router.get('/:userId/can-execute', enforceOwnership, async (req: Request, res: Response) => {
   try {
     const estimatedCost = Number((req.query.cost as string) || 0);
     const agentId = req.query.agentId as string | undefined;
@@ -133,7 +158,7 @@ router.get('/:userId/can-execute', async (req: Request, res: Response) => {
 
 /* ─── POST /api/budget/:userId/agent/:agentId — Set agent budget */
 
-router.post('/:userId/agent/:agentId', validate(budgetSetLimitSchema), async (req: Request, res: Response) => {
+router.post('/:userId/agent/:agentId', enforceOwnership, validate(budgetSetLimitSchema), async (req: Request, res: Response) => {
   try {
     const { budget } = req.body;
     
@@ -150,7 +175,7 @@ router.post('/:userId/agent/:agentId', validate(budgetSetLimitSchema), async (re
 
 /* ─── POST /api/budget/:userId/crew/:crewId — Set crew budget ─ */
 
-router.post('/:userId/crew/:crewId', validate(budgetSetLimitSchema), async (req: Request, res: Response) => {
+router.post('/:userId/crew/:crewId', enforceOwnership, validate(budgetSetLimitSchema), async (req: Request, res: Response) => {
   try {
     const { budget } = req.body;
     
@@ -161,23 +186,6 @@ router.post('/:userId/crew/:crewId', validate(budgetSetLimitSchema), async (req:
     res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to set crew budget',
-    });
-  }
-});
-
-/* ─── POST /api/budget/calculate — Calculate token cost ─────── */
-
-router.post('/calculate', validate(budgetCalculateSchema), async (req: Request, res: Response) => {
-  try {
-    const { model, inputTokens, outputTokens } = req.body;
-    
-    const cost = BudgetStore.calculateTokenCost(model, Number(inputTokens), Number(outputTokens));
-    res.json({ success: true, data: { cost } });
-  } catch (err) {
-    logger.error('Calculate cost error:', err);
-    res.status(500).json({
-      success: false,
-      error: err instanceof Error ? err.message : 'Failed to calculate cost',
     });
   }
 });

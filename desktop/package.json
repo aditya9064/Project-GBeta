@@ -1,0 +1,48 @@
+{
+  "name": "operonai-desktop",
+  "version": "1.0.0",
+  "description": "OperonAI Desktop — AI agent with full computer control",
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "electron dist/main.js",
+    "package:mac": "electron-builder --mac",
+    "package:win": "electron-builder --win",
+    "package:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.operonai.desktop",
+    "productName": "OperonAI",
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "latest",
+    "@anthropic-ai/sdk": "latest",
+    "dotenv": "^17.3.1",
+    "electron-store": "^10.0.0",
+    "robotjs": "^0.6.0",
+    "screenshot-desktop": "^1.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "electron": "^35.0.0",
+    "electron-builder": "^26.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "~5.7.2"
+  }
+}

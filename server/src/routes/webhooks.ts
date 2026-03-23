@@ -19,7 +19,7 @@ export const webhooksRouter = Router();
 webhooksRouter.get('/', async (req: Request, res: Response) => {
   try {
     const direction = req.query.direction as 'inbound' | 'outbound' | undefined;
-    const createdBy = req.query.createdBy as string | undefined;
+    const createdBy = req.userId || req.query.createdBy as string | undefined;
     const enabled = req.query.enabled !== undefined 
       ? req.query.enabled === 'true' 
       : undefined;

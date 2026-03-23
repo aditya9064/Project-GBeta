@@ -616,5 +616,84 @@ export const GmailService = {
       return null;
     }
   },
+
+  /** Search messages by Gmail query syntax */
+  async searchMessages(query: string, maxResults = 10): Promise<UnifiedMessage[]> {
+    if (!gmailClient) throw new Error('Gmail not connected');
+
+    const res = await gmailClient.users.messages.list({
+      userId: 'me',
+      q: query,
+      maxResults,
+    });
+
+    const messageRefs = res.data.messages || [];
+    const messages: UnifiedMessage[] = [];
+
+    for (const ref of messageRefs) {
+      if (!ref.id) continue;
+      try {
+        const detail = await gmailClient.users.messages.get({
+          userId: 'me',
+          id: ref.id,
+          format: 'full',
+        });
+
+        const headers = detail.data.payload?.headers || [];
+        const getHeader = (name: string) => headers.find((h: any) => h.name?.toLowerCase() === name.toLowerCase())?.value || '';
+
+        const from = getHeader('From');
+        const subject = getHeader('Subject');
+        const snippet = detail.data.snippet || '';
+
+        let body = '';
+        const parts = detail.data.payload?.parts;
+        if (parts) {
+          const textPart = parts.find((p: any) => p.mimeType === 'text/plain');
+          if (textPart?.body?.data) {
+            body = Buffer.from(textPart.body.data, 'base64').toString('utf-8');
+          }
+        } else if (detail.data.payload?.body?.data) {
+          body = Buffer.from(detail.data.payload.body.data, 'base64').toString('utf-8');
+        }
+
+        const emailMatch = from.match(/<([^>]+)>/);
+        messages.push({
+          id: ref.id,
+          externalId: ref.id,
+          from: from.replace(/<[^>]+>/, '').trim(),
+          fromEmail: emailMatch?.[1] || from,
+          subject,
+          preview: snippet,
+          fullMessage: body.substring(0, 5000),
+          receivedAt: new Date(parseInt(detail.data.internalDate || '0')).toISOString(),
+          platform: 'gmail',
+          threadId: detail.data.threadId || undefined,
+        });
+      } catch {
+        continue;
+      }
+    }
+
+    return messages;
+  },
+
+  /** Create a draft email without sending */
+  async createDraft(to: string, subject: string, body: string): Promise<{ draftId: string; success: boolean }> {
+    if (!gmailClient) throw new Error('Gmail not connected');
+
+    const raw = Buffer.from(
+      `To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${body}`
+    ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+    const res = await gmailClient.users.drafts.create({
+      userId: 'me',
+      requestBody: {
+        message: { raw },
+      },
+    });
+
+    return { draftId: res.data.id || '', success: true };
+  },
 };
 

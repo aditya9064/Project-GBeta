@@ -25,6 +25,10 @@ public/workflows/
 .env.production
 server/.env
 browser-service/.env
+desktop/.env
+
+# Electron desktop packaged builds
+desktop/release/
 
 # Build output from sub-projects
 browser-service/dist/
