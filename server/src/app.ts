@@ -48,6 +48,8 @@ import { Scheduler } from './services/scheduler.js';
 import { organizationsRouter } from './routes/organizations.js';
 import { operonRouter } from './routes/operon.js';
 import { autonomousRouter } from './routes/autonomous.js';
+import { devtoolsRouter } from './routes/devtools.js';
+import { memoryRouter } from './routes/memory.js';
 
 export const app = express();
 
@@ -231,6 +233,8 @@ APM.start();
 Scheduler.initialize();
 app.use('/api/operon', aiLimiter, operonRouter);
 app.use('/api/autonomous', aiLimiter, autonomousRouter);
+app.use('/api/devtools', devtoolsRouter);
+app.use('/api/memory', memoryRouter);
 
 /* ─── Health & Observability Endpoints ─────────────────── */
 

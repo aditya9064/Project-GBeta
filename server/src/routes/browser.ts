@@ -17,7 +17,9 @@ import { Router, Request, Response } from 'express';
 import { validate } from '../middleware/validate.js';
 import { visionStartSchema } from '../middleware/schemas.js';
 import { BrowserService } from '../services/browser.service.js';
-import { VisionAgent, getSessionState, getLatestScreenshot } from '../services/visionAgent.js';
+import { VisionAgent, getSessionState, getLatestScreenshot, enqueueDesktopTask, getDesktopQueueStatus, setDesktopIsolationMode, getDesktopIsolationMode } from '../services/visionAgent.js';
+import type { DesktopIsolationMode } from '../services/visionAgent.js';
+
 import { config } from '../config.js';
 import { logger } from '../services/logger.js';
 
@@ -298,17 +300,62 @@ router.post('/vision/task', async (req: Request, res: Response) => {
 
 router.post('/vision/desktop', async (req: Request, res: Response) => {
   try {
-    const { task, appName } = req.body;
+    const { task, appName, sessionId } = req.body;
     if (!task) { res.status(400).json({ success: false, error: 'Missing "task"' }); return; }
 
-    const result = await VisionAgent.executeDesktopTask(task, appName);
+    const sid = sessionId || `desktop-${Date.now()}`;
+    const { position, queueLength } = enqueueDesktopTask(sid, task, appName);
+    const queueStatus = getDesktopQueueStatus();
+
     res.json({
-      success: result.success,
-      data: { ...result, steps: result.steps.map(s => ({ ...s, screenshot: undefined })) },
+      success: true,
+      sessionId: sid,
+      parallel: true,
+      running: queueStatus.running,
+      maxParallel: queueStatus.maxParallel,
+      queued: queueStatus.queued > 0,
+      position,
+      message: queueStatus.running >= queueStatus.maxParallel
+        ? `All ${queueStatus.maxParallel} parallel slots occupied. Queued at position ${position}.`
+        : `Desktop task starting in window-isolated mode (${queueStatus.running} of ${queueStatus.maxParallel} slots used).`,
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Desktop task failed' });
   }
+});
+
+router.get('/vision/desktop/queue', (_req: Request, res: Response) => {
+  const status = getDesktopQueueStatus();
+  res.json({ success: true, ...status });
+});
+
+router.post('/vision/desktop/pause', (_req: Request, res: Response) => {
+  VisionAgent.pauseDesktopAgents();
+  res.json({ success: true, paused: true });
+});
+
+router.post('/vision/desktop/resume', (_req: Request, res: Response) => {
+  VisionAgent.resumeDesktopAgents();
+  res.json({ success: true, paused: false });
+});
+
+router.get('/vision/desktop/paused', (_req: Request, res: Response) => {
+  res.json({ success: true, paused: VisionAgent.isDesktopPaused });
+});
+
+router.get('/vision/desktop/isolation', (_req: Request, res: Response) => {
+  res.json({ success: true, mode: getDesktopIsolationMode() });
+});
+
+router.post('/vision/desktop/isolation', (req: Request, res: Response) => {
+  const mode = req.body?.mode as DesktopIsolationMode;
+  if (!['fullscreen', 'spaces', 'docker'].includes(mode)) {
+    res.status(400).json({ success: false, error: 'Invalid mode. Must be: fullscreen, spaces, or docker' });
+    return;
+  }
+  setDesktopIsolationMode(mode);
+  logger.info(`[Desktop] Isolation mode changed to: ${mode}`);
+  res.json({ success: true, mode });
 });
 
 /**
@@ -337,7 +384,23 @@ router.post('/vision/start', validate(visionStartSchema), async (req: Request, r
     }
   }
 
-  // Local execution (development or fallback)
+  // Desktop tasks (appName without url) — window-isolated parallel execution
+  if (appName && !url) {
+    const { position, queueLength } = enqueueDesktopTask(sid, task, appName);
+    const queueStatus = getDesktopQueueStatus();
+    res.json({
+      success: true,
+      sessionId: sid,
+      parallel: true,
+      running: queueStatus.running,
+      maxParallel: queueStatus.maxParallel,
+      queued: queueStatus.running >= queueStatus.maxParallel,
+      position,
+    });
+    return;
+  }
+
+  // Web tasks run in parallel — each gets its own headless browser
   VisionAgent.startTask(task, url, sid);
   res.json({ success: true, sessionId: sid });
 });

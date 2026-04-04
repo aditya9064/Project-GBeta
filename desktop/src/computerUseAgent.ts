@@ -1,4 +1,8 @@
-/* ═══════════════════════════════════════════════════════════
+/* @deprecated — Use ClaudeAgent (claudeAgent.ts) instead.
+   The Claude Agent SDK handles the agent loop, tool definitions,
+   conversation management, and error recovery automatically.
+
+   ═══════════════════════════════════════════════════════════
    Computer Use Agent — Claude controls the user's desktop
 
    Uses the Anthropic API's computer_use tool to let Claude
@@ -27,6 +31,23 @@ const execAsync = promisify(exec);
 import electron from 'electron';
 const { screen, desktopCapturer } = electron;
 
+import {
+  InputMutex,
+  appKeystroke,
+  appKeyCombo,
+  appSpecialKey,
+  activateApp,
+} from './inputMutex.js';
+
+import {
+  buildExpertiseSystemPrompt,
+  getCaptureSettings,
+  getAppExpertise,
+  findExpertiseFromGoal,
+  generateWorkflowPlan,
+  planToPromptContext,
+} from './appExpertise.js';
+
 /* ─── Types ──────────────────────────────────────────────── */
 
 export interface ComputerAction {
@@ -54,6 +75,8 @@ interface ExecutionCallbacks {
   maxTurns?: number;
   maxBudgetUsd?: number;
   allowedApps?: string[];
+  targetApp?: string;
+  inputMutex?: InputMutex;
   onStep: (step: AgentStep) => void;
   onScreenshot: (dataUrl: string) => void;
   onComplete: (result: string) => void;
@@ -65,10 +88,11 @@ interface ComputerUseAgentConfig {
   serverUrl: string;
 }
 
-const TARGET_WIDTH = 1280;
-const JPEG_QUALITY = 60;
+const DEFAULT_TARGET_WIDTH = 1024;
+const DEFAULT_JPEG_QUALITY = 45;
 const KEEP_SCREENSHOT_TURNS = 2;
-const POST_ACTION_DELAY_MS = 200;
+const DEFAULT_POST_ACTION_DELAY_CLICK_MS = 150;
+const DEFAULT_POST_ACTION_DELAY_KEY_MS = 80;
 
 /* ─── Dangerous action patterns (require user approval) ─── */
 
@@ -101,6 +125,8 @@ export class ComputerUseAgent {
   private abortControllers = new Map<string, AbortController>();
   private approvalResolvers = new Map<string, (approved: boolean) => void>();
   private config: ComputerUseAgentConfig;
+  private jpegQuality = DEFAULT_JPEG_QUALITY;
+  private postActionDelay = DEFAULT_POST_ACTION_DELAY_CLICK_MS;
 
   constructor(agentConfig: ComputerUseAgentConfig) {
     this.config = agentConfig;
@@ -110,47 +136,117 @@ export class ComputerUseAgent {
   async execute(callbacks: ExecutionCallbacks): Promise<void> {
     const {
       executionId, goal,
-      model = 'claude-sonnet-4-20250514',
+      model = 'claude-haiku-4-5-20251001',
       maxTurns = 30,
       maxBudgetUsd = 2.00,
+      targetApp,
+      inputMutex,
     } = callbacks;
 
     const controller = new AbortController();
     this.abortControllers.set(executionId, controller);
 
+    const expertise = targetApp
+      ? getAppExpertise(targetApp)
+      : findExpertiseFromGoal(goal);
+
+    this.jpegQuality = expertise?.captureSettings.jpegQuality ?? DEFAULT_JPEG_QUALITY;
+    this.postActionDelay = expertise?.captureSettings.postActionDelayMs ?? DEFAULT_POST_ACTION_DELAY_CLICK_MS;
+
+    const captureConfig = expertise
+      ? expertise.captureSettings
+      : { targetWidth: DEFAULT_TARGET_WIDTH, jpegQuality: DEFAULT_JPEG_QUALITY, postActionDelayMs: DEFAULT_POST_ACTION_DELAY_CLICK_MS };
+
     const display = screen.getPrimaryDisplay();
     const realWidth = display.size.width;
     const realHeight = display.size.height;
 
-    const declaredWidth = Math.min(realWidth, TARGET_WIDTH);
+    const declaredWidth = Math.min(realWidth, captureConfig.targetWidth);
     const declaredHeight = Math.round(realHeight * (declaredWidth / realWidth));
     const coordScale = realWidth / declaredWidth;
 
-    console.log('[Desktop] Display:', realWidth, 'x', realHeight,
+    const tag = targetApp ? `[Agent:${targetApp}]` : '[Desktop]';
+    console.log(tag, 'Display:', realWidth, 'x', realHeight,
       '→ declared:', declaredWidth, 'x', declaredHeight,
-      'coordScale:', coordScale.toFixed(2));
+      'coordScale:', coordScale.toFixed(2),
+      expertise ? `(${expertise.role})` : '(generic)');
 
     const toolVersion = 'computer_20250124';
     const betaHeader = 'computer-use-2025-01-24';
 
-    const systemPrompt = `You control the user's macOS computer. You can see the screen, click, type, and use keyboard shortcuts.
+    const windowContext = targetApp
+      ? `You control ONLY the "${targetApp}" window on macOS. Coordinates are relative to this window.`
+      : 'You control the user\'s macOS computer to accomplish tasks as fast as possible.';
 
-RULES:
-1. Take a screenshot first to see the current state.
-2. Execute one action at a time, then take another screenshot to verify.
-3. Be efficient — don't repeat failed actions more than twice.
-4. When done, clearly state what you accomplished.
-5. NEVER click on, close, minimize, or interact with the "OperonAI" window — that is your own control panel. Ignore it completely. If it is visible, work around it.
+    const windowRules = targetApp
+      ? `8. You are scoped to the "${targetApp}" app. Do NOT open or interact with other apps.
+9. The app should already be open. Focus on completing the task within it.`
+      : '7. NEVER interact with the "OperonAI" window — it is your control panel.';
+
+    const basePrompt = `${windowContext}
+
+SPEED RULES — follow strictly:
+1. ALWAYS prefer keyboard over mouse clicks. Type text directly instead of clicking individual characters/buttons.
+2. You may perform MULTIPLE actions before taking a verification screenshot. Only screenshot when you need to see the result.
+3. For calculator: type the expression with keyboard (e.g. "1+1") then press Return — do NOT click individual buttons.
+4. For opening apps: super+space → type name → Return. Do this as a rapid sequence without screenshots between steps.
+5. Be efficient — don't repeat failed actions more than twice.
+6. When done, state what you accomplished in one sentence.
+${windowRules}
 
 KEYBOARD SHORTCUTS (macOS):
-- Spotlight: super+space — then type app name and press Return
-- Close window: super+w
-- Quit app: super+q
+- Spotlight: super+space → type app name → Return
+- Close window: super+w | Quit app: super+q
 - Copy/Paste: super+c / super+v
+- Select all: super+a
 
-ENVIRONMENT: macOS, ${declaredWidth}x${declaredHeight} display.
+ENVIRONMENT: macOS, ${declaredWidth}x${declaredHeight} display.`;
 
-GOAL: ${goal}`;
+    const systemPrompt = expertise
+      ? buildExpertiseSystemPrompt(expertise.appName, basePrompt, goal)
+      : `${basePrompt}\nGOAL: ${goal}`;
+
+    let finalSystemPrompt = systemPrompt;
+
+    // For professional apps, generate a workflow plan before executing
+    if (expertise) {
+      callbacks.onStep({
+        type: 'thinking',
+        content: `Planning professional ${expertise.role} workflow...`,
+        timestamp: new Date().toISOString(),
+      });
+
+      try {
+        const plan = await generateWorkflowPlan(
+          expertise.appName,
+          goal,
+          async (msgs) => {
+            const planResponse = await this.anthropic.messages.create({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 2048,
+              messages: msgs,
+            });
+            return planResponse.content
+              .filter((b: any) => b.type === 'text')
+              .map((b: any) => b.text)
+              .join('');
+          },
+        );
+
+        if (plan && plan.steps.length > 0) {
+          const planContext = planToPromptContext(plan);
+          finalSystemPrompt = `${systemPrompt}\n${planContext}`;
+
+          callbacks.onStep({
+            type: 'thinking',
+            content: `Workflow plan: ${plan.steps.length} steps, ~${plan.estimatedTurns} turns. Tools: ${plan.requiredTools.join(', ')}`,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } catch (planErr) {
+        console.warn('[Desktop] Workflow planning failed, proceeding without plan:', planErr);
+      }
+    }
 
     const messages: any[] = [
       { role: 'user', content: goal },
@@ -175,7 +271,13 @@ GOAL: ${goal}`;
         const response = await this.anthropic.beta.messages.create({
           model,
           max_tokens: 1024,
-          system: systemPrompt,
+          system: [
+            {
+              type: 'text',
+              text: finalSystemPrompt,
+              cache_control: { type: 'ephemeral' },
+            } as any,
+          ],
           tools: [
             {
               type: toolVersion as any,
@@ -183,10 +285,11 @@ GOAL: ${goal}`;
               display_width_px: declaredWidth,
               display_height_px: declaredHeight,
               display_number: 0,
+              cache_control: { type: 'ephemeral' },
             } as any,
           ],
           messages,
-          betas: [betaHeader],
+          betas: [betaHeader, 'prompt-caching-2024-07-31'],
         } as any);
 
         const usage = (response as any).usage;
@@ -218,7 +321,9 @@ GOAL: ${goal}`;
             console.log('[Desktop] Raw tool_use:', JSON.stringify(block.input));
 
             if (action.action === 'screenshot' || action.action === 'cursor_position') {
-              const imgData = await this.captureScreen(declaredWidth);
+              const imgData = targetApp
+                ? await this.captureWindow(targetApp, declaredWidth, tag)
+                : await this.captureScreen(declaredWidth);
               callbacks.onScreenshot(`data:image/jpeg;base64,${imgData}`);
 
               toolResults.push({
@@ -261,10 +366,18 @@ GOAL: ${goal}`;
               }
 
               try {
-                await this.executeAction(action, coordScale);
+                if (targetApp) {
+                  await this.executeWindowAction(action, coordScale, targetApp, inputMutex, tag);
+                } else {
+                  await this.executeAction(action, coordScale);
+                }
 
-                await new Promise(r => setTimeout(r, POST_ACTION_DELAY_MS));
-                const imgData = await this.captureScreen(declaredWidth);
+                const delay = (action.action === 'key' || action.action === 'type')
+                  ? DEFAULT_POST_ACTION_DELAY_KEY_MS : this.postActionDelay;
+                await new Promise(r => setTimeout(r, delay));
+                const imgData = targetApp
+                  ? await this.captureWindow(targetApp, declaredWidth, tag)
+                  : await this.captureScreen(declaredWidth);
                 callbacks.onScreenshot(`data:image/jpeg;base64,${imgData}`);
 
                 toolResults.push({
@@ -369,10 +482,112 @@ GOAL: ${goal}`;
       quality: 'good',
     });
 
-    const jpegBuffer = resized.toJPEG(JPEG_QUALITY);
+    const jpegBuffer = resized.toJPEG(this.jpegQuality);
     const buf = Buffer.from(jpegBuffer);
-    console.log('[Desktop] Screenshot:', buf.length, 'bytes (JPEG q' + JPEG_QUALITY + ',', targetWidth + 'px, desktopCapturer)');
+    console.log('[Desktop] Screenshot:', buf.length, 'bytes (JPEG q' + this.jpegQuality + ',', targetWidth + 'px, desktopCapturer)');
     return buf.toString('base64');
+  }
+
+  /* ─── Window Capture (per-app screenshot) ──────────────── */
+
+  private async captureWindow(targetApp: string, targetWidth: number, tag: string): Promise<string> {
+    let sources: Electron.DesktopCapturerSource[];
+    try {
+      sources = await desktopCapturer.getSources({
+        types: ['window'],
+        thumbnailSize: { width: 2048, height: 2048 },
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(tag, 'desktopCapturer.getSources(window) failed:', msg);
+      throw new Error(`Window capture failed: ${msg}`);
+    }
+
+    const appLower = targetApp.toLowerCase();
+    const source = sources.find(s => s.name.toLowerCase().includes(appLower));
+    if (!source) {
+      console.warn(tag, `No window found matching "${targetApp}". Available:`,
+        sources.map(s => s.name).join(', '));
+      return this.captureScreen(targetWidth);
+    }
+
+    const thumb = source.thumbnail;
+    if (thumb.isEmpty()) {
+      console.warn(tag, `Window thumbnail empty for "${targetApp}", falling back to screen`);
+      return this.captureScreen(targetWidth);
+    }
+
+    const { width: cw, height: ch } = thumb.getSize();
+    const outW = Math.min(targetWidth, cw);
+    const outH = Math.max(1, Math.round(ch * (outW / cw)));
+    const resized = thumb.resize({ width: outW, height: outH, quality: 'good' });
+
+    const jpegBuffer = resized.toJPEG(this.jpegQuality);
+    const buf = Buffer.from(jpegBuffer);
+    console.log(tag, 'WindowShot:', buf.length, 'bytes (JPEG q' + this.jpegQuality + ',', outW + 'px,', source.name + ')');
+    return buf.toString('base64');
+  }
+
+  /* ─── Window-scoped Action Execution (AppleScript for keys, mutex for clicks) ─ */
+
+  private async executeWindowAction(
+    action: ComputerAction,
+    coordScale: number,
+    targetApp: string,
+    inputMutex: InputMutex | undefined,
+    tag: string,
+  ): Promise<void> {
+    console.log(tag, 'Action:', action.action, JSON.stringify(action));
+
+    if (action.action === 'type' && action.text) {
+      await appKeystroke(targetApp, action.text);
+      return;
+    }
+
+    if (action.action === 'key' && action.text) {
+      await this.pressKeyForApp(action.text, targetApp);
+      return;
+    }
+
+    if (inputMutex) await inputMutex.acquire();
+    try {
+      await activateApp(targetApp);
+      await this.executeAction(action, coordScale);
+    } finally {
+      if (inputMutex) inputMutex.release();
+    }
+  }
+
+  /* ─── Per-app key press via AppleScript ────────────────── */
+
+  private async pressKeyForApp(key: string, appName: string): Promise<void> {
+    const combo = key.split('+').map(k => k.trim());
+
+    if (combo.length === 1) {
+      await appSpecialKey(appName, combo[0]);
+      return;
+    }
+
+    const modifiers: string[] = [];
+    let mainKey = '';
+
+    for (const part of combo) {
+      const lower = part.toLowerCase();
+      if (['cmd', 'command', 'super', 'meta'].includes(lower)) {
+        modifiers.push('command');
+      } else if (['ctrl', 'control'].includes(lower)) {
+        modifiers.push('control');
+      } else if (['alt', 'option'].includes(lower)) {
+        modifiers.push('option');
+      } else if (lower === 'shift') {
+        modifiers.push('shift');
+      } else {
+        mainKey = part;
+      }
+    }
+
+    if (!mainKey) return;
+    await appKeyCombo(appName, mainKey, modifiers);
   }
 
   /* ─── Action Execution (cliclick + AppleScript) ────────── */

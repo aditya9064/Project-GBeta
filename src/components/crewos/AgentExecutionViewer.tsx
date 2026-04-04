@@ -258,7 +258,7 @@ export function AgentExecutionViewer({
   }
 
   return (
-    <div className="aev-overlay" onClick={(e) => { if (e.target === e.currentTarget && status !== 'running') onClose(); }}>
+    <div className="aev-overlay" onClick={(e) => { if (e.target === e.currentTarget) setMinimized(true); }}>
       <div className="aev-container">
         <div className="aev-header">
           <div className="aev-header-left">
@@ -274,10 +274,39 @@ export function AgentExecutionViewer({
             </div>
           </div>
           <div className="aev-header-actions">
-            <button className="aev-header-btn" onClick={() => setMinimized(true)} title="Minimize"><Minus size={14} /></button>
+            <button
+              onClick={() => setMinimized(true)}
+              title="Minimize — keep running in background while you start another agent"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '5px 12px', borderRadius: 8,
+                border: '1px solid #e2e8f0', background: '#f8fafc',
+                color: '#475569', fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#e07a3a'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#e07a3a'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#475569'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+            >
+              <Minus size={13} /> Minimize
+            </button>
             <button className="aev-header-btn" onClick={onClose} title={status === 'running' ? 'Stop & Close' : 'Close'}><X size={14} /></button>
           </div>
         </div>
+
+        {status === 'running' && (
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '6px 16px', background: '#eff6ff', borderBottom: '1px solid #bfdbfe',
+              fontSize: 12, color: '#1e40af', cursor: 'pointer',
+            }}
+            onClick={() => setMinimized(true)}
+          >
+            <Minus size={12} />
+            <span>Want to start another agent? Click <strong>Minimize</strong> or click here — this agent keeps running in the background.</span>
+          </div>
+        )}
 
         <div className="aev-progress">
           <div className="aev-progress-bar" style={{ width: `${totalSteps ? (progress / totalSteps) * 100 : 0}%` }} />

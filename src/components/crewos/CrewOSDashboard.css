@@ -2910,7 +2910,7 @@ button.operonai-empty-cta:hover {
   border-radius: 20px;
 }
 
-.operonai-automation-new-btn {
+button.operonai-automation-new-btn {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2924,7 +2924,7 @@ button.operonai-empty-cta:hover {
   box-shadow: 0 1px 3px rgba(224, 122, 58, 0.2);
 }
 
-.operonai-automation-new-btn:hover {
+button.operonai-automation-new-btn:hover {
   background: #d46b2c;
 }
 
@@ -3066,7 +3066,7 @@ button.operonai-empty-cta:hover {
   gap: 8px;
 }
 
-.operonai-automation-action-btn {
+button.operonai-automation-action-btn {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3074,13 +3074,13 @@ button.operonai-empty-cta:hover {
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: #e5e5e5;
+  color: #6a6a80;
   background: rgba(0, 0, 0, 0.06);
   transition: all 0.2s;
 }
 
-.operonai-automation-action-btn:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.06);
+button.operonai-automation-action-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .operonai-automation-action-btn:disabled {
@@ -3088,12 +3088,12 @@ button.operonai-empty-cta:hover {
   cursor: not-allowed;
 }
 
-.operonai-automation-run-btn {
+button.operonai-automation-run-btn {
   background: #10b981;
   color: #1a1a2e;
 }
 
-.operonai-automation-run-btn:hover:not(:disabled) {
+button.operonai-automation-run-btn:hover:not(:disabled) {
   background: #059669;
 }
 
@@ -3107,14 +3107,16 @@ button.operonai-empty-cta:hover {
   color: #ef4444;
 }
 
-.operonai-automation-n8n-btn {
+button.operonai-automation-n8n-btn,
+a.operonai-automation-n8n-btn {
   text-decoration: none;
   background: #ff6d5a;
   color: white;
   font-weight: 600;
 }
 
-.operonai-automation-n8n-btn:hover {
+button.operonai-automation-n8n-btn:hover,
+a.operonai-automation-n8n-btn:hover {
   background: #ea4b4b;
   color: white;
 }
@@ -3494,7 +3496,7 @@ button.operonai-empty-cta:hover {
   color: #9a9ab0;
   margin: 0;
 }
-.aw-new-agent-btn {
+button.aw-new-agent-btn {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3508,7 +3510,7 @@ button.operonai-empty-cta:hover {
   cursor: pointer;
   transition: background 0.15s;
 }
-.aw-new-agent-btn:hover {
+button.aw-new-agent-btn:hover {
   background: #d46b2c;
 }
 .aw-toolbar {

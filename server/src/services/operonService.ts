@@ -9,6 +9,7 @@
 import OpenAI from 'openai';
 import { config } from '../config.js';
 import { logger, Metrics } from './logger.js';
+import { Memory } from './memory/index.js';
 
 let openaiClient: OpenAI | null = null;
 function getOpenAI(): OpenAI {
@@ -195,7 +196,15 @@ export const OperonService = {
         `${m.role === 'user' ? 'User' : 'Operon'}: ${m.content}`
       ).join('\n');
 
+      let memoryBlock = '';
+      try {
+        memoryBlock = await Memory.getPromptContext(userId, undefined, 1000);
+      } catch {
+        // Memory unavailable — proceed without
+      }
+
       const prompt = [
+        memoryBlock ? `${memoryBlock}\n` : '',
         conversationBlock ? `Recent conversation:\n${conversationBlock}\n` : '',
         `User: ${message}`,
         contextBlock,
@@ -266,6 +275,11 @@ export const OperonService = {
         actionTypes: actions.map(a => a.type),
       });
 
+      // ─── Memory Capture ──────────────────────────────────
+      this._captureToMemory(entry).catch(err =>
+        logger.warn(`[Memory] Operon capture failed: ${err}`)
+      );
+
       return entry;
     } catch (err) {
       logger.error('Operon query failed', { userId, sessionId, error: err });
@@ -279,5 +293,38 @@ export const OperonService = {
     const effectiveUserId = userId || 'anonymous';
     const logs = operonLogsByUser.get(effectiveUserId) || [];
     return logs.slice(0, limit);
+  },
+
+  async _captureToMemory(entry: OperonQueryResult): Promise<void> {
+    const memSessionId = entry.sessionId || `operon-${entry.userId}-${Date.now()}`;
+
+    const session = await Memory.startSession({
+      userId: entry.userId,
+      agentType: 'operon',
+      project: 'default',
+      userPrompt: entry.message,
+      sessionId: memSessionId,
+    });
+
+    await Memory.observe(session.id, entry.userId, 'default', {
+      type: 'conversation',
+      title: `Operon: ${entry.message.slice(0, 80)}`,
+      subtitle: entry.reply.slice(0, 200),
+      narrative: entry.reply,
+      facts: entry.actions.map(a => `${a.type}: ${a.description}`),
+      concepts: ['operon', entry.riskLevel, ...entry.actions.map(a => a.type)],
+    });
+
+    if (entry.actions.length > 0) {
+      for (const action of entry.actions) {
+        await Memory.observe(session.id, entry.userId, 'default', {
+          type: 'action',
+          title: `Action: ${action.type}`,
+          subtitle: action.description,
+          narrative: JSON.stringify(action.params),
+          concepts: [action.type, action.riskLevel],
+        });
+      }
+    }
   },
 };

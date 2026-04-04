@@ -412,7 +412,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: 'easeOut', delay: 0.1 }}
           >
-            Your AI workforce, ready to work.
+            Automate the boring stuff. No coding needed.
           </motion.h1>
 
           {/* Subheadline */}
@@ -422,7 +422,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: 'easeOut', delay: 0.3 }}
           >
-            3,600+ agent templates for documents, emails, and workflows — deployed in seconds.
+            Tell AI what you need in plain English — emails, documents, sales tracking, and more — and it handles the rest.
           </motion.p>
 
           {/* CTAs */}
@@ -435,8 +435,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <button className="op-hero-cta-primary" onClick={onGetStarted}>
               Get Started <ArrowRight size={18} />
             </button>
-            <button className="op-hero-cta-secondary">
-              Watch Demo
+            <button className="op-hero-cta-secondary" onClick={() => scrollTo('.op-showcase')}>
+              See How It Works
             </button>
           </motion.div>
 
@@ -729,10 +729,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               </div>
               <div className="op-footer-col">
                 <h4>Products</h4>
-                <button>Document AI</button>
-                <button>Communications</button>
-                <button>Sales Intelligence</button>
-                <button>Workflow Builder</button>
+                <button onClick={onGetStarted}>Document Creator</button>
+                <button onClick={onGetStarted}>Messages & Email</button>
+                <button onClick={onGetStarted}>Sales Tracker</button>
+                <button onClick={onGetStarted}>Automation Builder</button>
               </div>
               <div className="op-footer-col">
                 <h4>Company</h4>

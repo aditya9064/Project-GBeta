@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Isolated Agent Pool Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface2: #1a1a28;
+  --border: #2a2a3e;
+  --border-glow: #4a4a6e;
+  --text: #e8e8f0;
+  --text-dim: #8888aa;
+  --accent-blue: #4e8cff;
+  --accent-purple: #8b5cf6;
+  --accent-green: #22d3a8;
+  --accent-orange: #f59e0b;
+  --accent-red: #ef4444;
+  --accent-pink: #ec4899;
+  --glow-blue: rgba(78, 140, 255, 0.15);
+  --glow-purple: rgba(139, 92, 246, 0.15);
+  --glow-green: rgba(34, 211, 168, 0.15);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Grotesk', sans-serif;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+.noise {
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 24px 60px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+header h1 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple), var(--accent-green));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+
+header p {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* ── Pool Container ──────────────────────── */
+
+.pool-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.pool-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple), var(--accent-green));
+}
+
+.pool-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.pool-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--glow-purple);
+  color: var(--accent-purple);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.pool-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.pool-subtitle {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Agent Cards ─────────────────────────── */
+
+.agents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.agent-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.agent-card:hover {
+  border-color: var(--border-glow);
+  transform: translateY(-2px);
+}
+
+.agent-card.agent-1 { --agent-color: var(--accent-blue); --agent-glow: var(--glow-blue); }
+.agent-card.agent-2 { --agent-color: var(--accent-green); --agent-glow: var(--glow-green); }
+.agent-card.agent-3 { --agent-color: var(--accent-purple); --agent-glow: var(--glow-purple); }
+
+.agent-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--agent-color);
+  border-radius: 12px 0 0 12px;
+}
+
+.agent-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.agent-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--agent-color);
+  box-shadow: 0 0 8px var(--agent-color);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--agent-color); }
+  50% { opacity: 0.6; box-shadow: 0 0 16px var(--agent-color); }
+}
+
+.agent-card.agent-2 .agent-dot { animation-delay: 0.5s; }
+.agent-card.agent-3 .agent-dot { animation-delay: 1s; }
+
+.agent-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.agent-id {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+.agent-goal {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+  margin-bottom: 16px;
+  padding-left: 20px;
+}
+
+/* ── Isolation Layers ────────────────────── */
+
+.isolation-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.iso-layer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0,0,0,0.25);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.iso-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.8rem;
+}
+
+.iso-label {
+  color: var(--text-dim);
+  flex-shrink: 0;
+  width: 80px;
+}
+
+.iso-value {
+  color: var(--agent-color);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Data Flow ───────────────────────────── */
+
+.flow-section {
+  margin-bottom: 32px;
+}
+
+.flow-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.flow-diagram {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.flow-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.flow-row:last-child { margin-bottom: 0; }
+
+.flow-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+  min-width: 140px;
+  justify-content: center;
+}
+
+.flow-box.renderer {
+  background: rgba(78, 140, 255, 0.1);
+  border-color: rgba(78, 140, 255, 0.25);
+  color: var(--accent-blue);
+}
+
+.flow-box.main-process {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.25);
+  color: var(--accent-purple);
+}
+
+.flow-box.pool {
+  background: rgba(34, 211, 168, 0.1);
+  border-color: rgba(34, 211, 168, 0.25);
+  color: var(--accent-green);
+}
+
+.flow-box.isolated {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.25);
+  color: var(--accent-orange);
+}
+
+.flow-box.native {
+  background: rgba(236, 72, 153, 0.1);
+  border-color: rgba(236, 72, 153, 0.25);
+  color: var(--accent-pink);
+}
+
+.flow-box.api {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: var(--accent-red);
+}
+
+.flow-arrow {
+  color: var(--text-dim);
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.flow-arrow-down {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0;
+  color: var(--text-dim);
+  font-size: 1rem;
+}
+
+/* ── Isolation Matrix ────────────────────── */
+
+.matrix-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+th {
+  text-align: left;
+  padding: 10px 14px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(42, 42, 62, 0.5);
+  font-family: 'JetBrains Mono', monospace;
+  vertical-align: middle;
+}
+
+tr:last-child td { border-bottom: none; }
+
+td:first-child {
+  font-weight: 600;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.82rem;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+
+.check.yes {
+  background: rgba(34, 211, 168, 0.15);
+  color: var(--accent-green);
+}
+
+.check.partial {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--accent-orange);
+}
+
+.check.no {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
+}
+
+.tech {
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  display: block;
+  margin-top: 2px;
+}
+
+/* ── Key Steps ───────────────────────────── */
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.step-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  position: relative;
+}
+
+.step-num {
+  position: absolute;
+  top: -8px;
+  left: 14px;
+  background: var(--accent-purple);
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.step-title {
+  font-weight: 600;
+  font-size: 0.82rem;
+  margin-bottom: 6px;
+  margin-top: 4px;
+}
+
+.step-desc {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.step-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--accent-green);
+  background: rgba(0,0,0,0.3);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* ── Same-App Scenario ───────────────────── */
+
+.scenario-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 24px;
+}
+
+.scenario-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scenario-title span {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--accent-orange);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.scenario-cols {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.scenario-agent {
+  background: var(--surface2);
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+}
+
+.scenario-agent h4 {
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scenario-detail {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  line-height: 1.8;
+}
+
+.scenario-detail strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.scenario-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-top: 20px;
+}
+
+.scenario-divider .wall {
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--accent-red);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 8px 0;
+}
+
+.scenario-divider .wall-line {
+  width: 2px;
+  height: 40px;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--accent-red) 0px,
+    var(--accent-red) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+@media (max-width: 768px) {
+  .agents-grid { grid-template-columns: 1fr; }
+  .scenario-cols { grid-template-columns: 1fr; }
+  .scenario-divider { flex-direction: row; padding: 0; }
+  .scenario-divider .wall { writing-mode: horizontal-tb; }
+  .scenario-divider .wall-line { width: 40px; height: 2px; background: repeating-linear-gradient(to right, var(--accent-red) 0px, var(--accent-red) 4px, transparent 4px, transparent 8px); }
+  header h1 { font-size: 1.6rem; }
+}
+</style>
+</head>
+<body>
+<div class="noise"></div>
+
+<div class="container">
+  <header>
+    <h1>Isolated Agent Pool Architecture</h1>
+    <p>Each agent gets its own virtual display, keyboard, mouse, and clipboard.
+       Multiple agents can work on the same app without any conflicts.</p>
+  </header>
+
+  <!-- ── Data Flow ──────────────────────────── -->
+  <div class="flow-section">
+    <div class="flow-title">System Data Flow</div>
+    <div class="flow-diagram">
+      <div class="flow-row">
+        <div class="flow-box renderer">Web UI (Renderer)</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box renderer">preload.ts &nbsp;agentPool.*</div>
+      </div>
+      <div class="flow-arrow-down">↓ IPC</div>
+      <div class="flow-row">
+        <div class="flow-box main-process">main.ts &nbsp;agent-pool:* handlers</div>
+      </div>
+      <div class="flow-arrow-down">↓</div>
+      <div class="flow-row">
+        <div class="flow-box pool">AgentPool</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box pool">IsolatedAgent (×N parallel)</div>
+      </div>
+      <div class="flow-arrow-down">↓ creates per-agent</div>
+      <div class="flow-row">
+        <div class="flow-box isolated">Virtual Display</div>
+        <div class="flow-box isolated">Own Windows</div>
+        <div class="flow-box isolated">Named Clipboard</div>
+      </div>
+      <div class="flow-arrow-down">↓ backed by</div>
+      <div class="flow-row">
+        <div class="flow-box native">VirtualDisplayManager.ts</div>
+        <div class="flow-arrow">↔ JSON-RPC</div>
+        <div class="flow-box native">VirtualDisplayServer.swift</div>
+      </div>
+      <div class="flow-arrow-down">↓ agent loop</div>
+      <div class="flow-row">
+        <div class="flow-box api">Claude API &nbsp;(computer_use + app_manager tools)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Live Agents ────────────────────────── -->
+  <div class="pool-container">
+    <div class="pool-header">
+      <div class="pool-badge">Agent Pool</div>
+      <div class="pool-title">3 Agents Running in Parallel</div>
+      <div class="pool-subtitle">0 conflicts</div>
+    </div>
+
+    <div class="agents-grid">
+      <!-- Agent 1 -->
+      <div class="agent-card agent-1">
+        <div class="agent-header">
+          <div class="agent-dot"></div>
+          <div class="agent-name">Agent #1</div>
+          <div class="agent-id">pool-170981-a3x2</div>
+        </div>
+        <div class="agent-goal">"Design a login page with email and password fields"</div>
+        <div class="isolation-layers">
+          <div class="iso-layer">
+            <div class="iso-icon">🖥</div>
+            <div class="iso-label">Display</div>
+            <div class="iso-value">VD #42 @ offset 8000</div>
+          </div>
+          <div class="iso-layer">
+            <div class="iso-icon">🪟</div>
+            <div class="iso-label">Window</div>
+            <div class="iso-value">Figma → window 1847</div>
+          </div>
+          <div class="iso-layer">
+            <div class="iso-icon">⌨️</div>
+            <div class="iso-label">Keyboard</div>
+            <div class="iso-value">AXRaise(1847) + AppleScript</div>
+          </div>
+          <div class="iso-layer">
+            <div class="iso-icon">🖱</div>
+            <div class="iso-label">Mouse</div>
+            <div class="iso-value">CGEvent @ (8000+x, y)</div>
+          </div>
+          <div class="iso-layer">
+            <div class="iso-icon">📋</div>
+            <div class="iso-label">Clipboard</div>
+            <div class="iso-value">operon-agent-pool-a3x2</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent 2 -->
+      <div class="agent-card agent-2">
+        <div class="agent-header">
+          <div class="agent-dot"></div>
+          <div class="agent-name">Agent #2</div>
+          <div class="agent-id">pool-170981-b7k9</div>
+        </div>
+        <div class="agent-goal">"Write meeting notes for the Q2 review"</div>
+        <div class="isolation-layers">
+          <div class="iso-layer">
+            <div class="iso-icon">🖥</div>
+            <div class="iso-label">Display</div>
+            <div class="iso-value">VD #43 @ offset 9480</div>
+          </div>
+          <div class="iso-layer">
+            <div class="iso-icon">🪟</div>
+            <div class="iso-label">Window</div>
+            <div class="iso-value">Notes → window 1902</div>
+          </div>
+          <div class="iso-layer">
+            <div class="iso-icon">⌨️</div>
+            <div class="iso-label">Keyboard</div>
+            <div class="iso-value">AXRaise(1902) + AppleScript</div>
+          </div>
+          <div class="iso-layer">
+            <div class="iso-icon">🖱</div>
+            <div class="iso-label">Mouse</div>
+            <div class="iso-value">CGEvent @ (9480+x, y)</div>
+          </div>
+          <div class="iso-layer">
+            <div class="iso-icon">📋</div>
+            <div class="iso-label">Clipboard</div>
+            <div class="iso-value">operon-agent-pool-b7k9</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent 3 -->
+      <div class="agent-card agent-3">
+        <div class="agent-header">
+          <div class="agent-dot"></div>
+          <div class="agent-name">Agent #3</div>
+          <div class="agent-id">pool-170981-c4m1</div>
+        </div>
+        <div class="agent-goal">"Edit the hero banner in the same Figma project"</div>
+        <div class="isolation-layers">
+          <div class="iso-layer">
+            <div class="iso-icon">🖥</div>
+            <div class="iso-label">Display</div>
+            <div class="iso-value">VD #44 @ offset 10960</div>
+          </div>
+          <div class="iso-layer">
+            <div class="iso-icon">🪟</div>
+            <div class="iso-label">Window</div>
+            <div class="iso-value">Figma → window 1963</div>
+          </div>
+          <div class="iso-layer">
+            <div class="iso-icon">⌨️</div>
+            <div class="iso-label">Keyboard</div>
+            <div class="iso-value">AXRaise(1963) + AppleScript</div>
+          </div>
+          <div class="iso-layer">
+            <div class="iso-icon">🖱</div>
+            <div class="iso-label">Mouse</div>
+            <div class="iso-value">CGEvent @ (10960+x, y)</div>
+          </div>
+          <div class="iso-layer">
+            <div class="iso-icon">📋</div>
+            <div class="iso-label">Clipboard</div>
+            <div class="iso-value">operon-agent-pool-c4m1</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Same-App Scenario ──────────────────── -->
+  <div class="scenario-box">
+    <div class="scenario-title">
+      Same-App Isolation: Agents #1 and #3 both use Figma
+      <span>zero conflicts</span>
+    </div>
+    <div class="scenario-cols">
+      <div class="scenario-agent">
+        <h4 style="color: var(--accent-blue)">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--accent-blue);display:inline-block"></span>
+          Agent #1 — Figma
+        </h4>
+        <div class="scenario-detail">
+          <strong>Window:</strong> CGWindowID 1847<br>
+          <strong>Display:</strong> VD #42 (x: 8000)<br>
+          <strong>AXRaise:</strong> window 1847 → key window<br>
+          <strong>Keystroke:</strong> tell process "Figma"<br>
+          <strong>Click:</strong> CGEvent @ (8000+x, y)<br>
+          <strong>Screenshot:</strong> CGDisplayCreateImage(42)<br>
+          <strong>Clipboard:</strong> NSPasteboard "...a3x2"
+        </div>
+      </div>
+
+      <div class="scenario-divider">
+        <div class="wall-line"></div>
+        <div class="wall">isolated</div>
+        <div class="wall-line"></div>
+      </div>
+
+      <div class="scenario-agent">
+        <h4 style="color: var(--accent-purple)">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--accent-purple);display:inline-block"></span>
+          Agent #3 — Figma
+        </h4>
+        <div class="scenario-detail">
+          <strong>Window:</strong> CGWindowID 1963<br>
+          <strong>Display:</strong> VD #44 (x: 10960)<br>
+          <strong>AXRaise:</strong> window 1963 → key window<br>
+          <strong>Keystroke:</strong> tell process "Figma"<br>
+          <strong>Click:</strong> CGEvent @ (10960+x, y)<br>
+          <strong>Screenshot:</strong> CGDisplayCreateImage(44)<br>
+          <strong>Clipboard:</strong> NSPasteboard "...c4m1"
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Isolation Matrix ───────────────────── -->
+  <div class="flow-section" style="margin-top: 32px">
+    <div class="flow-title">Isolation Guarantees</div>
+    <div class="matrix-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Resource</th>
+            <th>Mechanism</th>
+            <th>Per-Agent</th>
+            <th>Same-App Safe</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Screen / Display</td>
+            <td><span class="step-code">CGVirtualDisplay</span> (macOS SPI)
+              <span class="tech">Each agent gets an invisible monitor at a unique offset</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>App Windows</td>
+            <td><span class="step-code">Cmd+N</span> + window ID diff
+              <span class="tech">New window created per agent, tracked by CGWindowID</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Keyboard</td>
+            <td><span class="step-code">AXRaise</span> + AppleScript keystroke
+              <span class="tech">Raise agent's window, then send to process — window receives</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Mouse / Clicks</td>
+            <td><span class="step-code">CGEvent</span> at display coordinates
+              <span class="tech">Posted to virtual display offset — hits agent's window only</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Screenshots</td>
+            <td><span class="step-code">CGDisplayCreateImage</span> or <span class="step-code">screencapture -l</span>
+              <span class="tech">Captures only the agent's virtual display or specific window</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Clipboard</td>
+            <td><span class="step-code">NSPasteboard.pasteboardWithName_</span>
+              <span class="tech">Named pasteboard per agent — no cross-contamination</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>User's Screen</td>
+            <td>Virtual displays are invisible — user keeps full control
+              <span class="tech">No cursor movement, no focus steal, no visible windows</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+            <td><span class="check yes">&#10003;</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Agent Startup Steps ────────────────── -->
+  <div class="flow-section" style="margin-top: 32px">
+    <div class="flow-title">Per-Agent Startup Sequence</div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">01</div>
+        <div class="step-title">Create Virtual Display</div>
+        <div class="step-desc">Spawn an invisible 1280&times;900 monitor via <span class="step-code">CGVirtualDisplay</span> at a unique X offset (8000+).</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">02</div>
+        <div class="step-title">Open App + New Window</div>
+        <div class="step-desc">Launch the app, send <span class="step-code">Cmd+N</span>, diff window list to find the new <span class="step-code">CGWindowID</span>.</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">03</div>
+        <div class="step-title">Move Window to Display</div>
+        <div class="step-desc">Position window at the virtual display's bounds via <span class="step-code">AXUIElement</span> position/size attributes.</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">04</div>
+        <div class="step-title">Run Agent Loop</div>
+        <div class="step-desc">Claude <span class="step-code">computer_use</span> + <span class="step-code">app_manager</span> tools. Screenshots, clicks, keys all scoped to this agent's environment.</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">05</div>
+        <div class="step-title">Cleanup</div>
+        <div class="step-desc">Destroy virtual display. macOS moves orphaned windows back to the main screen automatically.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

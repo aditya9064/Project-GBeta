@@ -66,36 +66,36 @@ export const PlanSelectionPage: React.FC = () => {
     <div className="op-plans-page">
       <div className="op-plans-inner">
         <header className="op-plans-header">
-          <span className="op-plans-label">Business model</span>
-          <h1>Your AI workforce, on your terms.</h1>
-          <p>Select a plan to explore OperonAI. You can change plans later inside the product.</p>
+          <span className="op-plans-label">Choose your plan</span>
+          <h1>Start automating in minutes. No credit card needed.</h1>
+          <p>Pick a plan that works for you. Upgrade or change anytime — no lock-in.</p>
         </header>
 
         <div className="op-plan-grid">
           <PlanCard
-            name="Basic"
+            name="Free"
             price="$0 / month"
-            description="For trying out the agent workforce with no commitment."
+            description="Try everything at your own pace. No credit card required."
             features={[
-              'Limited AI agents',
-              'Limited document generation',
-              'Basic AI document templates',
-              'Email support only',
+              'Up to 3 AI assistants',
+              '50 tasks per month',
+              'Basic document creation',
+              'Email support',
             ]}
-            buttonLabel="Start with Basic"
+            buttonLabel="Get Started Free"
             onSelect={() => handleSelect('basic')}
           />
 
           <PlanCard
             name="Plus"
             price="$15 / month"
-            description="For teams getting started with AI agents."
+            description="For individuals and small teams who want to do more."
             features={[
-              'Unlimited AI agents',
-              'Unlimited document generation',
-              'All AI document templates',
-              'Communications agent',
-              'Email support',
+              'Unlimited AI assistants',
+              'Unlimited tasks',
+              'All document templates',
+              'Email & messaging automation',
+              'Priority email support',
             ]}
             buttonLabel="Choose Plus"
             onSelect={() => handleSelect('plus')}
@@ -106,13 +106,13 @@ export const PlanSelectionPage: React.FC = () => {
             price="$35 / month"
             tag="Most Popular"
             featured
-            description="Full power for growing teams."
+            description="For teams that want full power and customization."
             features={[
               'Everything in Plus',
-              'Advanced analytics & API access',
-              'Custom agent training',
+              'Analytics dashboard',
+              'Custom AI training',
               'Priority support',
-              'Custom integrations',
+              'Connect any app or service',
             ]}
             buttonLabel="Choose Pro"
             onSelect={() => handleSelect('pro')}
@@ -121,13 +121,13 @@ export const PlanSelectionPage: React.FC = () => {
           <PlanCard
             name="Enterprise"
             price="$150 / month"
-            description="For large organizations at scale."
+            description="For organizations that need dedicated support and security."
             features={[
               'Everything in Pro',
               'Dedicated account manager',
-              'SSO & advanced security',
-              'SLA guarantee',
-              'Custom onboarding & training',
+              'Single sign-on (SSO)',
+              'Guaranteed uptime (SLA)',
+              'Custom setup & training',
             ]}
             buttonLabel="Talk to Sales"
             onSelect={() => handleSelect('enterprise')}

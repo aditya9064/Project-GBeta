@@ -109,6 +109,54 @@
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "memory_sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAtEpoch", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "memory_observations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAtEpoch", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "memory_observations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sessionId", "order": "ASCENDING" },
+        { "fieldPath": "createdAtEpoch", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "memory_observations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "contentHash", "order": "ASCENDING" },
+        { "fieldPath": "createdAtEpoch", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "memory_summaries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAtEpoch", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "memory_summaries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sessionId", "order": "ASCENDING" },
+        { "fieldPath": "createdAtEpoch", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

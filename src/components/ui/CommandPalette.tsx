@@ -52,17 +52,17 @@ export function CommandPalette({ isOpen, onClose, onNavigate, onToggleTheme, the
 
   const commands: Command[] = useMemo(() => [
     { id: 'nav-home', icon: Home, label: 'Go to Dashboard', section: 'Navigation', action: () => onNavigate('/dashboard') },
-    { id: 'nav-agents', icon: Bot, label: 'Go to Agents', section: 'Navigation', action: () => onNavigate('/agents') },
-    { id: 'nav-workforce', icon: Users, label: 'Go to Crews & Orchestration', section: 'Navigation', action: () => onNavigate('/workforce') },
-    { id: 'nav-chat', icon: Sparkles, label: 'Go to Chat Agent', section: 'Navigation', action: () => onNavigate('/chat') },
-    { id: 'nav-comms', icon: Mail, label: 'Go to Communications', section: 'Navigation', action: () => onNavigate('/comms') },
-    { id: 'nav-docai', icon: FileText, label: 'Go to Document AI', section: 'Navigation', action: () => onNavigate('/docai') },
-    { id: 'nav-sales', icon: TrendingUp, label: 'Go to Sales', section: 'Navigation', action: () => onNavigate('/sales') },
-    { id: 'nav-workflow', icon: GitBranch, label: 'Go to Workflow Builder', section: 'Navigation', action: () => onNavigate('/workflow') },
-    { id: 'nav-knowledge', icon: FileText, label: 'Go to Knowledge Base', section: 'Navigation', action: () => onNavigate('/knowledge') },
-    { id: 'nav-marketplace', icon: ShoppingCart, label: 'Go to Marketplace', section: 'Navigation', action: () => onNavigate('/marketplace') },
-    { id: 'nav-settings', icon: Settings, label: 'Go to Settings', section: 'Navigation', action: () => onNavigate('/settings') },
-    { id: 'act-new-agent', icon: Plus, label: 'Create New Agent', section: 'Actions', action: () => onNavigate('/workflow') },
+    { id: 'nav-agents', icon: Bot, label: 'My Assistants', section: 'Navigation', action: () => onNavigate('/agents') },
+    { id: 'nav-workforce', icon: Users, label: 'Team Management', section: 'Navigation', action: () => onNavigate('/workforce') },
+    { id: 'nav-chat', icon: Sparkles, label: 'Ask AI Anything', section: 'Navigation', action: () => onNavigate('/chat') },
+    { id: 'nav-comms', icon: Mail, label: 'Messages & Email', section: 'Navigation', action: () => onNavigate('/comms') },
+    { id: 'nav-docai', icon: FileText, label: 'Create Documents', section: 'Navigation', action: () => onNavigate('/docai') },
+    { id: 'nav-sales', icon: TrendingUp, label: 'Sales Tracker', section: 'Navigation', action: () => onNavigate('/sales') },
+    { id: 'nav-workflow', icon: GitBranch, label: 'Automation Builder', section: 'Navigation', action: () => onNavigate('/workflow') },
+    { id: 'nav-knowledge', icon: FileText, label: 'Saved Information', section: 'Navigation', action: () => onNavigate('/knowledge') },
+    { id: 'nav-marketplace', icon: ShoppingCart, label: 'Template Gallery', section: 'Navigation', action: () => onNavigate('/marketplace') },
+    { id: 'nav-settings', icon: Settings, label: 'Settings', section: 'Navigation', action: () => onNavigate('/settings') },
+    { id: 'act-new-agent', icon: Plus, label: 'Create New Assistant', section: 'Actions', action: () => onNavigate('/workflow') },
     { id: 'set-theme', icon: theme === 'dark' ? Sun : Moon, label: 'Toggle Dark Mode', shortcut: '⌘D', section: 'Settings', action: onToggleTheme },
   ], [onNavigate, onToggleTheme, theme]);
 
@@ -179,7 +179,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate, onToggleTheme, the
           <input
             ref={inputRef}
             type="text"
-            placeholder="Type a command…"
+            placeholder="What would you like to do?"
             value={query}
             onChange={e => setQuery(e.target.value)}
             style={{
@@ -209,7 +209,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate, onToggleTheme, the
         <div ref={listRef} style={{ overflowY: 'auto', padding: '6px 0' }}>
           {flatItems.length === 0 && (
             <div style={{ padding: '24px 18px', textAlign: 'center', color: theme === 'dark' ? '#666' : '#999', fontSize: 14 }}>
-              No matching commands
+              No results found. Try different words.
             </div>
           )}
           {sections.map(({ section, items }) => (

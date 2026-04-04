@@ -66,9 +66,11 @@ import {
   CheckCircle,
   XOctagon,
   MousePointer,
+  Minus,
 } from 'lucide-react';
 import { exportToCsv } from '../../utils/exportCsv';
 import './CrewOSDashboard.css';
+import '../devtools/DevTools.css';
 import { DocumentIntelligence } from './DocumentIntelligence';
 import { CommunicationsAgent } from './CommunicationsAgent';
 import { SalesIntelligence } from './SalesIntelligence';
@@ -94,10 +96,11 @@ import { OperonConsole, type OperonCallbacks } from '../operon/OperonConsole';
 import { AgentMarketplace } from '../marketplace/AgentMarketplace';
 import { useTheme } from '../../hooks/useTheme';
 import { useOnboarding } from '../../hooks/useOnboarding';
+import { useUserPreferences } from '../../hooks/useUserPreferences';
 import { log } from '../../utils/logger';
 import { CommandPalette } from '../ui/CommandPalette';
 import { ShareAgentModal } from '../ui/ShareAgentModal';
-import { useComputerUse } from '../../hooks/useComputerUse';
+import { useComputerUse, useMultiAgent } from '../../hooks/useComputerUse';
 
 const OnboardingFlow = lazy(() => import('./OnboardingFlow').then(m => ({ default: m.OnboardingFlow })));
 const SettingsPage = lazy(() => import('./SettingsPage').then(m => ({ default: m.SettingsPage })));
@@ -105,6 +108,18 @@ const KnowledgeBase = lazy(() => import('./KnowledgeBase').then(m => ({ default:
 const AutonomousAgent = lazy(() => import('./AutonomousAgent').then(m => ({ default: m.AutonomousAgent })));
 const HomePage = lazy(() => import('./HomePage').then(m => ({ default: m.HomePage })));
 const WorkforceDashboard = lazy(() => import('../workforce/WorkforceDashboard').then(m => ({ default: m.WorkforceDashboard })));
+
+const CodebaseExplorer = lazy(() => import('../devtools/CodebaseExplorer').then(m => ({ default: m.CodebaseExplorer })));
+const CodeIntelligence = lazy(() => import('../devtools/CodeIntelligence').then(m => ({ default: m.CodeIntelligence })));
+const TestRunner = lazy(() => import('../devtools/TestRunner').then(m => ({ default: m.TestRunner })));
+const GitWorkflow = lazy(() => import('../devtools/GitWorkflow').then(m => ({ default: m.GitWorkflow })));
+const SubAgentManager = lazy(() => import('../devtools/SubAgentManager').then(m => ({ default: m.SubAgentManager })));
+const ProjectContext = lazy(() => import('../devtools/ProjectContext').then(m => ({ default: m.ProjectContext })));
+const HookSystem = lazy(() => import('../devtools/HookSystem').then(m => ({ default: m.HookSystem })));
+const PluginEcosystem = lazy(() => import('../devtools/PluginEcosystem').then(m => ({ default: m.PluginEcosystem })));
+const CodeSearch = lazy(() => import('../devtools/CodeSearch').then(m => ({ default: m.CodeSearch })));
+const ShellExecutor = lazy(() => import('../devtools/ShellExecutor').then(m => ({ default: m.ShellExecutor })));
+const MemoryViewer = lazy(() => import('../memory/MemoryViewer').then(m => ({ default: m.MemoryViewer })));
 
 /* ─── TYPES ────────────────────────────────────────────────── */
 
@@ -467,6 +482,17 @@ const pathToNav: Record<string, string> = {
   '/integrations': 'settings',
   '/webhooks': 'settings',
   '/knowledge': 'knowledge',
+  '/memory': 'memory',
+  '/devtools/codebase': 'dt-codebase',
+  '/devtools/intelligence': 'dt-intelligence',
+  '/devtools/tests': 'dt-tests',
+  '/devtools/git': 'dt-git',
+  '/devtools/subagents': 'dt-subagents',
+  '/devtools/context': 'dt-context',
+  '/devtools/hooks': 'dt-hooks',
+  '/devtools/plugins': 'dt-plugins',
+  '/devtools/search': 'dt-search',
+  '/devtools/shell': 'dt-shell',
 };
 
 const navToPath: Record<string, string> = {
@@ -482,12 +508,24 @@ const navToPath: Record<string, string> = {
   marketplace: '/marketplace',
   settings: '/settings',
   knowledge: '/knowledge',
+  memory: '/memory',
+  'dt-codebase': '/devtools/codebase',
+  'dt-intelligence': '/devtools/intelligence',
+  'dt-tests': '/devtools/tests',
+  'dt-git': '/devtools/git',
+  'dt-subagents': '/devtools/subagents',
+  'dt-context': '/devtools/context',
+  'dt-hooks': '/devtools/hooks',
+  'dt-plugins': '/devtools/plugins',
+  'dt-search': '/devtools/search',
+  'dt-shell': '/devtools/shell',
 };
 
 export function CrewOSDashboard() {
   const { signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { showOnboarding, completeOnboarding } = useOnboarding();
+  const { prefs, t } = useUserPreferences();
   const { agents: automationAgents, deployNewAgent, loading: agentsLoading, runAgent, cancelAgent, pauseAgent, resumeAgent, deleteAgent: deleteAutomationAgent, backendStatus, lastExecutionLogs, createAgentFromPrompt, cloneAgent, scheduleAgent } = useAgents();
   const location = useLocation();
   const navigate = useNavigate();
@@ -507,10 +545,14 @@ export function CrewOSDashboard() {
   const [showCatalog, setShowCatalog] = useState(false);
   // showAutonomousChat removed — now uses /chat route via sidebar
   const [showPromptWizard, setShowPromptWizard] = useState(false);
-  const [showCreateAIModal, setShowCreateAIModal] = useState(false);
-  const [showComputerUsePanel, setShowComputerUsePanel] = useState(false);
+  // showCreateAIModal removed — unified into showAgentPanel
+  const [showAgentPanel, setShowAgentPanel] = useState(false);
+  const [agentPanelMinimized, setAgentPanelMinimized] = useState(false);
+  const [desktopAgentsPaused, setDesktopAgentsPaused] = useState(false);
+  const [desktopIsolation, setDesktopIsolation] = useState<'fullscreen' | 'docker'>('fullscreen');
   const [computerUseGoal, setComputerUseGoal] = useState('');
   const computerUse = useComputerUse();
+  const multiAgent = useMultiAgent();
   const [expandedCatalog, setExpandedCatalog] = useState<string | null>(null);
   const [deployingVersion, setDeployingVersion] = useState<string | null>(null);
   const [catalogScheduleModal, setCatalogScheduleModal] = useState<{ catalog: CatalogAgent; version: AgentVersion } | null>(null);
@@ -522,7 +564,7 @@ export function CrewOSDashboard() {
   const [sidebarVisibleInWorkflow, setSidebarVisibleInWorkflow] = useState(false);
   const [agentPrompt, setAgentPrompt] = useState('');
   const [isCreatingFromPrompt, setIsCreatingFromPrompt] = useState(false);
-  const [runningAgentId, setRunningAgentId] = useState<string | null>(null);
+  const [runningAgentIds, setRunningAgentIds] = useState<Set<string>>(new Set());
   const [sharingAgentId, setSharingAgentId] = useState<string | null>(null);
   const [executionResult, setExecutionResult] = useState<{
     agentId: string;
@@ -533,15 +575,54 @@ export function CrewOSDashboard() {
     nodeDetails?: { name: string; type: string; status: string; isReal: boolean }[];
   } | null>(null);
 
-  // ─── Execution Output Panel state ──────
-  const [executionOutputPanel, setExecutionOutputPanel] = useState<{
+  // ─── Execution Output Panels (multiple simultaneous) ──────
+  const [executionOutputPanels, setExecutionOutputPanels] = useState<Array<{
     agentId: string;
     agentName: string;
     logs: ExecutionLog[];
     success: boolean;
     error?: string;
     isReal: boolean;
-  } | null>(null);
+    minimized: boolean;
+  }>>([]);
+
+  // Legacy single-panel API — delegates to array
+  const setExecutionOutputPanel = (panel: {
+    agentId: string;
+    agentName: string;
+    logs: ExecutionLog[];
+    success: boolean;
+    error?: string;
+    isReal: boolean;
+  } | null) => {
+    if (!panel) return;
+    setExecutionOutputPanels(prev => {
+      const existing = prev.findIndex(p => p.agentId === panel.agentId);
+      const entry = { ...panel, minimized: false };
+      if (existing >= 0) {
+        const next = [...prev];
+        next[existing] = entry;
+        return next;
+      }
+      return [...prev, entry];
+    });
+  };
+
+  const closeExecutionPanel = (agentId: string) => {
+    setExecutionOutputPanels(prev => prev.filter(p => p.agentId !== agentId));
+  };
+
+  const minimizeExecutionPanel = (agentId: string) => {
+    setExecutionOutputPanels(prev => prev.map(p =>
+      p.agentId === agentId ? { ...p, minimized: true } : p
+    ));
+  };
+
+  const restoreExecutionPanel = (agentId: string) => {
+    setExecutionOutputPanels(prev => prev.map(p =>
+      p.agentId === agentId ? { ...p, minimized: false } : p
+    ));
+  };
 
   // ─── Vision Agent Execution Viewers (multiple simultaneous) ──────
   const [activeViewers, setActiveViewers] = useState<Array<{
@@ -642,6 +723,18 @@ export function CrewOSDashboard() {
   const isMarketplace = activeNav === 'marketplace';
   const isSettings = activeNav === 'settings';
   const isKnowledge = activeNav === 'knowledge';
+  const isMemory = activeNav === 'memory';
+  const isDevTools = activeNav.startsWith('dt-');
+  const isDtCodebase = activeNav === 'dt-codebase';
+  const isDtIntelligence = activeNav === 'dt-intelligence';
+  const isDtTests = activeNav === 'dt-tests';
+  const isDtGit = activeNav === 'dt-git';
+  const isDtSubagents = activeNav === 'dt-subagents';
+  const isDtContext = activeNav === 'dt-context';
+  const isDtHooks = activeNav === 'dt-hooks';
+  const isDtPlugins = activeNav === 'dt-plugins';
+  const isDtSearch = activeNav === 'dt-search';
+  const isDtShell = activeNav === 'dt-shell';
 
   // State for filtering logs by a specific agent
   const [logsAgentId, setLogsAgentId] = useState<string | undefined>(undefined);
@@ -854,7 +947,7 @@ export function CrewOSDashboard() {
       return;
     }
     
-    setRunningAgentId(agentId);
+    setRunningAgentIds(prev => new Set(prev).add(agentId));
     setExecutionResult(null);
     
     try {
@@ -881,7 +974,7 @@ export function CrewOSDashboard() {
           executionState: result.executionState,
           currentLogs: result.logs,
         });
-        setRunningAgentId(null);
+        setRunningAgentIds(prev => { const next = new Set(prev); next.delete(agentId); return next; });
         return;
       }
 
@@ -939,7 +1032,7 @@ export function CrewOSDashboard() {
       });
       setTimeout(() => setExecutionResult(null), 5000);
     } finally {
-      setRunningAgentId(null);
+      setRunningAgentIds(prev => { const next = new Set(prev); next.delete(agentId); return next; });
     }
   }, [automationAgents]);
 
@@ -964,6 +1057,14 @@ export function CrewOSDashboard() {
       setIsResumingExecution(false);
     }
   }, [pausedExecution, handleRunAgent, showToast]);
+
+  const toggleDesktopPause = useCallback(async () => {
+    try {
+      const endpoint = desktopAgentsPaused ? '/api/browser/vision/desktop/resume' : '/api/browser/vision/desktop/pause';
+      await fetch(endpoint, { method: 'POST' });
+      setDesktopAgentsPaused(!desktopAgentsPaused);
+    } catch { /* best effort */ }
+  }, [desktopAgentsPaused]);
 
   /* Cancel paused execution */
   const handleCancelExecution = useCallback(() => {
@@ -1320,54 +1421,58 @@ export function CrewOSDashboard() {
           </div>
 
           <div className="operonai-sidebar-section">
-            <div className="operonai-sidebar-label">Workforce</div>
+            <div className="operonai-sidebar-label">{t('Workforce')}</div>
             <button className={`operonai-nav-item ${activeNav === 'agents' ? 'active' : ''}`} onClick={() => setActiveNav('agents')}>
               <span className="operonai-nav-item-icon"><Bot size={18} /></span>
-              <span className="operonai-nav-item-text">Agents</span>
+              <span className="operonai-nav-item-text">{t('Agents')}</span>
             </button>
             <button className={`operonai-nav-item ${isWorkforce ? 'active' : ''}`} onClick={() => setActiveNav('workforce')}>
               <span className="operonai-nav-item-icon"><Users size={18} /></span>
-              <span className="operonai-nav-item-text">Crews & Orchestration</span>
+              <span className="operonai-nav-item-text">{t('Crews & Orchestration')}</span>
             </button>
             <button className={`operonai-nav-item ${isChat ? 'active' : ''}`} onClick={() => setActiveNav('chat')}>
               <span className="operonai-nav-item-icon"><Sparkles size={18} /></span>
-              <span className="operonai-nav-item-text">Chat Agent</span>
+              <span className="operonai-nav-item-text">{prefs.simplifiedMode ? 'Ask AI Anything' : 'Chat Agent'}</span>
             </button>
             <button className={`operonai-nav-item ${activeNav === 'workflow' ? 'active' : ''}`} onClick={() => setActiveNav('workflow')}>
               <span className="operonai-nav-item-icon"><GitBranch size={18} /></span>
-              <span className="operonai-nav-item-text">Workflow Builder</span>
+              <span className="operonai-nav-item-text">{t('Workflow Builder')}</span>
             </button>
             <button className={`operonai-nav-item ${activeNav === 'marketplace' ? 'active' : ''}`} onClick={() => setActiveNav('marketplace')}>
               <span className="operonai-nav-item-icon"><ShoppingCart size={18} /></span>
-              <span className="operonai-nav-item-text">Marketplace</span>
+              <span className="operonai-nav-item-text">{t('Marketplace')}</span>
             </button>
           </div>
 
           <div className="operonai-sidebar-section">
-            <div className="operonai-sidebar-label">Tools</div>
+            <div className="operonai-sidebar-label">{prefs.simplifiedMode ? 'Features' : 'Tools'}</div>
             <button className={`operonai-nav-item ${activeNav === 'comms' ? 'active' : ''}`} onClick={() => setActiveNav('comms')}>
               <span className="operonai-nav-item-icon"><Mail size={18} /></span>
-              <span className="operonai-nav-item-text">Communications</span>
+              <span className="operonai-nav-item-text">{t('Communications')}</span>
             </button>
             <button className={`operonai-nav-item ${activeNav === 'docai' ? 'active' : ''}`} onClick={() => setActiveNav('docai')}>
               <span className="operonai-nav-item-icon"><FileText size={18} /></span>
-              <span className="operonai-nav-item-text">Document AI</span>
+              <span className="operonai-nav-item-text">{t('Document AI')}</span>
             </button>
             <button className={`operonai-nav-item ${activeNav === 'sales' ? 'active' : ''}`} onClick={() => setActiveNav('sales')}>
               <span className="operonai-nav-item-icon"><TrendingUp size={18} /></span>
-              <span className="operonai-nav-item-text">Sales Intelligence</span>
+              <span className="operonai-nav-item-text">{t('Sales Intelligence')}</span>
             </button>
             <button className={`operonai-nav-item ${isKnowledge ? 'active' : ''}`} onClick={() => setActiveNav('knowledge')}>
               <span className="operonai-nav-item-icon"><BookOpen size={18} /></span>
-              <span className="operonai-nav-item-text">Knowledge Base</span>
+              <span className="operonai-nav-item-text">{t('Knowledge Base')}</span>
+            </button>
+            <button className={`operonai-nav-item ${isMemory ? 'active' : ''}`} onClick={() => setActiveNav('memory')}>
+              <span className="operonai-nav-item-icon"><Brain size={18} /></span>
+              <span className="operonai-nav-item-text">{t('Agent Memory')}</span>
             </button>
           </div>
 
           <div className="operonai-sidebar-section">
-            <div className="operonai-sidebar-label">Admin</div>
+            <div className="operonai-sidebar-label">{prefs.simplifiedMode ? 'Account' : 'Admin'}</div>
             <button className={`operonai-nav-item ${activeNav === 'logs' ? 'active' : ''}`} onClick={() => { setLogsAgentId(undefined); setActiveNav('logs'); }}>
               <span className="operonai-nav-item-icon"><Activity size={18} /></span>
-              <span className="operonai-nav-item-text">Execution Logs</span>
+              <span className="operonai-nav-item-text">{t('Execution Logs')}</span>
             </button>
             <button className={`operonai-nav-item ${activeNav === 'settings' ? 'active' : ''}`} onClick={() => setActiveNav('settings')}>
               <span className="operonai-nav-item-icon"><Settings size={18} /></span>
@@ -1378,6 +1483,52 @@ export function CrewOSDashboard() {
               <span className="operonai-nav-item-text">Log Out</span>
             </button>
           </div>
+
+          {prefs.showDevTools && (
+          <div className="operonai-sidebar-section">
+            <div className="operonai-sidebar-label">Developer Tools</div>
+            <button className={`operonai-nav-item ${isDtCodebase ? 'active' : ''}`} onClick={() => setActiveNav('dt-codebase')}>
+              <span className="operonai-nav-item-icon"><Folder size={18} /></span>
+              <span className="operonai-nav-item-text">Codebase Explorer</span>
+            </button>
+            <button className={`operonai-nav-item ${isDtIntelligence ? 'active' : ''}`} onClick={() => setActiveNav('dt-intelligence')}>
+              <span className="operonai-nav-item-icon"><Cpu size={18} /></span>
+              <span className="operonai-nav-item-text">Code Intelligence</span>
+            </button>
+            <button className={`operonai-nav-item ${isDtTests ? 'active' : ''}`} onClick={() => setActiveNav('dt-tests')}>
+              <span className="operonai-nav-item-icon"><Play size={18} /></span>
+              <span className="operonai-nav-item-text">Test Runner</span>
+            </button>
+            <button className={`operonai-nav-item ${isDtGit ? 'active' : ''}`} onClick={() => setActiveNav('dt-git')}>
+              <span className="operonai-nav-item-icon"><GitBranch size={18} /></span>
+              <span className="operonai-nav-item-text">Git Workflow</span>
+            </button>
+            <button className={`operonai-nav-item ${isDtSubagents ? 'active' : ''}`} onClick={() => setActiveNav('dt-subagents')}>
+              <span className="operonai-nav-item-icon"><Users size={18} /></span>
+              <span className="operonai-nav-item-text">Sub-Agents</span>
+            </button>
+            <button className={`operonai-nav-item ${isDtContext ? 'active' : ''}`} onClick={() => setActiveNav('dt-context')}>
+              <span className="operonai-nav-item-icon"><BookOpen size={18} /></span>
+              <span className="operonai-nav-item-text">Project Context</span>
+            </button>
+            <button className={`operonai-nav-item ${isDtHooks ? 'active' : ''}`} onClick={() => setActiveNav('dt-hooks')}>
+              <span className="operonai-nav-item-icon"><Zap size={18} /></span>
+              <span className="operonai-nav-item-text">Hooks</span>
+            </button>
+            <button className={`operonai-nav-item ${isDtPlugins ? 'active' : ''}`} onClick={() => setActiveNav('dt-plugins')}>
+              <span className="operonai-nav-item-icon"><Package size={18} /></span>
+              <span className="operonai-nav-item-text">Plugins</span>
+            </button>
+            <button className={`operonai-nav-item ${isDtSearch ? 'active' : ''}`} onClick={() => setActiveNav('dt-search')}>
+              <span className="operonai-nav-item-icon"><Search size={18} /></span>
+              <span className="operonai-nav-item-text">Code Search</span>
+            </button>
+            <button className={`operonai-nav-item ${isDtShell ? 'active' : ''}`} onClick={() => setActiveNav('dt-shell')}>
+              <span className="operonai-nav-item-icon"><Monitor size={18} /></span>
+              <span className="operonai-nav-item-text">Shell</span>
+            </button>
+          </div>
+          )}
 
           <div className="operonai-sidebar-spacer" />
         </aside>
@@ -1457,9 +1608,23 @@ export function CrewOSDashboard() {
 
         {isSettings && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><SettingsPage /></Suspense>}
         {isKnowledge && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><KnowledgeBase /></Suspense>}
+        {isMemory && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><MemoryViewer /></Suspense>}
+
+        {/* Developer Tools Views */}
+        {isDtCodebase && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><CodebaseExplorer /></Suspense>}
+        {isDtIntelligence && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><CodeIntelligence /></Suspense>}
+        {isDtTests && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><TestRunner /></Suspense>}
+        {isDtGit && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><GitWorkflow /></Suspense>}
+        {isDtSubagents && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><SubAgentManager /></Suspense>}
+        {isDtContext && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><ProjectContext /></Suspense>}
+        {isDtHooks && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><HookSystem /></Suspense>}
+        {isDtPlugins && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><PluginEcosystem /></Suspense>}
+        {isDtSearch && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><CodeSearch /></Suspense>}
+        {isDtShell && <Suspense fallback={<div style={{padding:'2rem'}}>Loading...</div>}><ShellExecutor /></Suspense>}
+
         {/* Agent Workforce View */}
-        {!isDashboard && !isWorkforce && !isDocAI && !isComms && !isSales && !isChat && !isWorkflow && !isLogs && !isMarketplace && !isSettings && !isKnowledge && (
-        <div className="operonai-main">
+        {!isDashboard && !isWorkforce && !isDocAI && !isComms && !isSales && !isChat && !isWorkflow && !isLogs && !isMarketplace && !isSettings && !isKnowledge && !isMemory && !isDevTools && (
+        <div className="operonai-main" style={{ padding: '0 36px', overflowY: 'auto' }}>
           {/* Workforce Header */}
           <div className="aw-header">
             <div className="aw-header-left">
@@ -1495,7 +1660,7 @@ export function CrewOSDashboard() {
             <button
               className="aw-new-agent-btn"
               style={{ background: 'transparent', color: '#e07a3a', border: '1px solid #e07a3a' }}
-              onClick={() => setShowCreateAIModal(true)}
+              onClick={() => { setShowAgentPanel(true); setAgentPanelMinimized(false); }}
             >
               <Wand2 size={16} />
               Create with AI
@@ -1574,25 +1739,23 @@ export function CrewOSDashboard() {
                   <button
                     className="operonai-execution-view-output-btn"
                     onClick={() => {
-                      if (!executionOutputPanel) {
-                        const result_logs = executionResult.nodeDetails?.map(nd => ({
-                          nodeId: nd.name.toLowerCase().replace(/\s+/g, '-'),
-                          nodeName: nd.name,
-                          nodeType: nd.type,
-                          status: nd.status as 'completed' | 'failed' | 'skipped',
-                          isReal: nd.isReal,
-                          startedAt: new Date(),
-                          input: null,
-                          output: null,
-                        })) || [];
-                        setExecutionOutputPanel({
-                          agentId: executionResult.agentId,
-                          agentName: executionResult.agentName,
-                          logs: result_logs,
-                          success: executionResult.success,
-                          isReal: executionResult.isReal,
-                        });
-                      }
+                      const result_logs = executionResult.nodeDetails?.map(nd => ({
+                        nodeId: nd.name.toLowerCase().replace(/\s+/g, '-'),
+                        nodeName: nd.name,
+                        nodeType: nd.type,
+                        status: nd.status as 'completed' | 'failed' | 'skipped',
+                        isReal: nd.isReal,
+                        startedAt: new Date(),
+                        input: null,
+                        output: null,
+                      })) || [];
+                      setExecutionOutputPanel({
+                        agentId: executionResult.agentId,
+                        agentName: executionResult.agentName,
+                        logs: result_logs,
+                        success: executionResult.success,
+                        isReal: executionResult.isReal,
+                      });
                       setExecutionResult(null);
                     }}
                   >
@@ -1661,7 +1824,7 @@ export function CrewOSDashboard() {
                   <button
                     className="aw-new-agent-btn"
                     style={{ background: 'transparent', color: '#e07a3a', border: '1px solid #e07a3a' }}
-                    onClick={() => setShowCreateAIModal(true)}
+                    onClick={() => { setShowAgentPanel(true); setAgentPanelMinimized(false); }}
                   >
                     <Wand2 size={16} /> Create with AI
                   </button>
@@ -1681,8 +1844,8 @@ export function CrewOSDashboard() {
                     <span className="aw-list-col name">
                       <div className={`aw-agent-status-dot ${agent.status}`} />
                       <div>
-                        <div className="aw-list-agent-name">{agent.name}</div>
-                        <div className="aw-list-agent-desc">{agent.description || `Automated workflow`}</div>
+                        <div className="aw-list-agent-name">{agent.name || 'Untitled Agent'}</div>
+                        <div className="aw-list-agent-desc">{agent.description || 'Automated workflow'}</div>
                       </div>
                     </span>
                     <span className="aw-list-col status">
@@ -1693,8 +1856,8 @@ export function CrewOSDashboard() {
                       {agent.lastExecutedAt ? new Date(agent.lastExecutedAt).toLocaleDateString() : '—'}
                     </span>
                     <span className="aw-list-col actions">
-                      {runningAgentId === agent.id ? (
-                        <button className="aw-agent-action-btn run" onClick={() => { cancelAgent(agent.id); setRunningAgentId(null); }} title="Cancel execution" style={{color:'#dc2626'}}>
+                      {runningAgentIds.has(agent.id) ? (
+                        <button className="aw-agent-action-btn run" onClick={() => { cancelAgent(agent.id); setRunningAgentIds(prev => { const next = new Set(prev); next.delete(agent.id); return next; }); }} title="Cancel execution" style={{color:'#dc2626'}}>
                           <Square size={13} />
                           Cancel
                         </button>
@@ -1752,9 +1915,9 @@ export function CrewOSDashboard() {
                     <div key={agent.id} className="aw-agent-card">
                       <div className={`aw-agent-status-dot ${agent.status}`} />
 
-                      <h4 className="aw-agent-card-name">{agent.name}</h4>
+                      <h4 className="aw-agent-card-name">{agent.name || 'Untitled Agent'}</h4>
                       <p className="aw-agent-card-desc">
-                        {agent.description || `Automated workflow: ${agent.name}`}
+                        {agent.description || (agent.name ? `Automated workflow: ${agent.name}` : 'Automated workflow')}
                       </p>
 
                       {/* Workflow info */}
@@ -1798,10 +1961,10 @@ export function CrewOSDashboard() {
                         >
                           <MoreHorizontal size={13} />
                         </button>
-                        {runningAgentId === agent.id ? (
+                        {runningAgentIds.has(agent.id) ? (
                           <button
                             className="aw-agent-action-btn run"
-                            onClick={() => { cancelAgent(agent.id); setRunningAgentId(null); }}
+                            onClick={() => { cancelAgent(agent.id); setRunningAgentIds(prev => { const next = new Set(prev); next.delete(agent.id); return next; }); }}
                             title="Cancel execution"
                             style={{color:'#dc2626'}}
                           >
@@ -2408,21 +2571,129 @@ export function CrewOSDashboard() {
         );
       })()}
 
-      {/* Execution Output Panel (n8n-style) */}
-      {executionOutputPanel && (
+      {/* Execution Output Panels (multiple simultaneous, each can be minimized) */}
+      {executionOutputPanels.map(panel => (
         <ExecutionOutputPanel
-          agentName={executionOutputPanel.agentName}
-          logs={executionOutputPanel.logs}
-          success={executionOutputPanel.success}
-          error={executionOutputPanel.error}
-          isReal={executionOutputPanel.isReal}
-          onClose={() => setExecutionOutputPanel(null)}
+          key={panel.agentId}
+          agentName={panel.agentName}
+          logs={panel.logs}
+          success={panel.success}
+          error={panel.error}
+          isReal={panel.isReal}
+          minimized={panel.minimized}
+          onMinimize={() => minimizeExecutionPanel(panel.agentId)}
+          onRestore={() => restoreExecutionPanel(panel.agentId)}
+          onClose={() => closeExecutionPanel(panel.agentId)}
           onViewFullLogs={() => {
-            setLogsAgentId(executionOutputPanel.agentId);
+            setLogsAgentId(panel.agentId);
             setActiveNav('logs');
-            setExecutionOutputPanel(null);
+            closeExecutionPanel(panel.agentId);
           }}
         />
+      ))}
+
+      {/* Minimized Agents Task Bar */}
+      {executionOutputPanels.some(p => p.minimized) && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 240, right: 0,
+          height: 48, background: '#1e293b', borderTop: '1px solid #334155',
+          display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px',
+          zIndex: 8999,
+        }}>
+          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 8 }}>
+            Running Tasks
+          </span>
+          {executionOutputPanels.filter(p => p.minimized).map(panel => (
+            <button
+              key={panel.agentId}
+              onClick={() => restoreExecutionPanel(panel.agentId)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '6px 14px', borderRadius: 8, border: '1px solid #475569',
+                background: '#334155', color: '#e2e8f0',
+                fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              <span style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: panel.success ? '#10b981' : '#ef4444',
+                flexShrink: 0,
+              }} />
+              {panel.agentName}
+              <span
+                onClick={(e) => { e.stopPropagation(); closeExecutionPanel(panel.agentId); }}
+                style={{ marginLeft: 4, opacity: 0.6, cursor: 'pointer' }}
+              >
+                <X size={12} />
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Minimized Agent Panel Pill */}
+      {showAgentPanel && agentPanelMinimized && (
+        <div
+          onClick={() => setAgentPanelMinimized(false)}
+          style={{
+            position: 'fixed', bottom: 20, right: 20,
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '10px 18px', borderRadius: 14,
+            background: '#1e293b', border: '1px solid #475569',
+            color: '#e2e8f0', cursor: 'pointer',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            zIndex: 9998, fontFamily: 'inherit',
+            transition: 'transform 0.15s, box-shadow 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.4)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)'; }}
+        >
+          <div style={{
+            width: 32, height: 32, borderRadius: 10,
+            background: computerUse.status === 'running' ? 'rgba(224,122,58,0.2)' : 'rgba(16,185,129,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Zap size={16} color={computerUse.status === 'running' ? '#e07a3a' : '#10b981'} />
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>
+              AI Agent {desktopAgentsPaused && <span style={{ color: '#f59e0b', fontSize: 11 }}>⏸ Paused</span>}
+            </div>
+            <div style={{ fontSize: 11, color: '#94a3b8' }}>
+              {desktopAgentsPaused ? 'Paused — click to view' : computerUse.status === 'running' ? 'Running — click to view' : computerUse.status === 'idle' ? 'Click to open' : computerUse.status}
+            </div>
+          </div>
+          {(computerUse.status === 'running' || multiAgent.activeCount > 0) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleDesktopPause(); }}
+              title={desktopAgentsPaused ? 'Resume agents' : 'Pause agents'}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 28, height: 28, borderRadius: 7,
+                border: `1px solid ${desktopAgentsPaused ? '#10b981' : '#f59e0b'}`,
+                background: desktopAgentsPaused ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                color: desktopAgentsPaused ? '#10b981' : '#f59e0b',
+                cursor: 'pointer',
+              }}
+            >
+              {desktopAgentsPaused ? <Play size={12} /> : <Square size={10} />}
+            </button>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (computerUse.status === 'running') computerUse.cancel();
+              computerUse.reset();
+              setShowAgentPanel(false);
+              setAgentPanelMinimized(false);
+              setComputerUseGoal('');
+            }}
+            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 4 }}
+          >
+            <X size={14} />
+          </button>
+        </div>
       )}
 
       {/* User Input Modal - shown when execution pauses for required input */}
@@ -2533,61 +2804,14 @@ export function CrewOSDashboard() {
         />
       )}
 
-      {/* Create with AI — chooser modal */}
-      {showCreateAIModal && (
-        <div className="cu-overlay" onClick={() => setShowCreateAIModal(false)}>
-          <div className="cu-chooser" onClick={e => e.stopPropagation()}>
-            <button className="cu-close" onClick={() => setShowCreateAIModal(false)}>
-              <X size={18} />
-            </button>
-            <h2 className="cu-chooser-title">Create with AI</h2>
-            <p className="cu-chooser-sub">Choose how you want to build your agent.</p>
-            <div className="cu-chooser-cards">
-              <button
-                className="cu-chooser-card"
-                onClick={() => {
-                  setShowCreateAIModal(false);
-                  setShowPromptWizard(true);
-                }}
-              >
-                <div className="cu-chooser-icon" style={{ background: 'rgba(224,122,58,0.12)' }}>
-                  <Wand2 size={24} color="#e07a3a" />
-                </div>
-                <h3>Prompt Wizard</h3>
-                <p>Describe what you want in plain English and let AI generate an agent workflow for you.</p>
-                <span className="cu-chooser-tag">Cloud</span>
-              </button>
-              <button
-                className={`cu-chooser-card ${!computerUse.isDesktop ? 'cu-chooser-card--disabled' : 'cu-chooser-card--accent'}`}
-                onClick={() => {
-                  if (!computerUse.isDesktop) return;
-                  setShowCreateAIModal(false);
-                  setShowComputerUsePanel(true);
-                }}
-                disabled={!computerUse.isDesktop}
-              >
-                <div className="cu-chooser-icon" style={{ background: 'rgba(99,179,237,0.12)' }}>
-                  <Monitor size={24} color="#63b3ed" />
-                </div>
-                <h3>Desktop Agent</h3>
-                <p>Claude takes control of your desktop — clicking, typing, and navigating native apps to complete tasks.</p>
-                <span className="cu-chooser-tag cu-chooser-tag--blue">
-                  {computerUse.isDesktop ? 'Desktop Ready' : 'Requires Desktop App'}
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Computer Use Panel — full-screen task runner */}
-      {showComputerUsePanel && (
-        <div className="cu-overlay">
+      {/* Unified Agent Panel — single prompt, auto-routes to desktop or multi-agent */}
+      {showAgentPanel && !agentPanelMinimized && (
+        <div className="cu-overlay" onClick={() => setAgentPanelMinimized(true)}>
           <div className="cu-panel" onClick={e => e.stopPropagation()}>
             <div className="cu-panel-header">
               <div className="cu-panel-header-left">
-                <Monitor size={20} />
-                <h2>Desktop Agent</h2>
+                <Zap size={20} />
+                <h2>AI Agent</h2>
                 {computerUse.status !== 'idle' && (
                   <span className={`cu-status-badge cu-status-badge--${computerUse.status}`}>
                     {computerUse.status === 'running' && <><Loader2 size={12} className="cu-spin" /> Running</>}
@@ -2597,30 +2821,75 @@ export function CrewOSDashboard() {
                     {computerUse.status === 'cancelled' && <><XCircle size={12} /> Cancelled</>}
                   </span>
                 )}
+                {multiAgent.activeCount > 0 && (
+                  <span className="cu-status-badge cu-status-badge--running" style={{ marginLeft: 6 }}>
+                    <Users size={12} /> {multiAgent.activeCount} sub-agent{multiAgent.activeCount > 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
-              <button
-                className="cu-close"
-                onClick={() => {
-                  if (computerUse.status === 'running') computerUse.cancel();
-                  computerUse.reset();
-                  setShowComputerUsePanel(false);
-                  setComputerUseGoal('');
-                }}
-              >
-                <X size={18} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {(computerUse.status === 'running' || multiAgent.activeCount > 0) && (
+                  <button
+                    onClick={toggleDesktopPause}
+                    title={desktopAgentsPaused ? 'Resume agents — they are paused' : 'Pause agents — take control of your keyboard & mouse'}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '5px 14px', borderRadius: 8,
+                      border: `1px solid ${desktopAgentsPaused ? '#10b981' : '#f59e0b'}`,
+                      background: desktopAgentsPaused ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                      color: desktopAgentsPaused ? '#10b981' : '#f59e0b',
+                      fontSize: 12, fontWeight: 600,
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {desktopAgentsPaused ? <><Play size={13} /> Resume</> : <><Square size={11} /> Pause</>}
+                  </button>
+                )}
+                <button
+                  onClick={() => setAgentPanelMinimized(true)}
+                  title="Minimize — keep running in background"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '5px 14px', borderRadius: 8,
+                    border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)',
+                    color: '#e2e8f0', fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#e07a3a'; e.currentTarget.style.borderColor = '#e07a3a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
+                >
+                  <Minus size={13} /> Minimize
+                </button>
+                <button
+                  className="cu-close"
+                  onClick={() => {
+                    if (computerUse.status === 'running') computerUse.cancel();
+                    computerUse.reset();
+                    setShowAgentPanel(false);
+                    setAgentPanelMinimized(false);
+                    setComputerUseGoal('');
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             <div className="cu-panel-body">
-              {/* Left: controls + step log */}
+              {/* Left: prompt + step log */}
               <div className="cu-panel-left">
-                {computerUse.status === 'idle' && (
-                  <div className="cu-goal-form">
-                    <label className="cu-goal-label">What should Claude do on your desktop?</label>
+                <div className="cu-goal-form">
+                  <label className="cu-goal-label">
+                    {computerUse.status === 'running' || multiAgent.activeCount > 0
+                      ? 'Start another task:'
+                      : 'What do you want to accomplish?'}
+                  </label>
                     <textarea
                       className="cu-goal-input"
                       rows={3}
-                      placeholder="e.g. Open Safari, go to google.com, search for 'AI agents' and take a screenshot of the results"
+                      placeholder="e.g. Open Calculator and compute 1+1, search Google for AI news, fill out a form in Safari..."
                       value={computerUseGoal}
                       onChange={e => setComputerUseGoal(e.target.value)}
                       onKeyDown={e => {
@@ -2637,10 +2906,55 @@ export function CrewOSDashboard() {
                       onClick={() => computerUse.startTask(computerUseGoal.trim())}
                     >
                       <Play size={16} />
-                      Start Task
+                      Go
                     </button>
+
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      marginTop: 12, padding: '8px 0',
+                      borderTop: '1px solid rgba(255,255,255,0.08)',
+                    }}>
+                      <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Isolation:</span>
+                      <button
+                        onClick={() => {
+                          setDesktopIsolation('fullscreen');
+                          fetch('/api/browser/vision/desktop/isolation', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ mode: 'fullscreen' }),
+                          }).catch(() => {});
+                        }}
+                        style={{
+                          padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
+                          cursor: 'pointer', transition: 'all 0.15s',
+                          border: desktopIsolation === 'fullscreen' ? '1px solid #e07a3a' : '1px solid rgba(255,255,255,0.15)',
+                          background: desktopIsolation === 'fullscreen' ? 'rgba(224,122,58,0.2)' : 'transparent',
+                          color: desktopIsolation === 'fullscreen' ? '#e07a3a' : '#94a3b8',
+                        }}
+                        title="Each agent gets a full-screen window. Brief flicker when agents interact. No setup needed."
+                      >
+                        Full Screen
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDesktopIsolation('docker');
+                          fetch('/api/browser/vision/desktop/isolation', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ mode: 'docker' }),
+                          }).catch(() => {});
+                        }}
+                        style={{
+                          padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
+                          cursor: 'pointer', transition: 'all 0.15s',
+                          border: desktopIsolation === 'docker' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.15)',
+                          background: desktopIsolation === 'docker' ? 'rgba(99,102,241,0.2)' : 'transparent',
+                          color: desktopIsolation === 'docker' ? '#818cf8' : '#94a3b8',
+                        }}
+                        title="Each agent runs in its own Docker container with a virtual display. Zero interference. Requires Docker."
+                      >
+                        Docker (Full Isolation)
+                      </button>
+                    </div>
                   </div>
-                )}
 
                 {computerUse.status === 'awaiting_approval' && computerUse.pendingApproval && (
                   <div className="cu-approval-card">
@@ -2715,6 +3029,48 @@ export function CrewOSDashboard() {
                     <XCircle size={16} /> Cancel Task
                   </button>
                 )}
+
+                {/* Sub-agents spawned by the orchestrator */}
+                {multiAgent.agentList.length > 0 && (
+                  <div style={{ marginTop: 16 }}>
+                    <h4 className="cu-steps-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Users size={14} /> Sub-Agents ({multiAgent.agentList.length})
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                      {multiAgent.agentList.map(agent => (
+                        <div key={agent.executionId} style={{
+                          padding: '10px 12px', borderRadius: 8,
+                          background: 'var(--bg-primary, #0f0f1a)',
+                          border: '1px solid var(--border-color, #2d2d44)',
+                          display: 'flex', alignItems: 'center', gap: 10,
+                        }}>
+                          <Monitor size={14} color="#81e6d9" />
+                          <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary, #e2e8f0)', minWidth: 60 }}>
+                            {agent.targetApp}
+                          </span>
+                          <span style={{ flex: 1, fontSize: 12, color: 'var(--text-secondary, #8892b0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {agent.steps.length > 0
+                              ? agent.steps[agent.steps.length - 1].content?.substring(0, 60)
+                              : agent.goal.substring(0, 60)
+                            }
+                          </span>
+                          <span className={`cu-status-badge cu-status-badge--${agent.status}`} style={{ fontSize: 10 }}>
+                            {agent.status === 'running' && <Loader2 size={10} className="cu-spin" />}
+                            {agent.status === 'completed' && <CheckCircle size={10} />}
+                            {agent.status === 'failed' && <XOctagon size={10} />}
+                            {agent.status === 'cancelled' && <XCircle size={10} />}
+                          </span>
+                          {(agent.status === 'running' || agent.status === 'awaiting_approval') && (
+                            <button onClick={() => multiAgent.cancelAgent(agent.executionId)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text-secondary)' }}>
+                              <XCircle size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Right: live screenshot feed */}
@@ -2725,10 +3081,18 @@ export function CrewOSDashboard() {
                     src={computerUse.latestScreenshot}
                     alt="Desktop screenshot"
                   />
+                ) : multiAgent.agentList.find(a => a.latestScreenshot) ? (
+                  <img
+                    className="cu-screenshot"
+                    src={multiAgent.agentList.find(a => a.latestScreenshot)!.latestScreenshot!}
+                    alt="Agent screenshot"
+                  />
                 ) : (
                   <div className="cu-screenshot-placeholder">
                     <Monitor size={48} />
-                    <p>{computerUse.status === 'idle' ? 'Desktop preview will appear here' : 'Waiting for screenshot...'}</p>
+                    <p>{computerUse.status === 'idle' && multiAgent.activeCount === 0
+                      ? 'Tell the agent what to do — it will figure out the rest'
+                      : 'Waiting for screenshot...'}</p>
                   </div>
                 )}
               </div>

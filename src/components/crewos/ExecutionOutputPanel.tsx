@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import {
   X,
+  Minus,
+  Maximize2,
   CheckCircle2,
   XCircle,
   Clock,
@@ -27,6 +29,9 @@ interface ExecutionOutputPanelProps {
   error?: string;
   isReal: boolean;
   onClose: () => void;
+  onMinimize?: () => void;
+  minimized?: boolean;
+  onRestore?: () => void;
   onViewFullLogs?: () => void;
 }
 
@@ -39,6 +44,9 @@ export function ExecutionOutputPanel({
   error,
   isReal,
   onClose,
+  onMinimize,
+  minimized,
+  onRestore,
   onViewFullLogs,
 }: ExecutionOutputPanelProps) {
   const [selectedNodeIndex, setSelectedNodeIndex] = useState<number | null>(null);
@@ -154,6 +162,8 @@ export function ExecutionOutputPanel({
   const tableData = currentData ? getTableData(currentData) : { rows: [] };
   const hasData = currentData !== null && currentData !== undefined;
 
+  if (minimized) return null;
+
   return (
     <div className="eop-overlay" onClick={onClose}>
       <div className="eop-panel" onClick={e => e.stopPropagation()}>
@@ -189,9 +199,16 @@ export function ExecutionOutputPanel({
               </div>
             </div>
           </div>
-          <button className="eop-close" onClick={onClose}>
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            {onMinimize && (
+              <button className="eop-close" onClick={onMinimize} title="Minimize — keep running in background">
+                <Minus size={18} />
+              </button>
+            )}
+            <button className="eop-close" onClick={onClose} title="Close">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Error banner */}

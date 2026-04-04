@@ -43,3 +43,6 @@ browser-service/dist/
 *.njsproj
 *.sln
 *.sw?
+
+# Compiled native binaries (built via `npm run build:native`)
+desktop/native/operon-display-server
