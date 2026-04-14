@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "build": "npm run build:native && tsc",
-    "build:native": "swiftc -O -target arm64-apple-macos14.0 -o native/operon-display-server native/VirtualDisplayServer.swift -framework CoreGraphics -framework Foundation -framework ImageIO",
+    "build:native": "swiftc -O -target arm64-apple-macos14.0 -o native/operon-display-server native/VirtualDisplayServer.swift -framework CoreGraphics -framework Foundation -framework ImageIO -framework AppKit",
     "start": "electron dist/main.js",
     "package:mac": "electron-builder --mac",
     "package:win": "electron-builder --win",

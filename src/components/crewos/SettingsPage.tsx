@@ -1,9 +1,9 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   User, Bell, Shield, Palette, Save, Check,
   AlertCircle, Eye, EyeOff, Sun, Moon, Monitor,
-  Mail, Building2, Briefcase, Plug, Webhook,
+  Mail, Building2, Briefcase,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../hooks/useTheme';
@@ -14,10 +14,7 @@ import {
 } from 'firebase/auth';
 import './SettingsPage.css';
 
-const IntegrationsHub = lazy(() => import('./IntegrationsHub').then(m => ({ default: m.IntegrationsHub })));
-const WebhookManager = lazy(() => import('./WebhookManager').then(m => ({ default: m.WebhookManager })));
-
-type Tab = 'profile' | 'notifications' | 'security' | 'appearance' | 'integrations' | 'webhooks';
+type Tab = 'profile' | 'notifications' | 'security' | 'appearance';
 type ThemeChoice = 'light' | 'dark' | 'system';
 
 const TABS: { id: Tab; label: string; icon: typeof User }[] = [
@@ -25,8 +22,6 @@ const TABS: { id: Tab; label: string; icon: typeof User }[] = [
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'integrations', label: 'Integrations', icon: Plug },
-  { id: 'webhooks', label: 'Webhooks', icon: Webhook },
 ];
 
 const NOTIFICATION_KEYS = [
@@ -44,8 +39,6 @@ function resolveSystemTheme(): 'light' | 'dark' {
 }
 
 function tabFromPath(pathname: string): Tab {
-  if (pathname === '/integrations') return 'integrations';
-  if (pathname === '/webhooks') return 'webhooks';
   return 'profile';
 }
 
@@ -187,7 +180,7 @@ export function SettingsPage() {
       <div className="operonai-settings-inner">
         <header className="operonai-settings-header">
           <h1 className="operonai-settings-title">Settings</h1>
-          <p className="operonai-settings-subtitle">Manage your profile, notifications, security, appearance, integrations, and webhooks.</p>
+          <p className="operonai-settings-subtitle">Manage your profile, notifications, security, and appearance.</p>
         </header>
 
         {/* Tab navigation */}
@@ -382,19 +375,6 @@ export function SettingsPage() {
             </section>
           )}
 
-          {/* ─── Integrations Tab ─── */}
-          {activeTab === 'integrations' && (
-            <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#6b6b80' }}>Loading integrations…</div>}>
-              <IntegrationsHub />
-            </Suspense>
-          )}
-
-          {/* ─── Webhooks Tab ─── */}
-          {activeTab === 'webhooks' && (
-            <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#6b6b80' }}>Loading webhooks…</div>}>
-              <WebhookManager />
-            </Suspense>
-          )}
         </div>
       </div>
     </div>

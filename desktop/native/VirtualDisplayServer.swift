@@ -17,6 +17,7 @@ import Foundation
 import CoreGraphics
 import ImageIO
 import ApplicationServices
+import AppKit
 
 // MARK: - CGVirtualDisplay ObjC Runtime Bridge
 //
@@ -76,24 +77,43 @@ var managedDisplays: [CGDirectDisplayID: ManagedDisplay] = [:]
 let displayLock = NSLock()
 var nextDisplayOffset: Int32 = 8000
 
-// MARK: - JSON-RPC I/O
+// Thread-safe stdout/stderr guards — concurrent handlers share these
+let stdoutLock = NSLock()
+let stderrLock = NSLock()
+
+// Concurrent queue for request dispatch; handlers run in parallel
+let requestQueue = DispatchQueue(label: "operon.display.requests", attributes: .concurrent)
+
+// Background queue for blocking subprocess work (open, osascript)
+let subprocessQueue = DispatchQueue(label: "operon.display.subprocess", attributes: .concurrent)
+
+// MARK: - JSON-RPC I/O (thread-safe)
 
 func respond(id: Int, result: [String: Any]) {
     let response: [String: Any] = ["id": id, "result": result]
     guard let data = try? JSONSerialization.data(withJSONObject: response),
           let str = String(data: data, encoding: .utf8) else { return }
-    FileHandle.standardOutput.write(Data((str + "\n").utf8))
+    let bytes = Data((str + "\n").utf8)
+    stdoutLock.lock()
+    FileHandle.standardOutput.write(bytes)
+    stdoutLock.unlock()
 }
 
 func respondError(id: Int, error: String) {
     let response: [String: Any] = ["id": id, "error": error]
     guard let data = try? JSONSerialization.data(withJSONObject: response),
           let str = String(data: data, encoding: .utf8) else { return }
-    FileHandle.standardOutput.write(Data((str + "\n").utf8))
+    let bytes = Data((str + "\n").utf8)
+    stdoutLock.lock()
+    FileHandle.standardOutput.write(bytes)
+    stdoutLock.unlock()
 }
 
 func log(_ msg: String) {
-    FileHandle.standardError.write(Data("[DisplayServer] \(msg)\n".utf8))
+    let bytes = Data("[DisplayServer] \(msg)\n".utf8)
+    stderrLock.lock()
+    FileHandle.standardError.write(bytes)
+    stderrLock.unlock()
 }
 
 // MARK: - Create Display
@@ -255,7 +275,7 @@ func handleCaptureDisplay(params: [String: Any], id: Int) {
     ])
 }
 
-// MARK: - Click (cursor warp: save → teleport → click → restore)
+// MARK: - Click (cursor-free: posts CGEvents at target coordinates without moving the physical cursor)
 
 func handleClick(params: [String: Any], id: Int) {
     guard let x = params["x"] as? Double, let y = params["y"] as? Double else {
@@ -264,11 +284,6 @@ func handleClick(params: [String: Any], id: Int) {
     let count = params["count"] as? Int ?? 1
     let rightClick = (params["button"] as? String) == "right"
     let point = CGPoint(x: x, y: y)
-
-    let savedPos = CGEvent(source: nil)?.location ?? .zero
-
-    CGWarpMouseCursorPosition(point)
-    usleep(3000)
 
     let downType: CGEventType = rightClick ? .rightMouseDown : .leftMouseDown
     let upType: CGEventType = rightClick ? .rightMouseUp : .leftMouseUp
@@ -281,12 +296,10 @@ func handleClick(params: [String: Any], id: Int) {
         down.setIntegerValueField(.mouseEventClickState, value: Int64(i + 1))
         up.setIntegerValueField(.mouseEventClickState, value: Int64(i + 1))
         down.post(tap: .cghidEventTap)
+        usleep(3000)
         up.post(tap: .cghidEventTap)
         if i < count - 1 { usleep(40000) }
     }
-
-    usleep(3000)
-    CGWarpMouseCursorPosition(savedPos)
 
     respond(id: id, result: ["success": true])
 }
@@ -298,12 +311,8 @@ func handleDrag(params: [String: Any], id: Int) {
           let ex = params["endX"] as? Double, let ey = params["endY"] as? Double else {
         respondError(id: id, error: "Missing start/end coords"); return
     }
-    let savedPos = CGEvent(source: nil)?.location ?? .zero
     let start = CGPoint(x: sx, y: sy)
     let end = CGPoint(x: ex, y: ey)
-
-    CGWarpMouseCursorPosition(start)
-    usleep(3000)
 
     CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: start, mouseButton: .left)?
         .post(tap: .cghidEventTap)
@@ -313,17 +322,15 @@ func handleDrag(params: [String: Any], id: Int) {
     for i in 1...steps {
         let f = Double(i) / Double(steps)
         let pt = CGPoint(x: sx + (ex - sx) * f, y: sy + (ey - sy) * f)
-        CGWarpMouseCursorPosition(pt)
-        CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: pt, mouseButton: .left)?
-            .post(tap: .cghidEventTap)
+        if let dragEv = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: pt, mouseButton: .left) {
+            dragEv.post(tap: .cghidEventTap)
+        }
         usleep(8000)
     }
 
     CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: end, mouseButton: .left)?
         .post(tap: .cghidEventTap)
 
-    usleep(3000)
-    CGWarpMouseCursorPosition(savedPos)
     respond(id: id, result: ["success": true])
 }
 
@@ -335,12 +342,7 @@ func handleScroll(params: [String: Any], id: Int) {
     }
     let dy = Int32(params["deltaY"] as? Int ?? -3)
     let dx = Int32(params["deltaX"] as? Int ?? 0)
-
-    let savedPos = CGEvent(source: nil)?.location ?? .zero
     let point = CGPoint(x: x, y: y)
-
-    CGWarpMouseCursorPosition(point)
-    usleep(3000)
 
     if let ev = CGEvent(scrollWheelEvent2Source: nil, units: .pixel,
                         wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0) {
@@ -348,8 +350,6 @@ func handleScroll(params: [String: Any], id: Int) {
         ev.post(tap: .cghidEventTap)
     }
 
-    usleep(3000)
-    CGWarpMouseCursorPosition(savedPos)
     respond(id: id, result: ["success": true])
 }
 
@@ -371,11 +371,13 @@ func handleMoveWindow(params: [String: Any], id: Int) {
     }
     script += "end tell"
 
-    runOsascript(script) { success, err in
-        if success {
-            respond(id: id, result: ["success": true])
-        } else {
-            respondError(id: id, error: "AppleScript: \(err ?? "unknown")")
+    subprocessQueue.async {
+        runOsascriptSync(script) { success, err in
+            if success {
+                respond(id: id, result: ["success": true])
+            } else {
+                respondError(id: id, error: "AppleScript: \(err ?? "unknown")")
+            }
         }
     }
 }
@@ -387,17 +389,19 @@ func handleOpenApp(params: [String: Any], id: Int) {
     let hide = params["hide"] as? Bool ?? true
     let waitMs = params["waitMs"] as? Int ?? 1500
 
-    let task = Process()
-    task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-    task.arguments = hide ? ["-a", appName, "-j"] : ["-a", appName]
+    subprocessQueue.async {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = hide ? ["-a", appName, "-j"] : ["-a", appName]
 
-    do {
-        try task.run()
-        task.waitUntilExit()
-        usleep(UInt32(waitMs * 1000))
-        respond(id: id, result: ["success": true])
-    } catch {
-        respondError(id: id, error: "open -a failed: \(error.localizedDescription)")
+        do {
+            try task.run()
+            task.waitUntilExit()
+            usleep(UInt32(waitMs * 1000))
+            respond(id: id, result: ["success": true])
+        } catch {
+            respondError(id: id, error: "open -a failed: \(error.localizedDescription)")
+        }
     }
 }
 
@@ -541,11 +545,13 @@ func handleTypeToProcess(params: [String: Any], id: Int) {
     let escaped = text.replacingOccurrences(of: "\\", with: "\\\\")
                       .replacingOccurrences(of: "\"", with: "\\\"")
     let script = "tell application \"System Events\" to tell process \"\(appName)\" to keystroke \"\(escaped)\""
-    runOsascript(script) { success, err in
-        if success {
-            respond(id: id, result: ["success": true])
-        } else {
-            respondError(id: id, error: "keystroke failed: \(err ?? "unknown")")
+    subprocessQueue.async {
+        runOsascriptSync(script) { success, err in
+            if success {
+                respond(id: id, result: ["success": true])
+            } else {
+                respondError(id: id, error: "keystroke failed: \(err ?? "unknown")")
+            }
         }
     }
 }
@@ -559,73 +565,73 @@ func handleKeyToProcess(params: [String: Any], id: Int) {
     }
     let modifiers = params["modifiers"] as? [String] ?? []
 
-    if modifiers.isEmpty {
-        // Special key (Return, Tab, Escape, arrows, etc.)
-        let keyCodes: [String: Int] = [
-            "return": 36, "enter": 36, "tab": 48,
-            "escape": 53, "esc": 53, "delete": 51, "backspace": 51,
-            "fwd-delete": 117, "forwarddelete": 117, "space": 49,
-            "up": 126, "arrow-up": 126, "down": 125, "arrow-down": 125,
-            "left": 123, "arrow-left": 123, "right": 124, "arrow-right": 124,
-            "home": 115, "end": 119, "page_up": 116, "pageup": 116,
-            "page_down": 121, "pagedown": 121,
-            "f1": 122, "f2": 120, "f3": 99, "f4": 118,
-            "f5": 96, "f6": 97, "f7": 98, "f8": 100,
-            "f9": 101, "f10": 109, "f11": 103, "f12": 111,
-        ]
+    subprocessQueue.async {
+        if modifiers.isEmpty {
+            let keyCodes: [String: Int] = [
+                "return": 36, "enter": 36, "tab": 48,
+                "escape": 53, "esc": 53, "delete": 51, "backspace": 51,
+                "fwd-delete": 117, "forwarddelete": 117, "space": 49,
+                "up": 126, "arrow-up": 126, "down": 125, "arrow-down": 125,
+                "left": 123, "arrow-left": 123, "right": 124, "arrow-right": 124,
+                "home": 115, "end": 119, "page_up": 116, "pageup": 116,
+                "page_down": 121, "pagedown": 121,
+                "f1": 122, "f2": 120, "f3": 99, "f4": 118,
+                "f5": 96, "f6": 97, "f7": 98, "f8": 100,
+                "f9": 101, "f10": 109, "f11": 103, "f12": 111,
+            ]
 
-        let lower = key.lowercased()
-        if let code = keyCodes[lower] {
-            let script = "tell application \"System Events\" to tell process \"\(appName)\" to key code \(code)"
-            runOsascript(script) { success, err in
-                success ? respond(id: id, result: ["success": true])
-                        : respondError(id: id, error: "key failed: \(err ?? "unknown")")
+            let lower = key.lowercased()
+            if let code = keyCodes[lower] {
+                let script = "tell application \"System Events\" to tell process \"\(appName)\" to key code \(code)"
+                runOsascriptSync(script) { success, err in
+                    success ? respond(id: id, result: ["success": true])
+                            : respondError(id: id, error: "key failed: \(err ?? "unknown")")
+                }
+            } else {
+                let escaped = key.replacingOccurrences(of: "\\", with: "\\\\")
+                                 .replacingOccurrences(of: "\"", with: "\\\"")
+                let script = "tell application \"System Events\" to tell process \"\(appName)\" to keystroke \"\(escaped)\""
+                runOsascriptSync(script) { success, err in
+                    success ? respond(id: id, result: ["success": true])
+                            : respondError(id: id, error: "keystroke failed: \(err ?? "unknown")")
+                }
             }
         } else {
-            let escaped = key.replacingOccurrences(of: "\\", with: "\\\\")
-                             .replacingOccurrences(of: "\"", with: "\\\"")
-            let script = "tell application \"System Events\" to tell process \"\(appName)\" to keystroke \"\(escaped)\""
-            runOsascript(script) { success, err in
-                success ? respond(id: id, result: ["success": true])
-                        : respondError(id: id, error: "keystroke failed: \(err ?? "unknown")")
-            }
-        }
-    } else {
-        // Key combo with modifiers
-        let modStr = modifiers.map { m -> String in
-            let lower = m.lowercased()
-            if ["cmd", "command", "super", "meta"].contains(lower) { return "command down" }
-            if ["ctrl", "control"].contains(lower) { return "control down" }
-            if ["alt", "option"].contains(lower) { return "option down" }
-            if lower == "shift" { return "shift down" }
-            return "\(lower) down"
-        }.joined(separator: ", ")
+            let modStr = modifiers.map { m -> String in
+                let lower = m.lowercased()
+                if ["cmd", "command", "super", "meta"].contains(lower) { return "command down" }
+                if ["ctrl", "control"].contains(lower) { return "control down" }
+                if ["alt", "option"].contains(lower) { return "option down" }
+                if lower == "shift" { return "shift down" }
+                return "\(lower) down"
+            }.joined(separator: ", ")
 
-        let keyCodes: [String: Int] = [
-            "return": 36, "enter": 36, "tab": 48, "escape": 53,
-            "delete": 51, "space": 49,
-            "up": 126, "down": 125, "left": 123, "right": 124,
-            "a": 0, "b": 11, "c": 8, "d": 2, "e": 14, "f": 3,
-            "g": 5, "h": 4, "i": 34, "j": 38, "k": 40, "l": 37,
-            "m": 46, "n": 45, "o": 31, "p": 35, "q": 12, "r": 15,
-            "s": 1, "t": 17, "u": 32, "v": 9, "w": 13, "x": 7,
-            "y": 16, "z": 6,
-        ]
+            let keyCodes: [String: Int] = [
+                "return": 36, "enter": 36, "tab": 48, "escape": 53,
+                "delete": 51, "space": 49,
+                "up": 126, "down": 125, "left": 123, "right": 124,
+                "a": 0, "b": 11, "c": 8, "d": 2, "e": 14, "f": 3,
+                "g": 5, "h": 4, "i": 34, "j": 38, "k": 40, "l": 37,
+                "m": 46, "n": 45, "o": 31, "p": 35, "q": 12, "r": 15,
+                "s": 1, "t": 17, "u": 32, "v": 9, "w": 13, "x": 7,
+                "y": 16, "z": 6,
+            ]
 
-        let lower = key.lowercased()
-        if let code = keyCodes[lower] {
-            let script = "tell application \"System Events\" to tell process \"\(appName)\" to key code \(code) using {\(modStr)}"
-            runOsascript(script) { success, err in
-                success ? respond(id: id, result: ["success": true])
-                        : respondError(id: id, error: "key combo failed: \(err ?? "unknown")")
-            }
-        } else {
-            let escaped = key.replacingOccurrences(of: "\\", with: "\\\\")
-                             .replacingOccurrences(of: "\"", with: "\\\"")
-            let script = "tell application \"System Events\" to tell process \"\(appName)\" to keystroke \"\(escaped)\" using {\(modStr)}"
-            runOsascript(script) { success, err in
-                success ? respond(id: id, result: ["success": true])
-                        : respondError(id: id, error: "key combo failed: \(err ?? "unknown")")
+            let lower = key.lowercased()
+            if let code = keyCodes[lower] {
+                let script = "tell application \"System Events\" to tell process \"\(appName)\" to key code \(code) using {\(modStr)}"
+                runOsascriptSync(script) { success, err in
+                    success ? respond(id: id, result: ["success": true])
+                            : respondError(id: id, error: "key combo failed: \(err ?? "unknown")")
+                }
+            } else {
+                let escaped = key.replacingOccurrences(of: "\\", with: "\\\\")
+                                 .replacingOccurrences(of: "\"", with: "\\\"")
+                let script = "tell application \"System Events\" to tell process \"\(appName)\" to keystroke \"\(escaped)\" using {\(modStr)}"
+                runOsascriptSync(script) { success, err in
+                    success ? respond(id: id, result: ["success": true])
+                            : respondError(id: id, error: "key combo failed: \(err ?? "unknown")")
+                }
             }
         }
     }
@@ -665,11 +671,8 @@ func handleMoveWindowById(params: [String: Any], id: Int) {
         respondError(id: id, error: "Cannot get AX windows for PID \(targetPid)"); return
     }
 
-    var posVal: CFTypeRef? = AXValueCreate(.cgPoint, [CGPoint(x: CGFloat(x), y: CGFloat(y))] as CFArray)
-    // Use proper AXValue creation for position
     var point = CGPoint(x: CGFloat(x), y: CGFloat(y))
-    posVal = AXValueCreate(.cgPoint, &point)
-    if let pv = posVal {
+    if let pv = AXValueCreate(.cgPoint, &point) {
         AXUIElementSetAttributeValue(axWin, kAXPositionAttribute as CFString, pv)
     }
 
@@ -691,70 +694,67 @@ func handleOpenAppWindow(params: [String: Any], id: Int) {
     }
     let displayId = params["displayId"] as? UInt32
 
-    // Snapshot windows before
-    let windowsBefore = getAppWindowIds(appName)
+    subprocessQueue.async {
+        let windowsBefore = getAppWindowIds(appName)
 
-    // Open app
-    let task = Process()
-    task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-    task.arguments = ["-a", appName]
-    do {
-        try task.run()
-        task.waitUntilExit()
-    } catch {
-        respondError(id: id, error: "open -a failed: \(error.localizedDescription)"); return
-    }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = ["-a", appName]
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            respondError(id: id, error: "open -a failed: \(error.localizedDescription)"); return
+        }
 
-    // Wait for app to launch (poll for new window, max 3 seconds)
-    var newWindowId: Int? = nil
-    var newTitle = ""
-    for _ in 0..<30 {
-        usleep(100_000) // 100ms
-        let windowsAfter = getAppWindowIds(appName)
-        for w in windowsAfter {
-            if !windowsBefore.contains(where: { $0.0 == w.0 }) {
-                newWindowId = w.0
-                newTitle = w.1
+        var newWindowId: Int? = nil
+        var newTitle = ""
+        for _ in 0..<30 {
+            usleep(100_000)
+            let windowsAfter = getAppWindowIds(appName)
+            for w in windowsAfter {
+                if !windowsBefore.contains(where: { $0.0 == w.0 }) {
+                    newWindowId = w.0
+                    newTitle = w.1
+                    break
+                }
+            }
+            if newWindowId != nil { break }
+            if windowsAfter.count > 0 && windowsBefore.isEmpty {
+                newWindowId = windowsAfter[0].0
+                newTitle = windowsAfter[0].1
                 break
             }
         }
-        if newWindowId != nil { break }
-        if windowsAfter.count > 0 && windowsBefore.isEmpty {
-            newWindowId = windowsAfter[0].0
-            newTitle = windowsAfter[0].1
-            break
-        }
-    }
 
-    // Try Cmd+N for a new window
-    if windowsBefore.count > 0 || newWindowId != nil {
-        let beforeNewWindow = getAppWindowIds(appName)
-        let cmdNScript = "tell application \"System Events\" to tell process \"\(appName)\" to keystroke \"n\" using command down"
-        runOsascript(cmdNScript) { _, _ in }
-        usleep(500_000) // 500ms
+        if windowsBefore.count > 0 || newWindowId != nil {
+            let beforeNewWindow = getAppWindowIds(appName)
+            let cmdNScript = "tell application \"System Events\" to tell process \"\(appName)\" to keystroke \"n\" using command down"
+            runOsascriptSync(cmdNScript) { _, _ in }
+            usleep(500_000)
 
-        let afterNewWindow = getAppWindowIds(appName)
-        for w in afterNewWindow {
-            if !beforeNewWindow.contains(where: { $0.0 == w.0 }) {
-                newWindowId = w.0
-                newTitle = w.1
-                break
+            let afterNewWindow = getAppWindowIds(appName)
+            for w in afterNewWindow {
+                if !beforeNewWindow.contains(where: { $0.0 == w.0 }) {
+                    newWindowId = w.0
+                    newTitle = w.1
+                    break
+                }
             }
         }
-    }
 
-    guard let wid = newWindowId else {
-        // Fall back to first window
-        let allWindows = getAppWindowIds(appName)
-        if let first = allWindows.first {
-            respondWithWindow(id: id, windowId: first.0, title: first.1, displayId: displayId, appName: appName)
-        } else {
-            respondError(id: id, error: "No window found for \(appName)")
+        guard let wid = newWindowId else {
+            let allWindows = getAppWindowIds(appName)
+            if let first = allWindows.first {
+                respondWithWindow(id: id, windowId: first.0, title: first.1, displayId: displayId, appName: appName)
+            } else {
+                respondError(id: id, error: "No window found for \(appName)")
+            }
+            return
         }
-        return
-    }
 
-    respondWithWindow(id: id, windowId: wid, title: newTitle, displayId: displayId, appName: appName)
+        respondWithWindow(id: id, windowId: wid, title: newTitle, displayId: displayId, appName: appName)
+    }
 }
 
 private func respondWithWindow(id: Int, windowId: Int, title: String, displayId: UInt32?, appName: String) {
@@ -837,7 +837,7 @@ func handleClipboardRead(params: [String: Any], id: Int) {
 
 // MARK: - Helpers
 
-func runOsascript(_ script: String, completion: @escaping (Bool, String?) -> Void) {
+func runOsascriptSync(_ script: String, completion: @escaping (Bool, String?) -> Void) {
     let task = Process()
     task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
     task.arguments = ["-e", script]
@@ -901,7 +901,7 @@ DispatchQueue.global(qos: .userInitiated).async {
     while let line = readLine() {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { continue }
-        DispatchQueue.main.async { processRequest(trimmed) }
+        requestQueue.async { processRequest(trimmed) }
     }
     log("stdin closed, exiting")
     exit(0)

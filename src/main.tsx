@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthProvider } from './contexts/AuthContext'
-import { AgentProvider } from './contexts/AgentContext'
 import { CrewOSDashboard } from './components/crewos/CrewOSDashboard'
 import { LandingPage } from './components/landing/LandingPage'
 import { PlanSelectionPage } from './components/landing/PlanSelectionPage'
@@ -61,9 +60,7 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
-          <AgentProvider>
-            <AppRouter />
-          </AgentProvider>
+          <AppRouter />
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

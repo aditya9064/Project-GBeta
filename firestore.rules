@@ -94,23 +94,23 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
-    // Memory system — sessions, observations, summaries (owner-gated)
-    match /memory_sessions/{sessionId} {
+    // Executions — swarm session state, task DAGs, logs, artifacts (owner-gated)
+    match /executions/{executionId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-    }
-    
-    match /memory_observations/{observationId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-    }
-    
-    match /memory_summaries/{summaryId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      match /tasks/{taskId} {
+        allow read, write: if isAuthenticated() && get(/databases/$(database)/documents/executions/$(executionId)).data.userId == request.auth.uid;
+      }
+      
+      match /logs/{logId} {
+        allow read, write: if isAuthenticated() && get(/databases/$(database)/documents/executions/$(executionId)).data.userId == request.auth.uid;
+      }
+      
+      match /artifacts/{artifactId} {
+        allow read, write: if isAuthenticated() && get(/databases/$(database)/documents/executions/$(executionId)).data.userId == request.auth.uid;
+      }
     }
   }
 }

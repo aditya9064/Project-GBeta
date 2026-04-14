@@ -1,1 +1,0 @@
-export { ContactsTable } from './ContactsTable';
